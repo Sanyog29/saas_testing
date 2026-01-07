@@ -31,7 +31,7 @@ const UnifiedDashboard = () => {
     }
 
     if (role === 'org_super_admin') {
-        return <OrgDashboard orgId={session?.org_id} />;
+        return <OrgDashboard orgId={session?.org_id || ''} />;
     }
 
     // Default to tenant view (scoped by property from session)

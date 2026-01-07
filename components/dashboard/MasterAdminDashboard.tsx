@@ -31,7 +31,7 @@ interface SystemUser {
     email: string;
     phone: string | null;
     created_at: string;
-    organization_memberships?: { role: string; organization_id: string }[];
+    organization_memberships?: { role: string; organization_id: string; is_active?: boolean }[];
 }
 
 const MasterAdminDashboard = () => {
@@ -713,36 +713,42 @@ const ModuleConfig = ({ organizations, onUpdateModules }: {
 // Sub-component: Create Organization Modal
 const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void; onCreated: () => void; showToast: (msg: string, type: 'success' | 'error') => void }) => {
     const [name, setName] = useState('');
-    const [code, setCode] = useState('');
+    const [slug, setSlug] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [createdSecret, setCreatedSecret] = useState<string | null>(null);
     const [showSecret, setShowSecret] = useState(false);
-    const supabase = createClient();
-
-    const generateSecret = () => {
-        return `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    };
 
     const handleCreate = async () => {
-        if (!name || !code) return;
+        if (!name || !slug) return;
 
         setIsCreating(true);
-        const secret = generateSecret();
 
-        const { error } = await supabase.from('organizations').insert({
-            name,
-            code: code.toLowerCase().replace(/\s+/g, '-'),
-            deletion_secret: secret,
-            available_modules: ['ticketing', 'viewer', 'analytics']
-        });
+        try {
+            // Use API route that bypasses RLS with admin client
+            const response = await fetch('/api/organizations/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name,
+                    slug: slug.toLowerCase().replace(/\s+/g, '-'),
+                    available_modules: ['ticketing', 'viewer', 'analytics']
+                }),
+            });
 
-        setIsCreating(false);
+            const data = await response.json();
 
-        if (!error) {
-            setCreatedSecret(secret);
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create organization');
+            }
+
+            setCreatedSecret(data.deletion_secret);
             showToast(`Organization "${name}" created.`, 'success');
-        } else {
-            showToast(error.message, 'error');
+        } catch (error: any) {
+            showToast(error.message || 'Failed to create organization', 'error');
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -784,7 +790,7 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
                                 value={name}
                                 onChange={(e) => {
                                     setName(e.target.value);
-                                    setCode(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                                    setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
                                 }}
                                 placeholder="e.g. Acme Corporation"
                                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-100"
@@ -792,11 +798,11 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700">URL Code*</label>
+                            <label className="text-sm font-bold text-slate-700">URL Slug*</label>
                             <input
                                 type="text"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
+                                value={slug}
+                                onChange={(e) => setSlug(e.target.value)}
                                 placeholder="e.g. acme-corp"
                                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-100"
                             />
@@ -805,7 +811,7 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
 
                         <button
                             onClick={handleCreate}
-                            disabled={isCreating || !name || !code}
+                            disabled={isCreating || !name || !slug}
                             className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isCreating ? 'Creating...' : 'Create Organization'}

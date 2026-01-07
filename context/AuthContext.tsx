@@ -8,6 +8,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
+    signUp: (email: string, password: string, fullName: string) => Promise<void>;
     signInWithGoogle: (propertyCode?: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
@@ -63,12 +64,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
     };
 
+    const signUp = async (email: string, password: string, fullName: string) => {
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                },
+            },
+        });
+        if (error) throw error;
+    };
+
     const signOut = async () => {
         await supabase.auth.signOut();
     };
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, signIn, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signInWithGoogle, signOut }}>
             {children}
         </AuthContext.Provider>
     );

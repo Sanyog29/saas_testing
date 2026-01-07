@@ -59,10 +59,10 @@ const PropertyDashboard: React.FC<PropertyDashboardProps> = ({ propertyId }) => 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
                     <div className="bg-zinc-900/50 border border-zinc-800 rounded-[32px] overflow-hidden min-h-[400px]">
-                        <TicketSLATile />
+                        <TicketSLATile openTickets={24} slaPercentage={98} highPriorityCount={3} />
                     </div>
                     <div className="bg-zinc-900/50 border border-zinc-800 rounded-[32px] overflow-hidden min-h-[400px]">
-                        <EmployeeHeatmapTile />
+                        <EmployeeHeatmapTile occupancyPercentage={82} />
                     </div>
                 </div>
 
