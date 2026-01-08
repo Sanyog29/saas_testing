@@ -5,16 +5,24 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useMasterAdminCheck } from '@/hooks/useMasterAdminCheck';
 
 export default function MasterPage() {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading: authLoading } = useAuth();
+    const { isMasterAdmin, isLoading: checkingRole } = useMasterAdminCheck();
     const router = useRouter();
+
+    const isLoading = authLoading || checkingRole;
 
     useEffect(() => {
         if (!isLoading && !user) {
             router.push('/login');
         }
-    }, [user, isLoading, router]);
+
+        if (!isLoading && user && !isMasterAdmin) {
+            router.push('/organizations');
+        }
+    }, [user, isMasterAdmin, isLoading, router]);
 
     if (isLoading) {
         return (
@@ -24,15 +32,7 @@ export default function MasterPage() {
         );
     }
 
-    if (!user) return null;
-
-    // Check if master admin (hardcoded for now, should be from membership)
-    const isMasterAdmin = user.email === 'masterooshi@gmail.com' || user.email === 'ranganathanlohitaksha@gmail.com';
-
-    if (!isMasterAdmin) {
-        router.push('/organizations');
-        return null;
-    }
+    if (!user || !isMasterAdmin) return null;
 
     return <MasterAdminDashboard />;
 }

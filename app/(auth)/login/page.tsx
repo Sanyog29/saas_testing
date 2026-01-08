@@ -1,94 +1,125 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Mail, Lock, User, Phone, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Sparkles, Building2, BarChart3, Ticket, Eye, Lock, Mail, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-const LoginPage = () => {
+// Feature cards for the animated showcase
+const features = [
+    {
+        id: 1,
+        title: 'Smart Ticketing',
+        subtitle: 'AI-powered resolution',
+        stat: '95%',
+        statLabel: 'Faster Resolution',
+        icon: Ticket,
+        color: 'from-emerald-400 to-teal-500'
+    }
+];
+
+function AuthContent() {
+    const searchParams = useSearchParams();
+    const initialMode = searchParams.get('mode');
+
+    const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-success' | 'update-password'>(
+        initialMode === 'signup' ? 'signup' :
+            initialMode === 'reset' ? 'update-password' : 'signin'
+    );
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signIn, signInWithGoogle } = useAuth();
-    const router = useRouter();
+    const [currentFeature, setCurrentFeature] = useState(0);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+    const router = useRouter();
+    const supabase = createClient();
+
+    const handleAuthAction = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setSuccess('');
+
         try {
-            const { data: { user }, error: signInError } = await signIn(email, password);
-            if (signInError || !user) throw new Error(signInError?.message || 'Login failed');
+            if (authMode === 'signup') {
+                await signUp(email, password, fullName);
+                router.push('/onboarding');
+            } else if (authMode === 'signin') {
+                const { data: { user }, error: signInError } = await signIn(email, password);
+                if (signInError || !user) throw new Error(signInError?.message || 'Login failed');
 
-            // 1. Check Master Admin Status
-            const supabase = createClient();
+                // Check Master Admin status safely
+                const { data: masterData } = await supabase
+                    .from('users')
+                    .select('id, metadata')
+                    .eq('id', user.id)
+                    .maybeSingle();
 
-            // Debug: Check user ID
-            console.log('User logged in:', user.id);
+                // Check is_master_admin field specifically if it exists in DB, or use metadata
+                if ((masterData as any)?.is_master_admin || masterData?.metadata?.is_master_admin) {
+                    router.push('/master');
+                    return;
+                }
 
-            const { data: masterData } = await supabase
-                .from('users')
-                .select('is_master_admin')
-                .eq('id', user.id)
-                .single();
+                // Fetch membership
+                const { data: membership } = await supabase
+                    .from('organization_memberships')
+                    .select('organization_id')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
 
-            if (masterData?.is_master_admin) {
-                console.log('Redirecting to Master Dashboard');
-                router.push('/master');
-                return;
+                if (!membership?.organization_id) {
+                    router.push('/onboarding');
+                    return;
+                }
+
+                // Fetch organization details - Safe select '*'
+                const { data: org, error: orgError } = await supabase
+                    .from('organizations')
+                    .select('*')
+                    .eq('id', membership.organization_id)
+                    .maybeSingle();
+
+                if (orgError) console.error('Org Detail Fetch Error:', orgError);
+
+                if (org) {
+                    const orgCode = org.code || org.slug || 'autopilot';
+                    router.push(`/${orgCode}/dashboard`);
+                } else {
+                    router.push('/onboarding');
+                }
+            } else if (authMode === 'forgot') {
+                await resetPassword(email);
+                setAuthMode('reset-success');
+            } else if (authMode === 'update-password') {
+                if (password !== confirmPassword) throw new Error('Passwords do not match');
+
+                const { error: updateError } = await supabase.auth.updateUser({
+                    password: password
+                });
+
+                if (updateError) throw updateError;
+
+                setSuccess('Password updated successfully! You can now sign in.');
+                setAuthMode('signin');
             }
-
-            // 2. Step-by-Step Organization Lookup (More Robust than Joins)
-
-            // Step A: Find Membership
-            const { data: membership, error: memError } = await supabase
-                .from('organization_memberships')
-                .select('organization_id')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (memError) {
-                console.error('Membership Fetch Error:', memError);
-                throw new Error('Failed to verify organization membership.');
-            }
-
-            if (!membership?.organization_id) {
-                console.error('No membership found for user:', user.id);
-                // Throwing error instead of redirecting to /organizations as requested
-                throw new Error('No organization assigned to your account. Please contact support.');
-            }
-            console.log('Found membership for user:', user.id, 'Organization ID:', membership.organization_id);
-
-            // Step B: Find Organization Code (Schema update: 'slug' column)
-            const { data: org, error: orgError } = await supabase
-                .from('organizations')
-                .select('slug') // CHANGED from 'code' to 'slug' based on screenshot
-                .eq('id', membership.organization_id)
-                .is('deleted_at', null) // Filter out deleted orgs
-                .single();
-
-            if (orgError || !org) {
-                console.error('Org Fetch Error:', orgError);
-                throw new Error('Organization details could not be found.');
-            }
-            console.log('Found org slug:', org.slug);
-
-            console.log('Redirecting to Org Dashboard:', org.slug);
-            router.push(`/${org.slug}/dashboard`);
-
         } catch (err: any) {
-            console.error('Login Error:', err);
-            setError(err.message || 'Invalid credentials. Please try again.');
+            console.error('Auth action error:', err);
+            setError(err.message || 'Something went wrong. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogleLogin = async () => {
+    const handleGoogleAuth = async () => {
         try {
             await signInWithGoogle();
         } catch (err: any) {
@@ -97,162 +128,128 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-[#f3f4f6] p-4 font-sans">
-            {/* Main Container */}
+        <div className="min-h-screen w-full flex items-center justify-center p-4 font-sans overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50">
+                <div className="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-bl from-emerald-200/40 via-teal-200/30 to-transparent blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-[40%] h-[60%] bg-gradient-to-tr from-green-100/40 to-transparent blur-3xl" />
+            </div>
+
             <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-[32px] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row min-h-[700px]"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative bg-white/70 backdrop-blur-xl rounded-[32px] shadow-2xl shadow-emerald-500/10 w-full max-w-5xl overflow-hidden flex flex-col lg:flex-row min-h-[680px] border border-white/50"
             >
-
-                {/* Left Side: Form */}
-                <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
-                    <div className="mb-10">
-                        <div className="flex items-center gap-2 mb-8">
-                            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                                <div className="w-4 h-4 border-2 border-white rounded-sm rotate-45"></div>
-                            </div>
-                            <span className="font-bold text-xl tracking-tight text-black">Autopilot</span>
+                <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center bg-white">
+                    <div className="flex items-center gap-2 mb-10">
+                        <div className="w-10 h-10 bg-[#0a4d3c] rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
+                            <Building2 className="w-5 h-5 text-white" />
                         </div>
-
-                        <h1 className="text-4xl font-bold text-slate-900 mb-3 leading-tight">
-                            Welcome Back to Smarter Management
-                        </h1>
-                        <p className="text-slate-500 font-medium">Log in to your command center</p>
+                        <span className="font-black text-xl tracking-tight text-[#0a4d3c]">
+                            Autopilot
+                        </span>
                     </div>
 
-                    {/* Social Logins */}
-                    <div className="flex flex-col gap-3 mb-8">
-                        <button
-                            onClick={handleGoogleLogin}
-                            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-all group"
-                        >
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
-                            Sign in with Google
-                        </button>
-                        <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-all group">
-                            <img src="https://www.svgrepo.com/show/511330/apple-173.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Apple" />
-                            Sign in with Apple
-                        </button>
-                    </div>
+                    <AnimatePresence mode="wait">
+                        {authMode === 'reset-success' ? (
+                            <motion.div
+                                key="reset-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
+                                className="text-center py-8"
+                            >
+                                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Mail className="w-10 h-10 text-emerald-600" />
+                                </div>
+                                <h2 className="text-3xl font-black text-slate-900 mb-4">Check your email</h2>
+                                <p className="text-slate-500 font-medium mb-8">We've sent a password reset link to <span className="text-slate-900 font-bold">{email}</span>.</p>
+                                <button onClick={() => setAuthMode('signin')} className="text-[#0a4d3c] font-black hover:underline" > Back to Sign In </button>
+                            </motion.div>
+                        ) : (
+                            <motion.div key={authMode} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} >
+                                <div className="mb-8">
+                                    <h1 className="text-3xl lg:text-4xl font-black text-slate-900 mb-2 leading-tight">
+                                        {authMode === 'signup' ? 'Start Your Journey' : authMode === 'forgot' ? 'Reset Password' : authMode === 'update-password' ? 'New Password' : 'Welcome Back'}
+                                    </h1>
+                                    <p className="text-slate-500 font-medium font-sans">
+                                        {authMode === 'signup' ? 'Create your account to get started' : authMode === 'forgot' ? 'Enter your email to receive a recovery link' : authMode === 'update-password' ? 'Secure your account with a new password' : 'Sign in to your command center'}
+                                    </p>
+                                </div>
 
-                    <div className="relative mb-8 text-center">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-                        <span className="relative bg-white px-4 text-sm font-bold text-slate-400 uppercase tracking-widest">or email login</span>
-                    </div>
+                                {(authMode === 'signin' || authMode === 'signup') && (
+                                    <div className="flex gap-2 mb-8 p-1 bg-slate-100 rounded-xl">
+                                        <button onClick={() => setAuthMode('signin')} className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${authMode === 'signin' ? 'bg-white shadow-md text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} > Sign In </button>
+                                        <button onClick={() => setAuthMode('signup')} className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${authMode === 'signup' ? 'bg-white shadow-md text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} > Sign Up </button>
+                                    </div>
+                                )}
 
-                    {/* Form Fields */}
-                    <form className="space-y-5" onSubmit={handleLogin}>
-                        <div className="space-y-1">
-                            <label className="text-sm font-bold text-slate-700 ml-1">Email*</label>
-                            <div className="relative">
-                                <input
-                                    type="email"
-                                    placeholder="Enter your email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#f28c33] focus:ring-4 focus:ring-orange-100 outline-none transition-all shadow-sm font-medium"
-                                />
-                            </div>
-                        </div>
+                                <form className="space-y-4" onSubmit={handleAuthAction}>
+                                    {authMode === 'signup' && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-bold text-slate-700 ml-1">Name*</label>
+                                            <input type="text" placeholder="Enter your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                        </div>
+                                    )}
 
-                        <div className="space-y-1">
-                            <label className="text-sm font-bold text-slate-700 ml-1">Password*</label>
-                            <div className="relative">
-                                <input
-                                    type="password"
-                                    placeholder="Enter your password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#f28c33] focus:ring-4 focus:ring-orange-100 outline-none transition-all shadow-sm font-medium"
-                                />
-                            </div>
-                        </div>
+                                    {(authMode === 'signin' || authMode === 'signup' || authMode === 'forgot') && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-bold text-slate-700 ml-1">Email*</label>
+                                            <input type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                        </div>
+                                    )}
 
-                        {error && (
-                            <div className="p-3 bg-red-50 text-red-500 text-sm font-bold rounded-xl border border-red-100">
-                                {error}
-                            </div>
+                                    {(authMode === 'signin' || authMode === 'signup' || authMode === 'update-password') && (
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between items-center ml-1">
+                                                <label className="text-sm font-bold text-slate-700">{authMode === 'update-password' ? 'New Password*' : 'Password*'}</label>
+                                                {authMode === 'signin' && (<button type="button" onClick={() => setAuthMode('forgot')} className="text-xs font-bold text-[#0a4d3c] hover:underline">Forgot Password?</button>)}
+                                            </div>
+                                            <input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                        </div>
+                                    )}
+
+                                    {authMode === 'update-password' && (
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-bold text-slate-700 ml-1">Confirm New Password*</label>
+                                            <input type="password" placeholder="Confirm your password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                        </div>
+                                    )}
+
+                                    {error && <div className="p-3 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100">{error}</div>}
+                                    {success && <div className="p-3 bg-emerald-50 text-emerald-600 text-sm font-bold rounded-xl border border-emerald-100">{success}</div>}
+
+                                    <button type="submit" disabled={loading} className="w-full bg-[#f28c33] hover:bg-[#e07b22] text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 group" >
+                                        {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (<> {authMode === 'signup' ? 'Create Account' : authMode === 'forgot' ? 'Send Reset Link' : authMode === 'update-password' ? 'Update Password' : 'Sign In'} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /> </>)}
+                                    </button>
+                                </form>
+                            </motion.div>
                         )}
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-[#f28c33] hover:bg-[#e07b22] text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-200 transition-all transform active:scale-[0.98] mt-4 flex items-center justify-center gap-2 group"
-                        >
-                            {loading ? 'Authenticating...' : 'Enter Dashboard'}
-                            {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-                        </button>
-                    </form>
-
-                    <p className="text-center mt-8 text-slate-500 font-medium">
-                        New here? <span className="text-slate-900 font-bold">Contact Sales for Access</span>
-                    </p>
+                    </AnimatePresence>
                 </div>
 
-                {/* Right Side: Visual/Branding */}
-                <div className="hidden md:block w-1/2 p-6">
-                    <div className="relative h-full w-full rounded-[24px] overflow-hidden bg-[#0a4d3c] flex flex-col items-center justify-center p-12 text-white">
-                        {/* Abstract Background Elements */}
-                        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#126b54] rounded-full blur-[100px] opacity-50"></div>
-                        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#083a2d] rounded-full blur-[100px] opacity-50"></div>
-
-                        {/* Glass Cards */}
-                        <div className="z-10 w-full space-y-6">
-                            {/* Card 1: Testimonial */}
-                            <motion.div
-                                initial={{ x: 50, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[24px] transform -rotate-2"
-                            >
-                                <p className="text-lg font-medium mb-6 leading-relaxed italic">
-                                    "Autopilot transformed our operations. It's truly next-gen facility management."
-                                </p>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white/20">
-                                        <img src="https://i.pravatar.cc/150?u=darsh" alt="User" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold">Darsh Chen</p>
-                                        <p className="text-sm opacity-70">VP of Operations, Facility Co.</p>
-                                    </div>
-                                </div>
-                            </motion.div>
-
-                            {/* Card 2: Growth Metric */}
-                            <motion.div
-                                initial={{ x: -50, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                transition={{ delay: 0.5 }}
-                                className="bg-zinc-950/40 backdrop-blur-md border border-white/10 p-8 rounded-[24px] transform translate-x-8"
-                            >
-                                <p className="text-sm font-semibold uppercase tracking-wider opacity-70 mb-2">Platform Power</p>
-                                <h3 className="text-4xl font-bold mb-4">99.9%</h3>
-                                <p className="text-lg font-medium text-emerald-400">System Availability</p>
-                                <p className="text-sm opacity-70 mt-2">Zero downtime operations</p>
-
-                                {/* Simple Sparkline Mockup */}
-                                <div className="mt-6 h-12 w-full flex items-end gap-1">
-                                    {[40, 70, 45, 90, 65, 80, 100].map((h, i) => (
-                                        <motion.div
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${h}%` }}
-                                            transition={{ delay: 0.7 + (i * 0.1), duration: 0.5 }}
-                                            key={i}
-                                            className="flex-1 bg-emerald-500/40 rounded-t-sm"
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
+                <div className="hidden lg:block w-1/2 p-6 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[#0a4d3c]">
+                        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-[#126b54] rounded-full blur-3xl opacity-60" />
+                        <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#083a2d] rounded-full blur-3xl opacity-60" />
+                    </div>
+                    <div className="relative z-10 h-full flex flex-col justify-center items-center p-8">
+                        <div className="w-full max-w-sm space-y-6">
+                            <AnimatePresence mode="wait">
+                                <motion.div key={currentFeature} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.5 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl" >
+                                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-4 shadow-lg`}> <Ticket className="w-7 h-7 text-white" /> </div>
+                                    <h3 className="text-white text-xl font-bold mb-1">95% Faster Resolution</h3>
+                                    <p className="text-white/70 text-sm font-medium">Smart AI-powered ticketing for Autopilot Offices properties.</p>
+                                </motion.div>
+                            </AnimatePresence>
                         </div>
                     </div>
                 </div>
             </motion.div>
         </div>
     );
-};
+}
 
-export default LoginPage;
+export default function AuthPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-emerald-50"><div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" /></div>}>
+            <AuthContent />
+        </Suspense>
+    );
+}

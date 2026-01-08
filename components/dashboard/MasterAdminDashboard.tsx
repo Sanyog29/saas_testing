@@ -5,13 +5,16 @@ import {
     ShieldCheck, Users, Building2, AlertTriangle, Activity,
     LayoutGrid, Settings, Trash2, RefreshCcw,
     CheckCircle2, AlertCircle, Search, Plus, ExternalLink, XCircle, Filter,
-    Key, Eye, EyeOff, Globe, Copy, X
+    Key, Eye, EyeOff, Globe, Copy, X, Ticket, Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import OrgPropertyDashboard from './OrgPropertyDashboard';
+import TicketsView from './TicketsView';
+import InviteLinkGenerator from './InviteLinkGenerator';
 
-type Tab = 'overview' | 'organizations' | 'users' | 'modules' | 'settings';
+type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'invite-links' | 'modules' | 'settings';
 
 interface Organization {
     id: string;
@@ -47,6 +50,7 @@ const MasterAdminDashboard = () => {
     const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
     const [showCreateUserModal, setShowCreateUserModal] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null); // For drill-down
     const supabase = createClient();
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -199,7 +203,9 @@ const MasterAdminDashboard = () => {
     const navItems: { id: Tab, label: string, icon: any }[] = [
         { id: 'overview', label: 'Console', icon: ShieldCheck },
         { id: 'organizations', label: 'Organizations', icon: Building2 },
+        { id: 'tickets', label: 'Support Tickets', icon: Ticket },
         { id: 'users', label: 'User Directory', icon: Users },
+        { id: 'invite-links', label: 'Invite Links', icon: LinkIcon },
         { id: 'modules', label: 'Module Control', icon: LayoutGrid },
         { id: 'settings', label: 'System', icon: Settings },
     ];
@@ -304,13 +310,22 @@ const MasterAdminDashboard = () => {
                     >
                         {activeTab === 'overview' && <OverviewGrid />}
                         {activeTab === 'organizations' && (
-                            <OrganizationsList
-                                organizations={organizations}
-                                isLoading={isLoading}
-                                onSoftDelete={handleSoftDelete}
-                                onRestore={handleRestoreOrg}
-                            />
+                            selectedOrg ? (
+                                <OrgPropertyDashboard
+                                    organization={selectedOrg}
+                                    onBack={() => setSelectedOrg(null)}
+                                />
+                            ) : (
+                                <OrganizationsList
+                                    organizations={organizations}
+                                    isLoading={isLoading}
+                                    onSoftDelete={handleSoftDelete}
+                                    onRestore={handleRestoreOrg}
+                                    onDrillDown={(org) => setSelectedOrg(org)}
+                                />
+                            )
                         )}
+                        {activeTab === 'tickets' && <TicketsView />}
                         {activeTab === 'users' && (
                             <UserDirectory
                                 users={users}
@@ -320,6 +335,9 @@ const MasterAdminDashboard = () => {
                                 onDeleteUser={handleDeleteUser}
                                 onAddUser={() => setShowCreateUserModal(true)}
                             />
+                        )}
+                        {activeTab === 'invite-links' && (
+                            <InviteLinkGenerator organizations={organizations} />
                         )}
                         {activeTab === 'modules' && (
                             <ModuleConfig
@@ -453,11 +471,12 @@ const OverviewGrid = () => (
 );
 
 // Sub-component: Organization Management
-const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore }: {
+const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore, onDrillDown }: {
     organizations: Organization[];
     isLoading: boolean;
     onSoftDelete: (id: string) => void;
     onRestore: (id: string) => void;
+    onDrillDown?: (org: Organization) => void;
 }) => {
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -476,7 +495,11 @@ const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore }
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {organizations.map((org) => (
-                            <tr key={org.id} className="group hover:bg-slate-50/50 transition-colors">
+                            <tr
+                                key={org.id}
+                                className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                onClick={() => onDrillDown?.(org)}
+                            >
                                 <td className="px-8 py-6">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white text-xs font-bold">
@@ -510,7 +533,7 @@ const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore }
                                         </div>
                                     )}
                                 </td>
-                                <td className="px-8 py-6">
+                                <td className="px-8 py-6" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center gap-2">
                                         <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100">
                                             <ExternalLink className="w-4 h-4" />
