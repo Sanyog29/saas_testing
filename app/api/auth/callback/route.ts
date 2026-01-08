@@ -19,72 +19,92 @@ export async function GET(request: Request) {
 
         if (user) {
             // 2. COMPULSORY profile storage (always)
-            const { error: profileError } = await supabase.from('users').upsert({
+            const { data: dbUser, error: profileError } = await supabase.from('users').upsert({
                 id: user.id,
                 full_name: user.user_metadata.full_name || user.email?.split('@')[0],
                 email: user.email!,
                 phone: user.phone || user.user_metadata.phone || null,
                 metadata: user.user_metadata
-            });
+            }).select('is_master_admin').single();
 
             if (profileError) console.error('Profile Error:', profileError.message);
 
-            // 3. Check if user already has memberships (returning user)
-            const { data: existingMembership } = await supabase
+            // --- STRICT 4-STEP ROLE CHECK ---
+
+            // STEP 1: Check if Master Admin
+            if (dbUser?.is_master_admin || user.user_metadata?.is_master_admin) {
+                return NextResponse.redirect(`${requestUrl.origin}/master`);
+            }
+
+            // STEP 2: Check Organization Membership
+            const { data: orgMemberships } = await supabase
                 .from('organization_memberships')
                 .select('organization_id, role')
                 .eq('user_id', user.id)
-                .limit(1)
-                .single();
+                .eq('is_active', true)
+                .limit(1);
 
-            // CASE A: Property-scoped signup (new tenant via /join/[propertyCode])
+            const orgMembership = orgMemberships?.[0];
+
+            // SPECIAL CASE: Property-scoped signup (Join flow)
+            // If they have a property code, we handle that as registration/onboarding
             if (propertyCode) {
                 const { data: property } = await supabase
                     .from('properties')
                     .select('id, organization_id')
                     .eq('code', propertyCode)
-                    .single();
+                    .maybeSingle();
 
-                if (!property) {
-                    console.error('Invalid property code:', propertyCode);
-                    return NextResponse.redirect(`${requestUrl.origin}/error?message=Property not found`);
-                }
+                if (property) {
+                    await supabase.from('property_memberships').insert({
+                        user_id: user.id,
+                        organization_id: property.organization_id,
+                        property_id: property.id,
+                        role: 'tenant'
+                    });
 
-                // Auto-assign memberships
-                await supabase.from('organization_memberships').upsert({
-                    user_id: user.id,
-                    organization_id: property.organization_id,
-                    role: 'tenant'
-                });
-
-                await supabase.from('property_memberships').upsert({
-                    user_id: user.id,
-                    organization_id: property.organization_id,
-                    property_id: property.id,
-                    role: 'tenant'
-                });
-
-                // Redirect to onboarding for new tenants
-                return NextResponse.redirect(`${requestUrl.origin}/onboarding`);
-            }
-
-            // CASE B: Admin login (no property code)
-            if (existingMembership) {
-                // Returning user - route based on role
-                const role = existingMembership.role;
-
-                if (role === 'master_admin') {
-                    return NextResponse.redirect(`${requestUrl.origin}/master`);
-                } else if (role === 'org_super_admin') {
-                    return NextResponse.redirect(`${requestUrl.origin}/organizations`);
-                } else {
-                    return NextResponse.redirect(`${requestUrl.origin}/organizations`);
+                    return NextResponse.redirect(`${requestUrl.origin}/onboarding`);
                 }
             }
 
-            // CASE C: New user with no property code - redirect to contact page
-            // (B2B only: they should have been invited via a property link)
-            return NextResponse.redirect(`${requestUrl.origin}/?message=no_access`);
+            // STEP 2 (cont): Redirect if Org Membership found
+            if (orgMembership) {
+                const { data: org } = await supabase
+                    .from('organizations')
+                    .select('code')
+                    .eq('id', orgMembership.organization_id)
+                    .maybeSingle();
+
+                if (org) {
+                    return NextResponse.redirect(`${requestUrl.origin}/${org.code}/dashboard`);
+                }
+            }
+
+            // STEP 3: Check Property Membership
+            const { data: propMemberships } = await supabase
+                .from('property_memberships')
+                .select('property_id, organization_id')
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .limit(1);
+
+            if (propMemberships && propMemberships.length > 0) {
+                const { property_id, organization_id } = propMemberships[0];
+                const { data: org } = await supabase
+                    .from('organizations')
+                    .select('code')
+                    .eq('id', organization_id)
+                    .maybeSingle();
+
+                if (org) {
+                    return NextResponse.redirect(`${requestUrl.origin}/${org.code}/properties/${property_id}/dashboard`);
+                }
+            }
+
+            // STEP 4: No Membership Found -> Redirect to login with error
+            // We don't call signOut here because the session was just created, 
+            // the login page will handle the session existence and block further access.
+            return NextResponse.redirect(`${requestUrl.origin}/login?error=no_access`);
         }
     }
 

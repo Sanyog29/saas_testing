@@ -38,7 +38,7 @@ function AuthContent() {
     const [loading, setLoading] = useState(false);
     const [currentFeature, setCurrentFeature] = useState(0);
 
-    const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+    const { signIn, signUp, signInWithGoogle, resetPassword, signOut } = useAuth();
     const router = useRouter();
     const supabase = createClient();
 
@@ -50,52 +50,74 @@ function AuthContent() {
 
         try {
             if (authMode === 'signup') {
-                await signUp(email, password, fullName);
-                router.push('/onboarding');
+                const data = await signUp(email, password, fullName);
+
+                if (data?.session) {
+                    console.log('Signup successful, session found. Redirecting...');
+                    router.push('/onboarding');
+                } else if (data?.user) {
+                    console.log('Signup successful, but no session. Email confirmation likely required.');
+                    setSuccess('Account created! Please check your email inbox to verify your account before logging in.');
+                    // Don't redirect if there's no session, as onboarding requires a logged-in user
+                } else {
+                    throw new Error('Signup failed to return user data.');
+                }
             } else if (authMode === 'signin') {
                 const { data: { user }, error: signInError } = await signIn(email, password);
                 if (signInError || !user) throw new Error(signInError?.message || 'Login failed');
 
-                // Check Master Admin status safely
-                const { data: masterData } = await supabase
+                const { data: authUser, error: authUserError } = await supabase.auth.getUser();
+                if (!authUser?.user || authUserError) throw new Error('Not authenticated');
+                const userId = authUser.user.id;
+
+                /* 1️⃣ Master admin */
+                const { data: profile } = await supabase
                     .from('users')
-                    .select('id, metadata')
-                    .eq('id', user.id)
+                    .select('is_master_admin')
+                    .eq('id', userId)
                     .maybeSingle();
 
-                // Check is_master_admin field specifically if it exists in DB, or use metadata
-                if ((masterData as any)?.is_master_admin || masterData?.metadata?.is_master_admin) {
+                if (profile?.is_master_admin) {
                     router.push('/master');
                     return;
                 }
 
-                // Fetch membership
-                const { data: membership } = await supabase
+                /* 2️⃣ Organization admin */
+                const { data: orgMembership, error: orgMembershipError } = await supabase
                     .from('organization_memberships')
-                    .select('organization_id')
-                    .eq('user_id', user.id)
+                    .select('organization_id, role')
+                    .eq('user_id', userId)
+                    .eq('is_active', true)
+                    .in('role', ['org_super_admin'])
                     .maybeSingle();
 
-                if (!membership?.organization_id) {
-                    router.push('/onboarding');
+                if (orgMembershipError) {
+                    console.error('Organization membership check failed:', orgMembershipError);
+                }
+
+                if (orgMembership) {
+                    router.push(`/org/${orgMembership.organization_id}/dashboard`);
                     return;
                 }
 
-                // Fetch organization details - Safe select '*'
-                const { data: org, error: orgError } = await supabase
-                    .from('organizations')
-                    .select('*')
-                    .eq('id', membership.organization_id)
+                /* 3️⃣ Property admin / staff / tenant */
+                const { data: propertyMembership } = await supabase
+                    .from('property_memberships')
+                    .select('property_id, role')
+                    .eq('user_id', userId)
+                    .eq('is_active', true)
                     .maybeSingle();
 
-                if (orgError) console.error('Org Detail Fetch Error:', orgError);
-
-                if (org) {
-                    const orgCode = org.code || org.slug || 'autopilot';
-                    router.push(`/${orgCode}/dashboard`);
-                } else {
-                    router.push('/onboarding');
+                if (propertyMembership) {
+                    router.push(`/property/${propertyMembership.property_id}/dashboard`);
+                    return;
                 }
+
+                /* 4️⃣ Nothing found */
+                await signOut();
+                throw new Error(
+                    'Your account is not assigned to any organization or property.'
+                );
             } else if (authMode === 'forgot') {
                 await resetPassword(email);
                 setAuthMode('reset-success');

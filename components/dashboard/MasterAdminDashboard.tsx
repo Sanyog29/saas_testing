@@ -5,7 +5,7 @@ import {
     ShieldCheck, Users, Building2, AlertTriangle, Activity,
     LayoutGrid, Settings, Trash2, RefreshCcw,
     CheckCircle2, AlertCircle, Search, Plus, ExternalLink, XCircle, Filter,
-    Key, Eye, EyeOff, Globe, Copy, X, Ticket, Link as LinkIcon
+    Key, Eye, EyeOff, Globe, Copy, X, Ticket, Link as LinkIcon, LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -36,12 +36,12 @@ interface SystemUser {
     phone: string | null;
     created_at: string;
     organization_memberships?: { role: string; organization_id: string; is_active?: boolean }[];
-    property_memberships?: { role: string; property: { name: string; code: string }; is_active?: boolean }[];
+    property_memberships?: { role: string; organization_id: string; is_active?: boolean; property: { name: string; code: string } }[];
     is_master_admin?: boolean;
 }
 
 const MasterAdminDashboard = () => {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>('overview');
     const [searchQuery, setSearchQuery] = useState('');
     const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -60,19 +60,16 @@ const MasterAdminDashboard = () => {
 
     useEffect(() => {
         fetchOrganizations();
+        fetchUsers();
     }, []);
 
-    useEffect(() => {
-        if (activeTab === 'users') {
-            fetchUsers();
-        }
-    }, [activeTab]);
+    // We now fetch users on mount to ensure counts are accurate across the dashboard
 
     const fetchOrganizations = async () => {
         setIsLoading(true);
         const { data, error } = await supabase
             .from('organizations')
-            .select('*')
+            .select('*, properties(count)')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -249,16 +246,31 @@ const MasterAdminDashboard = () => {
                         </div>
                     </div>
 
-                    {/* User Profile Section */}
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    <div className="flex items-center gap-3 px-2 mb-6">
+                        <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-slate-200">
                             {user?.email?.[0].toUpperCase() || 'M'}
                         </div>
                         <div className="flex flex-col overflow-hidden">
-                            <span className="font-bold text-sm text-slate-900 truncate">{user?.user_metadata?.full_name || 'Master Admin'}</span>
-                            <span className="text-xs text-slate-400 truncate w-40">{user?.email}</span>
+                            <span className="font-bold text-sm text-slate-900 truncate">
+                                {user?.user_metadata?.full_name || 'Master Admin'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 truncate font-medium">
+                                {user?.email}
+                            </span>
                         </div>
                     </div>
+
+                    <button
+                        onClick={() => {
+                            if (window.confirm('Are you sure you want to log out?')) {
+                                signOut();
+                            }
+                        }}
+                        className="flex items-center gap-3 px-4 py-3.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl w-full transition-all duration-300 text-sm font-bold group"
+                    >
+                        <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        Sign Out
+                    </button>
                 </div>
             </div>
 
@@ -318,6 +330,7 @@ const MasterAdminDashboard = () => {
                             ) : (
                                 <OrganizationsList
                                     organizations={organizations}
+                                    users={users} // Pass users to compute counts
                                     isLoading={isLoading}
                                     onSoftDelete={handleSoftDelete}
                                     onRestore={handleRestoreOrg}
@@ -471,8 +484,9 @@ const OverviewGrid = () => (
 );
 
 // Sub-component: Organization Management
-const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore, onDrillDown }: {
+const OrganizationsList = ({ organizations, users, isLoading, onSoftDelete, onRestore, onDrillDown }: {
     organizations: Organization[];
+    users: SystemUser[];
     isLoading: boolean;
     onSoftDelete: (id: string) => void;
     onRestore: (id: string) => void;
@@ -494,69 +508,79 @@ const OrganizationsList = ({ organizations, isLoading, onSoftDelete, onRestore, 
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {organizations.map((org) => (
-                            <tr
-                                key={org.id}
-                                className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
-                                onClick={() => onDrillDown?.(org)}
-                            >
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white text-xs font-bold">
-                                            {org.name.substring(0, 2).toUpperCase()}
+                        {organizations.map((org) => {
+                            // Correct deduplicated count of users in this organization
+                            const orgMemberIds = new Set([
+                                ...(users.filter(u => u.organization_memberships?.some(m => m.organization_id === org.id)).map(u => u.id)),
+                                ...(users.filter(u => u.property_memberships?.some(pm => pm.organization_id === org.id)).map(u => u.id))
+                            ]);
+
+                            const propertiesCount = org.properties?.[0]?.count || 0;
+
+                            return (
+                                <tr
+                                    key={org.id}
+                                    className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                    onClick={() => onDrillDown?.(org)}
+                                >
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white text-xs font-bold">
+                                                {org.name.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-slate-900 text-sm leading-none mb-1">{org.name}</p>
+                                                <p className="text-xs text-slate-400 font-medium">/{org.code}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-black text-slate-900 text-sm leading-none mb-1">{org.name}</p>
-                                            <p className="text-xs text-slate-400 font-medium">/{org.code}</p>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <span className="text-sm font-black text-slate-700">{propertiesCount} Entities</span>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-slate-600">{orgMemberIds.size} Users</span>
+                                            <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-slate-400 rounded-full" style={{ width: orgMemberIds.size > 0 ? '70%' : '0%' }} />
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <span className="text-sm font-black text-slate-700">0 Entities</span>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-xs font-bold text-slate-600">0 Users</span>
-                                        <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-slate-400 rounded-full" style={{ width: '45%' }} />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    {org.is_deleted ? (
-                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-rose-100 animate-pulse">
-                                            Cooling Down
-                                        </div>
-                                    ) : (
-                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-100">
-                                            Active
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="px-8 py-6" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex items-center gap-2">
-                                        <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100">
-                                            <ExternalLink className="w-4 h-4" />
-                                        </button>
+                                    </td>
+                                    <td className="px-8 py-6">
                                         {org.is_deleted ? (
-                                            <button
-                                                onClick={() => onRestore(org.id)}
-                                                className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all border border-indigo-100"
-                                            >
-                                                <RefreshCcw className="w-4 h-4" />
-                                            </button>
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-rose-100 animate-pulse">
+                                                Cooling Down
+                                            </div>
                                         ) : (
-                                            <button
-                                                onClick={() => setDeleteConfirmId(org.id)}
-                                                className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-100">
+                                                Active
+                                            </div>
                                         )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                    <td className="px-8 py-6" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center gap-2">
+                                            <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100">
+                                                <ExternalLink className="w-4 h-4" />
+                                            </button>
+                                            {org.is_deleted ? (
+                                                <button
+                                                    onClick={() => onRestore(org.id)}
+                                                    className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all border border-indigo-100"
+                                                >
+                                                    <RefreshCcw className="w-4 h-4" />
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setDeleteConfirmId(org.id)}
+                                                    className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -627,7 +651,10 @@ const UserDirectory = ({ users, organizations, onUpdateRole, onToggleStatus, onD
 
     const filteredUsers = selectedOrgFilter === 'all'
         ? users
-        : users.filter(u => u.organization_memberships?.some(m => m.organization_id === selectedOrgFilter));
+        : users.filter(u =>
+            u.organization_memberships?.some(m => m.organization_id === selectedOrgFilter) ||
+            u.property_memberships?.some(m => m.organization_id === selectedOrgFilter)
+        );
 
     return (
         <div className="bg-white border border-slate-100 rounded-[32px] p-8 shadow-sm">

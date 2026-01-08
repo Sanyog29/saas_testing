@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from "@/context/AuthContext";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { ContextBar } from "@/components/layout/ContextBar";
 import DashboardSidebar from "@/components/layout/DashboardSidebar";
@@ -14,6 +14,7 @@ export default function DashboardLayout({
     const { user, isLoading } = useAuth();
     const router = useRouter();
     const params = useParams();
+    const pathname = usePathname();
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -34,6 +35,12 @@ export default function DashboardLayout({
 
     if (!user) {
         return null;
+    }
+
+    const isFullDashboard = pathname?.endsWith('/dashboard');
+
+    if (isFullDashboard) {
+        return <>{children}</>;
     }
 
     return (

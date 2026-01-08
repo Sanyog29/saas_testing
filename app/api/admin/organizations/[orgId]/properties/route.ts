@@ -27,12 +27,20 @@ export async function GET(
         );
     }
 
-    // Add default counts
-    const propertiesWithStats = (data || []).map((property) => ({
-        ...property,
-        user_count: 0,
-        active_user_count: 0,
-        open_tickets_count: 0
+    // Fetch user counts for each property
+    const propertiesWithStats = await Promise.all((data || []).map(async (property) => {
+        const { count } = await supabaseAdmin
+            .from('property_memberships')
+            .select('*', { count: 'exact', head: true })
+            .eq('property_id', property.id)
+            .eq('is_active', true);
+
+        return {
+            ...property,
+            user_count: count || 0,
+            active_user_count: count || 0,
+            open_tickets_count: 0
+        };
     }));
 
     return NextResponse.json(propertiesWithStats);

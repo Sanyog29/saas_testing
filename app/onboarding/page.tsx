@@ -10,17 +10,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 
-interface Organization {
-    id: string;
-    name: string;
-    code: string;
-}
-
 interface Property {
     id: string;
     name: string;
     code: string;
+    organization_id: string;
 }
+
+const AUTOPILOT_ORG_ID = process.env.NEXT_PUBLIC_AUTOPILOT_ORG_ID;
 
 const AVAILABLE_ROLES = [
     { id: 'property_admin', label: 'Property Admin', desc: 'Manage property operations & staff', icon: '🏢' },
@@ -108,9 +105,7 @@ const FireworksAnimation = ({ onComplete }: { onComplete: () => void }) => {
 export default function OnboardingPage() {
     const [step, setStep] = useState(0);
     const [userName, setUserName] = useState('');
-    const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [properties, setProperties] = useState<Property[]>([]);
-    const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
     const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -119,48 +114,35 @@ export default function OnboardingPage() {
     const [error, setError] = useState('');
 
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, isLoading: authLoading } = useAuth();
     const supabase = createClient();
 
     useEffect(() => {
         const initialize = async () => {
+            if (authLoading) return; // Wait for auth to settle
             if (!user) {
                 router.push('/login');
                 return;
             }
 
             try {
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', user.id)
-                    .single();
-
-                if (userData?.full_name) {
-                    setUserName(userData.full_name.split(' ')[0]);
-                } else if (user.user_metadata?.full_name) {
-                    setUserName(user.user_metadata.full_name.split(' ')[0]);
+                // Greeting from metadata (passed during signup)
+                const nameFromMetadata = user.user_metadata?.full_name || user.user_metadata?.name;
+                if (nameFromMetadata) {
+                    setUserName(nameFromMetadata.split(' ')[0]);
                 } else {
-                    setUserName('there');
-                }
+                    // Fallback to DB check
+                    const { data: dbUser } = await supabase
+                        .from('users')
+                        .select('full_name')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-                // Fetch all organizations - Select * to be safe against missing 'code' column
-                const { data: orgs, error: orgsError } = await supabase
-                    .from('organizations')
-                    .select('*')
-                    .order('name');
-
-                if (orgsError) {
-                    console.error('Fetch orgs error:', orgsError);
-                    setOrganizations([]);
-                } else {
-                    // Map safely in case 'code' is 'slug' or missing
-                    const mappedOrgs = (orgs || []).map((o: any) => ({
-                        id: o.id,
-                        name: o.name,
-                        code: o.code || o.slug || 'unknown'
-                    }));
-                    setOrganizations(mappedOrgs);
+                    if (dbUser?.full_name) {
+                        setUserName(dbUser.full_name.split(' ')[0]);
+                    } else {
+                        setUserName('there');
+                    }
                 }
             } catch (err) {
                 console.error('Initialization error:', err);
@@ -170,26 +152,17 @@ export default function OnboardingPage() {
         };
 
         initialize();
-    }, [user, router, supabase]);
+    }, [user, authLoading, router, supabase]);
 
-    // Handle default organization requirement
-    useEffect(() => {
-        if (organizations.length > 0 && !selectedOrg) {
-            // Auto-select Autopilot Offices if it exists
-            const autopilot = organizations.find(o => o.name.toLowerCase().includes('autopilot') || o.code === 'autopilot');
-            if (autopilot) {
-                setSelectedOrg(autopilot);
-            } else if (organizations.length === 1) {
-                setSelectedOrg(organizations[0]);
-            }
-        }
-    }, [organizations, selectedOrg]);
 
     useEffect(() => {
         const fetchProperties = async () => {
-            // Only fetch if we have a valid selectedOrg ID (not 'default')
-            if (!selectedOrg || selectedOrg.id === 'default') {
-                setProperties([]);
+            const orgId = process.env.NEXT_PUBLIC_AUTOPILOT_ORG_ID;
+
+            if (!orgId) {
+                console.error('Autopilot org ID missing from environment variables');
+                setError('Autopilot org ID missing. Please check your system configuration.');
+                setLoading(false);
                 return;
             }
 
@@ -198,7 +171,7 @@ export default function OnboardingPage() {
                 const { data, error } = await supabase
                     .from('properties')
                     .select('*')
-                    .eq('organization_id', selectedOrg.id)
+                    .eq('organization_id', orgId)
                     .order('name');
 
                 if (error) throw error;
@@ -206,89 +179,100 @@ export default function OnboardingPage() {
                 const mappedProps = (data || []).map((p: any) => ({
                     id: p.id,
                     name: p.name,
-                    code: p.code || p.slug || 'unknown'
+                    code: p.code || p.slug || 'unknown',
+                    organization_id: p.organization_id
                 }));
+
                 setProperties(mappedProps);
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Properties fetch error:', err);
+                setError(err.message || 'Failed to load properties.');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchProperties();
-    }, [selectedOrg, supabase]);
+    }, [supabase]);
 
     const handleComplete = useCallback(async () => {
-        if (!user || !selectedOrg || !selectedProperty || !selectedRole) return;
+        if (!user || !selectedProperty || !selectedRole || !AUTOPILOT_ORG_ID) return;
 
         setSubmitting(true);
         setError('');
 
         try {
-            // If we are using fallbacks/dummies, we might need real IDs or we skip real DB inserts
-            // But let's try to find the REAL autopilot offices if it exists but failed to fetch earlier
-            let finalOrgId = selectedOrg.id;
-            let finalPropId = selectedProperty.id;
+            const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+            if (!authUser || userError) throw new Error('Not authenticated');
 
-            if (finalOrgId === 'default') {
-                // Attempt a last-ditch fetch for the real one
-                const { data: realOrg } = await supabase.from('organizations').select('id').ilike('name', '%autopilot%').limit(1).maybeSingle();
-                if (realOrg) finalOrgId = realOrg.id;
-                else {
-                    // If it REALLY doesn't exist, we can't create membership.
-                    // However, user said assume everyone is from Autopilot Offices.
-                    // We'll proceed with failure if IDs are still 'default'
-                    if (finalOrgId === 'default') throw new Error("Autopilot Offices organization not found in database. Please run migrations.");
+            // Resolve Property ID
+            let finalPropId = selectedProperty.id;
+            if (finalPropId === 'default') {
+                const { data: realProp } = await supabase.from('properties').select('id').eq('organization_id', AUTOPILOT_ORG_ID).limit(1).maybeSingle();
+                if (realProp) finalPropId = realProp.id;
+                else throw new Error("No properties found for this organization.");
+            }
+
+            // Ensure Org ID is resolved before insertion
+            let targetOrgId = AUTOPILOT_ORG_ID;
+            if (!targetOrgId || targetOrgId === 'undefined') {
+                const { data: org } = await supabase.from('organizations').select('id').or('code.eq.autopilot,name.ilike.%autopilot%').limit(1).maybeSingle();
+                if (org) targetOrgId = org.id;
+            }
+
+            // 1️⃣ Insert property membership
+            const { error: membershipError } = await supabase
+                .from('property_memberships')
+                .insert({
+                    user_id: authUser.id,
+                    organization_id: targetOrgId,
+                    property_id: finalPropId,
+                    role: selectedRole,
+                    is_active: true
+                });
+
+            if (membershipError) {
+                // Ignore duplicate key errors, throw others
+                if (!membershipError.message.toLowerCase().includes('duplicate key')) {
+                    console.error('Membership insert failed:', membershipError);
+                    throw membershipError;
                 }
             }
 
-            if (finalPropId === 'default') {
-                const { data: realProp } = await supabase.from('properties').select('id').eq('organization_id', finalOrgId).limit(1).maybeSingle();
-                if (realProp) finalPropId = realProp.id;
-                else throw new Error("No properties found for this organization in database.");
+            // 2️⃣ Update ONLY onboarding_completed
+            const { error: userUpdateError } = await supabase
+                .from('users')
+                .update({ onboarding_completed: true } as any)
+                .eq('id', authUser.id);
+
+            if (userUpdateError) {
+                console.error('User update failed:', userUpdateError);
+                throw userUpdateError;
             }
 
-            const { error: orgMemberError } = await supabase
-                .from('organization_memberships')
-                .upsert({
-                    user_id: user.id,
-                    organization_id: finalOrgId,
-                    role: selectedRole as any,
-                    is_active: true
-                });
-
-            if (orgMemberError) throw orgMemberError;
-
-            const { error: propMemberError } = await supabase
-                .from('property_memberships')
-                .upsert({
-                    user_id: user.id,
-                    organization_id: finalOrgId,
-                    property_id: finalPropId,
-                    role: selectedRole as any,
-                    is_active: true
-                });
-
-            if (propMemberError) throw propMemberError;
+            // Sync with metadata for fallback
+            await supabase.auth.updateUser({
+                data: { onboarding_completed: true }
+            });
 
             setShowFireworks(true);
         } catch (err: any) {
             console.error('Onboarding completion error:', err);
-            setError(err.message || 'Failed to complete setup. Please check database connectivity.');
+            setError(err.message || 'Failed to complete setup.');
             setSubmitting(false);
         }
-    }, [user, selectedOrg, selectedProperty, selectedRole, supabase]);
+    }, [user, selectedProperty, selectedRole, supabase]);
+
+
 
     const handleFireworksComplete = () => {
         setShowFireworks(false);
-        if (selectedOrg) {
-            router.push(`/${selectedOrg.code}/dashboard`);
-        }
+        // Onboarding is only for sign up. After completion, go to login.
+        router.push('/login');
     };
 
     const nextStep = () => {
-        if (step === 3) {
+        if (step === 2) {
             handleComplete();
         } else {
             setStep((prev) => prev + 1);
@@ -300,14 +284,13 @@ export default function OnboardingPage() {
     const canProceed = () => {
         switch (step) {
             case 0: return true;
-            case 1: return selectedOrg !== null;
-            case 2: return selectedProperty !== null;
-            case 3: return selectedRole !== null;
+            case 1: return selectedProperty !== null;
+            case 2: return selectedRole !== null;
             default: return false;
         }
     };
 
-    if (loading && step === 0) {
+    if ((loading || authLoading) && step === 0) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -325,7 +308,7 @@ export default function OnboardingPage() {
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-6 font-sans">
                 <div className="w-full max-w-md mb-12">
                     <div className="flex gap-2">
-                        {[0, 1, 2, 3].map((i) => (
+                        {[0, 1, 2].map((i) => (
                             <motion.div
                                 key={i}
                                 className={`h-1.5 flex-1 rounded-full transition-all duration-500`}
@@ -336,7 +319,7 @@ export default function OnboardingPage() {
                         ))}
                     </div>
                     <p className="text-center text-slate-500 text-sm font-medium mt-4">
-                        Step {step + 1} of 4
+                        Step {step + 1} of 3
                     </p>
                 </div>
 
@@ -361,56 +344,8 @@ export default function OnboardingPage() {
                             </motion.div>
                         )}
 
+
                         {step === 1 && (
-                            <motion.div
-                                key="organization" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-                                className="flex flex-col items-center"
-                            >
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6 shadow-xl">
-                                    <MapPin className="w-8 h-8 text-white" />
-                                </div>
-                                <h2 className="text-3xl font-black text-white mb-2 text-center">Choose Your Location</h2>
-                                <p className="text-slate-400 font-medium mb-8 text-center">Select the organization you belong to</p>
-
-                                <div className="w-full space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {organizations.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-12 bg-slate-800/20 border-2 border-dashed border-slate-700 rounded-3xl p-8">
-                                            <AlertCircle className="w-10 h-10 text-slate-500 mb-4" />
-                                            <p className="text-slate-400 font-medium text-center mb-2">No organizations found in database.</p>
-                                            <button
-                                                onClick={() => setSelectedOrg({ id: 'default', name: 'Autopilot Offices', code: 'autopilot' })}
-                                                className="mt-6 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all"
-                                            >
-                                                Use Autopilot Offices (Default)
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        organizations.map((org) => (
-                                            <button
-                                                key={org.id} onClick={() => setSelectedOrg(org)}
-                                                className={`w-full p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${selectedOrg?.id === org.id
-                                                        ? 'bg-violet-500/20 border-violet-500 text-white'
-                                                        : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedOrg?.id === org.id ? 'bg-violet-500' : 'bg-slate-700 group-hover:bg-slate-600'}`}>
-                                                        <Building2 className="w-6 h-6" />
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <p className="font-bold text-lg">{org.name}</p>
-                                                        <p className="text-sm text-slate-500">{org.code}</p>
-                                                    </div>
-                                                </div>
-                                                {selectedOrg?.id === org.id && <Check className="w-6 h-6 text-violet-400" />}
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {step === 2 && (
                             <motion.div
                                 key="property" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
                                 className="flex flex-col items-center"
@@ -429,7 +364,7 @@ export default function OnboardingPage() {
                                             <div className="flex flex-col items-center justify-center py-12 bg-slate-800/20 border-2 border-dashed border-slate-700 rounded-3xl p-8">
                                                 <p className="text-slate-500 font-medium text-center">No properties found.</p>
                                                 <button
-                                                    onClick={() => setSelectedProperty({ id: 'default', name: 'Main Campus', code: 'main' })}
+                                                    onClick={() => setSelectedProperty({ id: 'default', name: 'Main Campus', code: 'main', organization_id: process.env.NEXT_PUBLIC_AUTOPILOT_ORG_ID || 'default' })}
                                                     className="mt-6 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all"
                                                 >
                                                     Use Main Campus (Default)
@@ -440,8 +375,8 @@ export default function OnboardingPage() {
                                                 <button
                                                     key={prop.id} onClick={() => setSelectedProperty(prop)}
                                                     className={`w-full p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${selectedProperty?.id === prop.id
-                                                            ? 'bg-emerald-500/20 border-emerald-500 text-white'
-                                                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                                                        ? 'bg-emerald-500/20 border-emerald-500 text-white'
+                                                        : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-4">
@@ -460,7 +395,7 @@ export default function OnboardingPage() {
                             </motion.div>
                         )}
 
-                        {step === 3 && (
+                        {step === 2 && (
                             <motion.div
                                 key="role" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
                                 className="flex flex-col items-center"
@@ -476,8 +411,8 @@ export default function OnboardingPage() {
                                         <button
                                             key={role.id} onClick={() => setSelectedRole(role.id)}
                                             className={`w-full p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${selectedRole === role.id
-                                                    ? 'bg-orange-500/20 border-orange-500 text-white'
-                                                    : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                                                ? 'bg-orange-500/20 border-orange-500 text-white'
+                                                : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-4">
@@ -514,7 +449,7 @@ export default function OnboardingPage() {
                         onClick={nextStep} disabled={!canProceed() || submitting}
                         className={`px-8 py-4 font-black rounded-2xl flex items-center gap-3 transition-all shadow-xl ${canProceed() && !submitting ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:shadow-violet-500/30 hover:scale-105' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
                     >
-                        {submitting ? <><Loader2 className="w-5 h-5 animate-spin" />Setting up...</> : step === 3 ? <>Complete Setup <Sparkles className="w-5 h-5" /></> : <>Continue <ArrowRight className="w-5 h-5" /></>}
+                        {submitting ? <><Loader2 className="w-5 h-5 animate-spin" />Setting up...</> : step === 2 ? <>Complete Setup <Sparkles className="w-5 h-5" /></> : <>Continue <ArrowRight className="w-5 h-5" /></>}
                     </button>
                 </div>
             </div>

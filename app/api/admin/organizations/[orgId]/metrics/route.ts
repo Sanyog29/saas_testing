@@ -13,22 +13,36 @@ export async function GET(
 ) {
     const { orgId } = await params;
 
-    // Count users via organization_memberships
-    const { count: totalUsers } = await supabaseAdmin
+    // 1. Fetch Organization Members (Unique IDs)
+    const { data: orgMembers } = await supabaseAdmin
         .from('organization_memberships')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId);
+        .select('user_id')
+        .eq('organization_id', orgId)
+        .eq('is_active', true);
 
-    // Count properties
+    // 2. Fetch Property Members (Unique IDs)
+    const { data: propMembers } = await supabaseAdmin
+        .from('property_memberships')
+        .select('user_id')
+        .eq('organization_id', orgId)
+        .eq('is_active', true);
+
+    // 3. Deduplicate 
+    const uniqueUserIds = new Set([
+        ...(orgMembers?.map(m => m.user_id) || []),
+        ...(propMembers?.map(m => m.user_id) || [])
+    ]);
+
+    // 4. Count properties
     const { count: propertiesCount } = await supabaseAdmin
         .from('properties')
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', orgId);
 
     return NextResponse.json({
-        total_users: totalUsers || 0,
+        total_users: uniqueUserIds.size,
         user_status: {
-            active: totalUsers || 0,
+            active: uniqueUserIds.size,
             inactive: 0,
             dead: 0
         },

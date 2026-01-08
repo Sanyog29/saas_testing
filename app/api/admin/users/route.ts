@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
             .select(`
                 *,
                 organization_memberships (role, organization_id, is_active),
-                property_memberships (role, is_active, property: properties (name, code))
+                property_memberships (role, organization_id, is_active, property: properties (name, code))
             `)
             .order('created_at', { ascending: false });
 
