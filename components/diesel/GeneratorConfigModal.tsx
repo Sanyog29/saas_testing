@@ -1,0 +1,232 @@
+'use client';
+
+import React, { useState } from 'react';
+import { X, Plus, Fuel, Settings2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface GeneratorConfigModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSubmit: (generator: GeneratorFormData) => Promise<void>;
+    existingGenerator?: GeneratorFormData & { id: string };
+}
+
+interface GeneratorFormData {
+    name: string;
+    make: string;
+    capacity_kva: number;
+    tank_capacity_litres: number;
+    fuel_efficiency_lphr: number;
+    status: 'active' | 'standby' | 'maintenance';
+}
+
+const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    existingGenerator,
+}) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const [formData, setFormData] = useState<GeneratorFormData>({
+        name: existingGenerator?.name || '',
+        make: existingGenerator?.make || '',
+        capacity_kva: existingGenerator?.capacity_kva || 500,
+        tank_capacity_litres: existingGenerator?.tank_capacity_litres || 1000,
+        fuel_efficiency_lphr: existingGenerator?.fuel_efficiency_lphr || 15,
+        status: existingGenerator?.status || 'active',
+    });
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        if (!formData.name.trim()) {
+            setError('Generator name is required');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await onSubmit(formData);
+            onClose();
+        } catch (err: any) {
+            setError(err.message || 'Failed to save generator');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const updateField = (field: keyof GeneratorFormData, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <AnimatePresence>
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                {/* Backdrop */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                    className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                />
+
+                {/* Modal */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+                >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-white">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                                <Settings2 className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900">
+                                    {existingGenerator ? 'Edit Generator' : 'Add Generator'}
+                                </h2>
+                                <p className="text-xs text-slate-500">Configure diesel generator settings</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                            <X className="w-5 h-5 text-slate-400" />
+                        </button>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                        {error && (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-lg">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Name and Make */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                    Name <span className="text-rose-500">*</span>
+                                </span>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => updateField('name', e.target.value)}
+                                    placeholder="e.g., DG-1"
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Make</span>
+                                <input
+                                    type="text"
+                                    value={formData.make}
+                                    onChange={(e) => updateField('make', e.target.value)}
+                                    placeholder="e.g., Cummins"
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                />
+                            </label>
+                        </div>
+
+                        {/* Capacity and Tank */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Capacity (KVA)</span>
+                                <input
+                                    type="number"
+                                    value={formData.capacity_kva}
+                                    onChange={(e) => updateField('capacity_kva', parseInt(e.target.value) || 0)}
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tank Capacity (L)</span>
+                                <input
+                                    type="number"
+                                    value={formData.tank_capacity_litres}
+                                    onChange={(e) => updateField('tank_capacity_litres', parseInt(e.target.value) || 0)}
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                />
+                            </label>
+                        </div>
+
+                        {/* Fuel Efficiency and Status */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Fuel Rate (L/hr)</span>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    value={formData.fuel_efficiency_lphr}
+                                    onChange={(e) => updateField('fuel_efficiency_lphr', parseFloat(e.target.value) || 0)}
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Status</span>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => updateField('status', e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 cursor-pointer"
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="standby">Standby</option>
+                                    <option value="maintenance">Maintenance</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        {/* Info Box */}
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex items-start gap-3">
+                            <Fuel className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                            <div className="text-xs text-amber-700">
+                                <p className="font-bold mb-1">Fuel Rate Calculation</p>
+                                <p>The fuel rate is used to estimate daily consumption. Set this to your generator&apos;s average litres per hour of operation.</p>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 px-4 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-4 h-4" />
+                                        {existingGenerator ? 'Update Generator' : 'Add Generator'}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </motion.div>
+            </div>
+        </AnimatePresence>
+    );
+};
+
+export default GeneratorConfigModal;

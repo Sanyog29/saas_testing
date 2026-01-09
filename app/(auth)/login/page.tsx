@@ -182,10 +182,17 @@ function AuthContent() {
                 <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center bg-white">
                     <div className="flex items-center gap-2 mb-10">
                         <div className="w-10 h-10 bg-[#0a4d3c] rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                            <Building2 className="w-5 h-5 text-white" />
+                            {/* Triangle A Icon */}
+                            <svg viewBox="0 0 32 40" fill="currentColor" className="h-5 text-white">
+                                <path d="M0 40 L16 0 L32 40 L24 40 L16 16 L8 40 Z" />
+                            </svg>
                         </div>
-                        <span className="font-black text-xl tracking-tight text-[#0a4d3c]">
-                            Autopilot
+                        <span className="font-medium text-xl tracking-tight text-[#0a4d3c] flex items-center">
+                            {/* Triangle A + UTOPILOT */}
+                            <svg viewBox="0 0 16 20" fill="currentColor" className="h-5 -mr-0.5">
+                                <path d="M0 20 L8 0 L16 20 L12 20 L8 8 L4 20 Z" />
+                            </svg>
+                            utopilot
                         </span>
                     </div>
 

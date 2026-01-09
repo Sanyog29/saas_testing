@@ -150,8 +150,12 @@ export default function HeroSection() {
             {/* Content Overlay */}
             <div className="absolute inset-0 z-20 flex flex-col justify-between p-8 md:p-12 lg:p-16">
                 <header className="flex justify-between items-center w-full pointer-events-auto">
-                    <div className={cn("text-white font-black text-3xl tracking-tighter uppercase italic", fontHeading)}>
-                        AUTO<span className="text-white/40">PILOT</span>
+                    <div className="flex items-center text-white">
+                        {/* Triangle A Logo */}
+                        <svg viewBox="0 0 200 40" fill="currentColor" className="h-8">
+                            <path d="M0 40 L16 0 L32 40 L24 40 L16 16 L8 40 Z" />
+                            <text x="38" y="32" fontFamily="system-ui, -apple-system, sans-serif" fontSize="32" fontWeight="400" letterSpacing="-0.02em">UTOPILOT</text>
+                        </svg>
                     </div>
                     <div className="flex gap-8 items-center">
                         <Link href="/login">

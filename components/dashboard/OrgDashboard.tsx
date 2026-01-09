@@ -5,7 +5,7 @@ import {
     BarChart3, Users, Building2, LayoutDashboard,
     Settings, Bell, Search, Plus, Zap, AlertTriangle,
     History, ShieldCheck, Mail, LogOut, Command,
-    ClipboardList, Package, Map, PieChart, ExternalLink
+    ClipboardList, Package, Map, PieChart, ExternalLink, IndianRupee, Store, UsersRound
 } from 'lucide-react';
 import PropertyManagement from './PropertyManagement';
 import UserManagement from './UserManagement';
@@ -13,8 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import SignOutModal from '@/components/ui/SignOutModal';
+import VMSOrgSummary from '@/components/vms/VMSOrgSummary';
 
-type SubTab = 'dashboard' | 'properties' | 'requests' | 'alerts' | 'users' | 'analytics';
+type SubTab = 'dashboard' | 'properties' | 'requests' | 'alerts' | 'users' | 'analytics' | 'vendors' | 'visitors';
 
 interface Property {
     id: string;
@@ -62,6 +63,8 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
             section: 'MANAGEMENT HUB', items: [
                 { id: 'properties', label: 'Entity Manager', icon: Building2 },
                 { id: 'users', label: 'User Management', icon: Users },
+                { id: 'visitors', label: 'Visitors', icon: UsersRound },
+                { id: 'vendors', label: 'Vendor Revenue', icon: Store },
                 { id: 'analytics', label: 'SLA Analytics', icon: BarChart3 },
             ]
         },
@@ -82,12 +85,21 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
                 <div className="p-8 pb-12">
                     <div className="flex items-center gap-4 mb-10">
                         <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                            <span className="font-black text-xl tracking-tighter italic">AP</span>
+                            {/* Triangle A Icon */}
+                            <svg viewBox="0 0 32 40" fill="currentColor" className="h-6">
+                                <path d="M0 40 L16 0 L32 40 L24 40 L16 16 L8 40 Z" />
+                            </svg>
                         </div>
                         {isSidebarOpen && (
                             <div>
-                                <h1 className="text-xl font-black text-white tracking-tighter uppercase italic">AUTOPILOT</h1>
-                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none">Admin Portal</p>
+                                <h1 className="text-xl font-medium text-white tracking-tight flex items-center gap-0.5">
+                                    {/* Triangle A + UTOPILOT */}
+                                    <svg viewBox="0 0 16 20" fill="currentColor" className="h-5 -mr-0.5">
+                                        <path d="M0 20 L8 0 L16 20 L12 20 L8 8 L4 20 Z" />
+                                    </svg>
+                                    UTOPILOT
+                                </h1>
+                                <p className="text-[10px] font-medium text-blue-500 uppercase tracking-widest leading-none">Admin Portal</p>
                             </div>
                         )}
                     </div>
@@ -218,6 +230,8 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
                             {activeTab === 'requests' && <RequestsFeed />}
                             {activeTab === 'users' && <UserManagement orgId={orgId} />}
                             {activeTab === 'alerts' && <AlertsCenter />}
+                            {activeTab === 'vendors' && <VendorSummary orgId={orgId} />}
+                            {activeTab === 'visitors' && <VMSOrgSummary orgId={orgId} />}
                             {activeTab === 'analytics' && <SLAAnalytics />}
                         </motion.div>
                     </AnimatePresence>
@@ -441,5 +455,131 @@ const SLAAnalytics = () => (
         </div>
     </div>
 );
+
+// Vendor Summary for Org Admin (Multi-Property Rollup)
+const VendorSummary = ({ orgId }: { orgId: string }) => {
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [summary, setSummary] = React.useState<any>(null);
+    const [period, setPeriod] = React.useState<'today' | 'month' | 'year'>('today');
+
+    React.useEffect(() => {
+        fetchSummary();
+    }, [orgId, period]);
+
+    const fetchSummary = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/api/organizations/${orgId}/vendor-summary?period=${period}`);
+            const data = await response.json();
+            setSummary(data);
+        } catch (err) {
+            console.error('Error fetching vendor summary:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-8 h-8 border-2 border-zinc-800 border-t-blue-500 rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Header */}
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-4xl font-black text-white tracking-widest italic uppercase mb-2">Vendor Revenue</h2>
+                    <p className="text-zinc-500 text-sm font-medium uppercase tracking-[0.2em]">Cross-Property Revenue Analytics</p>
+                </div>
+                <div className="flex gap-2">
+                    {(['today', 'month', 'year'] as const).map(p => (
+                        <button
+                            key={p}
+                            onClick={() => setPeriod(p)}
+                            className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${p === period ? 'bg-white text-black border-white' : 'text-zinc-500 border-zinc-800 hover:border-zinc-600'
+                                }`}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[
+                    { label: 'Total Revenue', value: `₹${(summary?.total_revenue || 0).toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-emerald-500' },
+                    { label: 'Total Commission', value: `₹${(summary?.total_commission || 0).toLocaleString('en-IN')}`, icon: PieChart, color: 'text-blue-500' },
+                    { label: 'Active Vendors', value: (summary?.total_vendors || 0).toString(), icon: Store, color: 'text-amber-500' },
+                    { label: 'Properties', value: (summary?.properties?.length || 0).toString(), icon: Building2, color: 'text-indigo-500' },
+                ].map((stat, i) => (
+                    <div key={i} className="bg-zinc-900/30 border border-zinc-800/50 p-6 rounded-3xl backdrop-blur-sm group">
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="w-12 h-12 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                            </div>
+                        </div>
+                        <h3 className="text-3xl font-black text-white tracking-widest mb-1 italic">{stat.value}</h3>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">{stat.label}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Property Breakdown Table */}
+            <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-[40px] overflow-hidden">
+                <div className="p-8 border-b border-zinc-800/50">
+                    <h3 className="text-xl font-black text-white italic">Property Breakdown</h3>
+                    <p className="text-zinc-500 text-xs font-medium mt-1 uppercase tracking-widest">Revenue distribution across properties</p>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-zinc-950/50 border-b border-zinc-800/50">
+                            <tr>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest">Property</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest text-center">Vendors</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest text-right">Revenue</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-600 uppercase tracking-widest text-right">Commission</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/50">
+                            {summary?.properties?.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-8 py-12 text-center text-zinc-500 italic">No vendor data found for this period.</td>
+                                </tr>
+                            ) : (
+                                summary?.properties?.map((prop: any) => (
+                                    <tr key={prop.property_id} className="hover:bg-zinc-800/20 transition-colors">
+                                        <td className="px-8 py-5">
+                                            <p className="font-black text-white text-sm">{prop.property_name}</p>
+                                        </td>
+                                        <td className="px-8 py-5 text-center">
+                                            <span className="bg-zinc-950 text-zinc-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-zinc-800">
+                                                {prop.vendor_count}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <p className={`font-black text-sm ${prop.total_revenue > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                                                ₹{prop.total_revenue.toLocaleString('en-IN')}
+                                            </p>
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <p className="font-black text-sm text-blue-400">
+                                                ₹{prop.total_commission.toLocaleString('en-IN')}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default OrgDashboard;

@@ -1,0 +1,466 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { X, User, Truck, Building2, ArrowRight, ArrowLeft, LogIn, LogOut, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import CameraCapture from './CameraCapture';
+
+interface VMSKioskProps {
+    propertyId: string;
+    propertyName: string;
+}
+
+type Category = 'visitor' | 'vendor' | 'other';
+type KioskStep = 'home' | 'category' | 'form' | 'success' | 'checkout' | 'checkout_success';
+
+interface FormData {
+    name: string;
+    mobile: string;
+    coming_from: string;
+    whom_to_meet: string;
+    photo_url: string;
+}
+
+const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
+    const [step, setStep] = useState<KioskStep>('home');
+    const [category, setCategory] = useState<Category>('visitor');
+    const [formData, setFormData] = useState<FormData>({
+        name: '',
+        mobile: '',
+        coming_from: '',
+        whom_to_meet: '',
+        photo_url: '',
+    });
+    const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+    const [visitorId, setVisitorId] = useState('');
+    const [checkoutId, setCheckoutId] = useState('');
+    const [checkoutName, setCheckoutName] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    // Reset to home after 30 seconds of inactivity on success screens
+    useEffect(() => {
+        if (step === 'success' || step === 'checkout_success') {
+            const timer = setTimeout(() => resetKiosk(), 30000);
+            return () => clearTimeout(timer);
+        }
+    }, [step]);
+
+    const resetKiosk = () => {
+        setStep('home');
+        setCategory('visitor');
+        setFormData({ name: '', mobile: '', coming_from: '', whom_to_meet: '', photo_url: '' });
+        setPhotoBlob(null);
+        setVisitorId('');
+        setCheckoutId('');
+        setCheckoutName('');
+        setError('');
+    };
+
+    const handlePhotoCapture = (imageUrl: string, blob: Blob) => {
+        setFormData(prev => ({ ...prev, photo_url: imageUrl }));
+        setPhotoBlob(blob);
+    };
+
+    const handleCheckin = async () => {
+        if (!formData.name || !formData.whom_to_meet) {
+            setError('Please fill all required fields');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError('');
+
+        try {
+            // Upload photo to Supabase Storage if exists
+            let photoUrl = '';
+            if (photoBlob) {
+                const formDataUpload = new FormData();
+                formDataUpload.append('file', photoBlob, 'visitor.jpg');
+                // For now, we'll use base64 in the API (Supabase Storage integration can be added later)
+                photoUrl = formData.photo_url;
+            }
+
+            const response = await fetch(`/api/vms/${propertyId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category,
+                    name: formData.name,
+                    mobile: formData.mobile ? `+91${formData.mobile}` : null,
+                    coming_from: formData.coming_from,
+                    whom_to_meet: formData.whom_to_meet,
+                    photo_url: photoUrl,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Check-in failed');
+            }
+
+            setVisitorId(data.visitor_id);
+            setStep('success');
+        } catch (err: any) {
+            console.error('Check-in error:', err);
+            setError(err.message || 'Failed to check in. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleCheckout = async () => {
+        if (!checkoutId) {
+            setError('Please enter your Visitor ID');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError('');
+
+        try {
+            const response = await fetch(`/api/vms/${propertyId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visitor_id: checkoutId }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Check-out failed');
+            }
+
+            setCheckoutName(data.visitor?.name || 'Visitor');
+            setStep('checkout_success');
+        } catch (err: any) {
+            console.error('Check-out error:', err);
+            setError(err.message || 'Visitor ID not found. Please check and try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // HOME SCREEN
+    if (step === 'home') {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8">
+                <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
+                    <div className="text-center mb-10">
+                        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <User className="w-8 h-8 text-white" />
+                        </div>
+                        <h1 className="text-xl font-black text-slate-900 uppercase tracking-wider">Visitor Management</h1>
+                        <p className="text-slate-500 font-medium mt-1">{propertyName}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => setStep('category')}
+                            className="flex flex-col items-center justify-center p-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl transition-all shadow-lg shadow-emerald-200 active:scale-95"
+                        >
+                            <LogIn className="w-10 h-10 mb-2" />
+                            <span className="text-2xl font-black">IN</span>
+                        </button>
+                        <button
+                            onClick={() => setStep('checkout')}
+                            className="flex flex-col items-center justify-center p-8 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl transition-all shadow-lg shadow-rose-200 active:scale-95"
+                        >
+                            <LogOut className="w-10 h-10 mb-2" />
+                            <span className="text-2xl font-black">OUT</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // CATEGORY SELECTION
+    if (step === 'category') {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8">
+                <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
+                    <button
+                        onClick={() => setStep('home')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-6"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
+
+                    <h2 className="text-xl font-black text-slate-900 mb-6 text-center">Select Category</h2>
+
+                    <div className="space-y-3 mb-8">
+                        {[
+                            { id: 'visitor', label: 'Visitor', icon: User, color: 'bg-blue-500', desc: 'General visitor' },
+                            { id: 'vendor', label: 'Vendor', icon: Truck, color: 'bg-orange-500', desc: 'Delivery or service' },
+                            { id: 'other', label: 'Other', icon: Building2, color: 'bg-slate-500', desc: 'Interview, meeting, etc.' },
+                        ].map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setCategory(cat.id as Category)}
+                                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${category === cat.id
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-slate-100 hover:border-slate-200'
+                                    }`}
+                            >
+                                <div className={`w-12 h-12 ${cat.color} rounded-xl flex items-center justify-center text-white`}>
+                                    <cat.icon className="w-6 h-6" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-slate-900">{cat.label}</p>
+                                    <p className="text-xs text-slate-400">{cat.desc}</p>
+                                </div>
+                                {category === cat.id && (
+                                    <Check className="w-5 h-5 text-indigo-600 ml-auto" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={() => setStep('form')}
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black flex items-center justify-center gap-2 transition-all"
+                    >
+                        Continue <ArrowRight className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // VISITOR FORM
+    if (step === 'form') {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <button
+                        onClick={() => setStep('category')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-4"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
+
+                    <h2 className="text-xl font-black text-slate-900 mb-6">Visitor Form</h2>
+
+                    {error && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-xl mb-4 text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                Name *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="Enter your full name"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-indigo-500 focus:ring-0 transition-colors"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                Mobile
+                            </label>
+                            <div className="flex">
+                                <span className="px-3 py-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-slate-500 font-medium">
+                                    +91
+                                </span>
+                                <input
+                                    type="tel"
+                                    value={formData.mobile}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                                    placeholder="10 digit number"
+                                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-r-xl text-slate-900 font-medium focus:border-indigo-500 focus:ring-0 transition-colors"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                Coming From
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.coming_from}
+                                onChange={(e) => setFormData(prev => ({ ...prev, coming_from: e.target.value }))}
+                                placeholder="Company or address"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-indigo-500 focus:ring-0 transition-colors"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                Whom to Meet *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.whom_to_meet}
+                                onChange={(e) => setFormData(prev => ({ ...prev, whom_to_meet: e.target.value }))}
+                                placeholder="Person or department"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-indigo-500 focus:ring-0 transition-colors"
+                            />
+                        </div>
+
+                        {/* Camera */}
+                        <div className="pt-4">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">
+                                Capture Photo
+                            </label>
+                            {formData.photo_url ? (
+                                <div className="flex flex-col items-center">
+                                    <img
+                                        src={formData.photo_url}
+                                        alt="Visitor"
+                                        className="w-32 h-40 object-cover rounded-xl border-2 border-emerald-500 mb-2"
+                                    />
+                                    <button
+                                        onClick={() => setFormData(prev => ({ ...prev, photo_url: '' }))}
+                                        className="text-sm text-slate-500 hover:text-slate-700"
+                                    >
+                                        Retake
+                                    </button>
+                                </div>
+                            ) : (
+                                <CameraCapture onCapture={handlePhotoCapture} />
+                            )}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleCheckin}
+                        disabled={isSubmitting || !formData.name || !formData.whom_to_meet}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black mt-6 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    >
+                        {isSubmitting ? (
+                            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <>
+                                <Check className="w-5 h-5" /> Confirm
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // CHECK-IN SUCCESS
+    if (step === 'success') {
+        return (
+            <div className="min-h-screen bg-emerald-600 flex flex-col items-center justify-center p-8 text-white">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center"
+                >
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Check className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-3xl font-black mb-2">Welcome, {formData.name}!</h1>
+                    <p className="text-emerald-100 text-lg mb-8">Your visit has been logged.</p>
+
+                    <div className="bg-white/10 rounded-2xl p-6 mb-8">
+                        <p className="text-sm text-emerald-100 mb-1">Your Visitor ID</p>
+                        <p className="text-4xl font-black tracking-wider">{visitorId}</p>
+                    </div>
+
+                    <p className="text-emerald-100 text-sm mb-4">Please remember this ID for check-out.</p>
+
+                    <button
+                        onClick={resetKiosk}
+                        className="px-8 py-3 bg-white text-emerald-600 rounded-xl font-black hover:bg-emerald-50 transition-all"
+                    >
+                        Done
+                    </button>
+                </motion.div>
+            </div>
+        );
+    }
+
+    // CHECKOUT SCREEN
+    if (step === 'checkout') {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8">
+                <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
+                    <button
+                        onClick={() => setStep('home')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-6"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
+
+                    <h2 className="text-xl font-black text-slate-900 mb-6 text-center">Visitor Check-Out</h2>
+
+                    {error && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-xl mb-4 text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="mb-6">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            Enter Visitor ID
+                        </label>
+                        <input
+                            type="text"
+                            value={checkoutId}
+                            onChange={(e) => setCheckoutId(e.target.value.toUpperCase())}
+                            placeholder="e.g., PROP-00123"
+                            className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-bold text-lg text-center tracking-wider focus:border-rose-500 focus:ring-0 transition-colors"
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleCheckout}
+                        disabled={isSubmitting || !checkoutId}
+                        className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    >
+                        {isSubmitting ? (
+                            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <>
+                                <LogOut className="w-5 h-5" /> OUT
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // CHECKOUT SUCCESS
+    if (step === 'checkout_success') {
+        return (
+            <div className="min-h-screen bg-rose-500 flex flex-col items-center justify-center p-8 text-white">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center"
+                >
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <LogOut className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-3xl font-black mb-2">Goodbye, {checkoutName}!</h1>
+                    <p className="text-rose-100 text-lg mb-8">Your visit has been completed.</p>
+
+                    <button
+                        onClick={resetKiosk}
+                        className="px-8 py-3 bg-white text-rose-600 rounded-xl font-black hover:bg-rose-50 transition-all"
+                    >
+                        Done
+                    </button>
+                </motion.div>
+            </div>
+        );
+    }
+
+    return null;
+};
+
+export default VMSKiosk;

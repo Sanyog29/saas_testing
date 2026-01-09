@@ -1,0 +1,190 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
+
+// POST: Check-in a visitor
+export async function POST(
+    request: NextRequest,
+    { params }: { params: Promise<{ propertyId: string }> }
+) {
+    const { propertyId } = await params;
+    const supabase = await createClient();
+    const body = await request.json();
+
+    try {
+        // Get property and org info
+        const { data: property, error: propError } = await supabase
+            .from('properties')
+            .select('organization_id, code')
+            .eq('id', propertyId)
+            .single();
+
+        if (propError || !property) {
+            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+        }
+
+        // Generate visitor ID using database function
+        const { data: visitorIdData, error: idError } = await supabase
+            .rpc('generate_visitor_id', { p_property_id: propertyId });
+
+        if (idError) {
+            console.error('Error generating visitor ID:', idError);
+            return NextResponse.json({ error: 'Failed to generate visitor ID' }, { status: 500 });
+        }
+
+        const visitorId = visitorIdData;
+
+        // Insert visitor log
+        const { data: visitor, error: insertError } = await supabase
+            .from('visitor_logs')
+            .insert({
+                property_id: propertyId,
+                organization_id: property.organization_id,
+                visitor_id: visitorId,
+                category: body.category,
+                name: body.name,
+                mobile: body.mobile || null,
+                coming_from: body.coming_from || null,
+                whom_to_meet: body.whom_to_meet,
+                photo_url: body.photo_url || null,
+                checkin_time: new Date().toISOString(),
+                status: 'checked_in',
+            })
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error('Error creating visitor log:', insertError);
+            return NextResponse.json({ error: insertError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            visitor_id: visitorId,
+            message: `Welcome ${body.name}! Your visit is logged.`,
+            visitor,
+        }, { status: 201 });
+    } catch (err) {
+        console.error('Check-in error:', err);
+        return NextResponse.json({ error: 'Check-in failed' }, { status: 500 });
+    }
+}
+
+// GET: List visitors for a property
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ propertyId: string }> }
+) {
+    const { propertyId } = await params;
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+
+    const status = searchParams.get('status'); // 'checked_in' | 'checked_out' | 'all'
+    const date = searchParams.get('date'); // 'today' | 'week' | specific date
+    const search = searchParams.get('search'); // Visitor ID or name
+
+    let query = supabase
+        .from('visitor_logs')
+        .select('*')
+        .eq('property_id', propertyId)
+        .order('checkin_time', { ascending: false });
+
+    // Apply status filter
+    if (status && status !== 'all') {
+        query = query.eq('status', status);
+    }
+
+    // Apply date filter
+    if (date === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        query = query.gte('checkin_time', today.toISOString());
+    } else if (date === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('checkin_time', weekAgo.toISOString());
+    } else if (date) {
+        const startDate = new Date(date);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(date);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.gte('checkin_time', startDate.toISOString()).lte('checkin_time', endDate.toISOString());
+    }
+
+    // Apply search filter
+    if (search) {
+        query = query.or(`visitor_id.ilike.%${search}%,name.ilike.%${search}%`);
+    }
+
+    const { data, error } = await query.limit(100);
+
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Calculate stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayVisitors = data?.filter(v => new Date(v.checkin_time) >= today) || [];
+    const checkedIn = todayVisitors.filter(v => v.status === 'checked_in').length;
+    const checkedOut = todayVisitors.filter(v => v.status === 'checked_out').length;
+
+    return NextResponse.json({
+        visitors: data,
+        stats: {
+            total_today: todayVisitors.length,
+            checked_in: checkedIn,
+            checked_out: checkedOut,
+        },
+    });
+}
+
+// PATCH: Check-out a visitor
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ propertyId: string }> }
+) {
+    const { propertyId } = await params;
+    const supabase = await createClient();
+    const body = await request.json();
+
+    if (!body.visitor_id) {
+        return NextResponse.json({ error: 'Visitor ID is required' }, { status: 400 });
+    }
+
+    // Find visitor
+    const { data: visitor, error: findError } = await supabase
+        .from('visitor_logs')
+        .select('*')
+        .eq('visitor_id', body.visitor_id)
+        .eq('property_id', propertyId)
+        .single();
+
+    if (findError || !visitor) {
+        return NextResponse.json({ error: 'Visitor not found' }, { status: 404 });
+    }
+
+    if (visitor.status === 'checked_out') {
+        return NextResponse.json({ error: 'Visitor already checked out' }, { status: 400 });
+    }
+
+    // Update checkout time
+    const { data, error } = await supabase
+        .from('visitor_logs')
+        .update({
+            checkout_time: new Date().toISOString(),
+            status: 'checked_out',
+        })
+        .eq('id', visitor.id)
+        .select()
+        .single();
+
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+        success: true,
+        message: `Goodbye ${visitor.name}! Your visit has been logged.`,
+        visitor: data,
+    });
+}

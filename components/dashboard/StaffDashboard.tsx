@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle,
-    LogOut, Bell, Settings, Search, Filter, UserCircle, Coffee
+    LogOut, Bell, Settings, Search, Filter, UserCircle, Coffee, Fuel
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import SignOutModal from '@/components/ui/SignOutModal';
+import DieselStaffDashboard from '@/components/diesel/DieselStaffDashboard';
 
 // Types
-type Tab = 'overview' | 'requests' | 'cafeteria' | 'settings' | 'profile';
+type Tab = 'overview' | 'requests' | 'diesel' | 'cafeteria' | 'settings' | 'profile';
 
 interface Property {
     id: string;
@@ -144,6 +145,16 @@ const StaffDashboard = () => {
                         </p>
                         <div className="space-y-1">
                             <button
+                                onClick={() => setActiveTab('diesel')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'diesel'
+                                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                                    : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <Fuel className="w-4 h-4" />
+                                Diesel Logger
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('cafeteria')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'cafeteria'
                                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
@@ -223,6 +234,7 @@ const StaffDashboard = () => {
                     >
                         {activeTab === 'overview' && <OverviewTab />}
                         {activeTab === 'requests' && <RequestsTab />}
+                        {activeTab === 'diesel' && <DieselStaffDashboard />}
                         {activeTab === 'cafeteria' && (
                             <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm">
                                 <Coffee className="w-16 h-16 text-slate-300 mx-auto mb-4" />

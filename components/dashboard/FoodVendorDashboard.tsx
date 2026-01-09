@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import {
     IndianRupee, LogOut, CheckCircle2, LayoutDashboard,
-    FileDown, Clock, Store, Percent, Wallet, ChevronRight, X
+    FileDown, Clock, Store, Percent, Wallet, ChevronRight, X, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import SignOutModal from '@/components/ui/SignOutModal';
+import VendorExportModal from '@/components/vendor/VendorExportModal';
 
 // Types
 type ViewState = 'entry' | 'already_submitted' | 'dashboard';
@@ -20,6 +21,17 @@ interface VendorProfile {
     commission_rate: number;
     property_id: string;
     property_name?: string;
+}
+
+interface CommissionCycle {
+    id: string;
+    cycle_number: number;
+    cycle_start: string;
+    cycle_end: string;
+    total_revenue: number;
+    commission_rate: number;
+    commission_due: number;
+    status: string;
 }
 
 const FoodVendorDashboard = () => {
@@ -35,7 +47,11 @@ const FoodVendorDashboard = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [revenue, setRevenue] = useState('');
     const [vendor, setVendor] = useState<VendorProfile | null>(null);
+    const [currentCycle, setCurrentCycle] = useState<CommissionCycle | null>(null);
     const [showSignOutModal, setShowSignOutModal] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [activeTab, setActiveTab] = useState<'portal' | 'history'>('portal');
     const [todayDate] = useState(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }));
 
     useEffect(() => {
@@ -47,7 +63,7 @@ const FoodVendorDashboard = () => {
     const initializeDashboard = async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch Vendor Profile (Assumed table structure)
+            // 1. Fetch Vendor Profile
             const { data: vendorData, error: vendorError } = await supabase
                 .from('vendors')
                 .select('*, properties(name)')
@@ -67,9 +83,21 @@ const FoodVendorDashboard = () => {
                 property_name: vendorData.properties?.name
             });
 
-            // 2. Check today's entry
+            // 2. Fetch current commission cycle
+            const { data: cycleData } = await supabase
+                .from('commission_cycles')
+                .select('*')
+                .eq('vendor_id', vendorData.id)
+                .eq('status', 'in_progress')
+                .single();
+
+            if (cycleData) {
+                setCurrentCycle(cycleData);
+            }
+
+            // 3. Check today's entry
             const todayStr = new Date().toISOString().split('T')[0];
-            const { data: entryData, error: entryError } = await supabase
+            const { data: entryData } = await supabase
                 .from('vendor_daily_revenue')
                 .select('id')
                 .eq('vendor_id', vendorData.id)
@@ -93,19 +121,28 @@ const FoodVendorDashboard = () => {
 
         setIsSubmitting(true);
         try {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const { error } = await supabase
-                .from('vendor_daily_revenue')
-                .insert({
+            const response = await fetch(`/api/properties/${propertyId}/vendor-revenue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     vendor_id: vendor?.id,
-                    property_id: propertyId,
                     revenue_amount: Number(revenue),
-                    entry_date: todayStr
-                });
+                }),
+            });
 
-            if (error) throw error;
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (data.alreadySubmitted) {
+                    setViewState('already_submitted');
+                    return;
+                }
+                throw new Error(data.error);
+            }
 
             setViewState('already_submitted');
+            // Refresh cycle data
+            initializeDashboard();
         } catch (err) {
             console.error('Submission error:', err);
             alert('Failed to record revenue. Please try again.');
@@ -114,23 +151,72 @@ const FoodVendorDashboard = () => {
         }
     };
 
-    const handleExport = () => {
-        const headers = ['Date', 'Vendor', 'Shop', 'Property', 'Revenue', 'Commission %', 'Commission Amount'];
-        const rows = [
-            [todayDate, user?.email, vendor?.shop_name, vendor?.property_name, revenue || '0', vendor?.commission_rate + '%', (Number(revenue) * (vendor?.commission_rate || 0) / 100).toFixed(2)]
-        ];
+    const handleExport = async (options: any) => {
+        setIsExporting(true);
+        try {
+            const params = new URLSearchParams({
+                vendorId: vendor?.id || '',
+                format: options.format,
+            });
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+            if (options.period === 'today') {
+                const today = new Date().toISOString().split('T')[0];
+                params.append('startDate', today);
+                params.append('endDate', today);
+            } else if (options.period === 'month') {
+                const monthStart = new Date();
+                monthStart.setDate(1);
+                params.append('startDate', monthStart.toISOString().split('T')[0]);
+                params.append('endDate', new Date().toISOString().split('T')[0]);
+            } else if (options.period === 'year') {
+                const yearStart = new Date();
+                yearStart.setMonth(0, 1);
+                params.append('startDate', yearStart.toISOString().split('T')[0]);
+                params.append('endDate', new Date().toISOString().split('T')[0]);
+            } else if (options.startDate && options.endDate) {
+                params.append('startDate', options.startDate);
+                params.append('endDate', options.endDate);
+            }
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `revenue_report_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            const response = await fetch(`/api/properties/${propertyId}/vendor-export?${params}`);
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `revenue_export.${options.format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            setShowExportModal(false);
+        } catch (err) {
+            console.error('Export error:', err);
+            alert('Export failed. Please try again.');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Calculate cycle progress
+    const getCycleDay = () => {
+        if (!currentCycle) return { day: 1, total: 15 };
+        const start = new Date(currentCycle.cycle_start);
+        const today = new Date();
+        const diffTime = today.getTime() - start.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        return { day: Math.min(diffDays, 15), total: 15 };
+    };
+
+    const getDaysRemaining = () => {
+        if (!currentCycle) return 15;
+        const end = new Date(currentCycle.cycle_end);
+        const today = new Date();
+        const diffTime = end.getTime() - today.getTime();
+        return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     };
 
     if (isLoading) return (
@@ -224,7 +310,7 @@ const FoodVendorDashboard = () => {
                                 onClick={() => setViewState('dashboard')}
                                 className="w-full bg-white text-indigo-600 py-5 rounded-2xl font-black text-lg hover:bg-indigo-50 transition-all shadow-lg"
                             >
-                                View Portal
+                                View Dashboard
                             </button>
                             <button
                                 onClick={signOut}
@@ -239,7 +325,10 @@ const FoodVendorDashboard = () => {
         );
     }
 
-    // MINIMAL DASHBOARD (Step 3 from PRD)
+    // MINIMAL DASHBOARD (Step 3 from PRD) - ENHANCED with live data
+    const cycleProgress = getCycleDay();
+    const daysRemaining = getDaysRemaining();
+
     return (
         <div className="min-h-screen bg-[#F8F9FC] flex font-inter text-slate-900">
             {/* Sidebar (Very Minimal) */}
@@ -255,12 +344,24 @@ const FoodVendorDashboard = () => {
                 </div>
 
                 <nav className="flex-1 space-y-2">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm">
+                    <button
+                        onClick={() => setActiveTab('portal')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'portal'
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
                         <LayoutDashboard className="w-4 h-4" />
                         Portal
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all">
-                        <Clock className="w-4 h-4" />
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'history'
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        <History className="w-4 h-4" />
                         History
                     </button>
                 </nav>
@@ -298,21 +399,25 @@ const FoodVendorDashboard = () => {
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Commission Cycle</p>
-                                <h3 className="text-2xl font-black">Day 8 <span className="text-slate-500">/ 15</span></h3>
+                                <h3 className="text-2xl font-black">Day {cycleProgress.day} <span className="text-slate-500">/ {cycleProgress.total}</span></h3>
                             </div>
                             <div className="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">
-                                Due in 7 Days
+                                Due in {daysRemaining} Days
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-8 mt-8">
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue so far</p>
-                                <p className="text-2xl font-black text-white">₹1,24,500</p>
+                                <p className="text-2xl font-black text-white">
+                                    ₹{(currentCycle?.total_revenue || 0).toLocaleString('en-IN')}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Commission Accrued</p>
-                                <p className="text-2xl font-black text-emerald-400">₹12,450</p>
+                                <p className="text-2xl font-black text-emerald-400">
+                                    ₹{(currentCycle?.commission_due || 0).toLocaleString('en-IN')}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -324,7 +429,7 @@ const FoodVendorDashboard = () => {
                         Pay Commission
                     </button>
                     <button
-                        onClick={handleExport}
+                        onClick={() => setShowExportModal(true)}
                         className="px-8 py-4 bg-white border border-slate-100 text-slate-600 rounded-2xl font-black flex items-center gap-2 hover:bg-slate-50 transition-all"
                     >
                         <FileDown className="w-5 h-5" />
@@ -337,6 +442,13 @@ const FoodVendorDashboard = () => {
                 isOpen={showSignOutModal}
                 onClose={() => setShowSignOutModal(false)}
                 onConfirm={signOut}
+            />
+
+            <VendorExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                onExport={handleExport}
+                isExporting={isExporting}
             />
         </div>
     );

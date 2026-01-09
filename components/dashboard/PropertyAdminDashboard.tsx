@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, Ticket, Settings, UserCircle, UsersRound,
     Search, Plus, Filter, Bell, LogOut, ChevronRight, MapPin, Building2,
-    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown
+    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown, Fuel, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -12,9 +12,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import UserDirectory from './UserDirectory';
 import SignOutModal from '@/components/ui/SignOutModal';
+import DieselAnalyticsDashboard from '@/components/diesel/DieselAnalyticsDashboard';
+import VendorExportModal from '@/components/vendor/VendorExportModal';
+import VMSAdminDashboard from '@/components/vms/VMSAdminDashboard';
 
 // Types
-type Tab = 'overview' | 'requests' | 'users' | 'visitors' | 'cafeteria' | 'settings' | 'profile' | 'units' | 'vendor_revenue';
+type Tab = 'overview' | 'requests' | 'users' | 'visitors' | 'diesel' | 'cafeteria' | 'settings' | 'profile' | 'units' | 'vendor_revenue';
 
 interface Property {
     id: string;
@@ -176,6 +179,16 @@ const PropertyAdminDashboard = () => {
                                 Units
                             </button>
                             <button
+                                onClick={() => setActiveTab('diesel')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'diesel'
+                                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                                    : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <Fuel className="w-4 h-4" />
+                                Diesel Analytics
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('cafeteria')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'cafeteria'
                                     ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
@@ -294,12 +307,8 @@ const PropertyAdminDashboard = () => {
                                 <p className="text-slate-500 font-inter not-italic font-medium">Requests module loading...</p>
                             </div>
                         )}
-                        {activeTab === 'visitors' && (
-                            <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
-                                <UsersRound className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                                <h3 className="text-xl font-bold text-slate-900 mb-2 font-inter not-italic">Visitor Management</h3>
-                                <p className="text-slate-500 font-inter not-italic font-medium">Visitor tracking system coming soon.</p>
-                            </div>
+                        {activeTab === 'visitors' && property && (
+                            <VMSAdminDashboard propertyId={property.id} />
                         )}
                         {activeTab === 'units' && (
                             <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
@@ -308,6 +317,7 @@ const PropertyAdminDashboard = () => {
                                 <p className="text-slate-500 font-inter not-italic font-medium">Unit inventory management loading...</p>
                             </div>
                         )}
+                        {activeTab === 'diesel' && <DieselAnalyticsDashboard />}
                         {activeTab === 'cafeteria' && (
                             <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
                                 <Coffee className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -435,6 +445,8 @@ const InspectionItem = ({ date, unit, status }: any) => (
 const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
     const [vendors, setVendors] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const supabase = createClient();
 
     useEffect(() => {
@@ -465,55 +477,100 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
         }
     };
 
-    const handleExportAll = () => {
-        const headers = ['Shop Name', 'Owner', 'Property', 'Commission %', 'Revenue', 'Commission Due'];
-        const rows = vendors.map(v => {
-            const rev = v.vendor_daily_revenue?.find((r: any) => r.entry_date === new Date().toISOString().split('T')[0])?.revenue_amount || 0;
-            const comm = (rev * (v.commission_rate / 100)).toFixed(2);
-            return [v.shop_name, v.owner_name, propertyId, v.commission_rate + '%', rev, comm];
-        });
+    const handleExport = async (options: any) => {
+        setIsExporting(true);
+        try {
+            const params = new URLSearchParams({ format: options.format });
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+            if (options.period === 'today') {
+                const today = new Date().toISOString().split('T')[0];
+                params.append('startDate', today);
+                params.append('endDate', today);
+            } else if (options.period === 'month') {
+                const monthStart = new Date();
+                monthStart.setDate(1);
+                params.append('startDate', monthStart.toISOString().split('T')[0]);
+                params.append('endDate', new Date().toISOString().split('T')[0]);
+            } else if (options.period === 'year') {
+                const yearStart = new Date();
+                yearStart.setMonth(0, 1);
+                params.append('startDate', yearStart.toISOString().split('T')[0]);
+                params.append('endDate', new Date().toISOString().split('T')[0]);
+            } else if (options.startDate && options.endDate) {
+                params.append('startDate', options.startDate);
+                params.append('endDate', options.endDate);
+            }
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `property_revenue_${propertyId}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            const response = await fetch(`/api/properties/${propertyId}/vendor-export?${params}`);
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vendor_revenue_export.${options.format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            setShowExportModal(false);
+        } catch (err) {
+            console.error('Export error:', err);
+            alert('Export failed. Please try again.');
+        } finally {
+            setIsExporting(false);
+        }
     };
+
+    // Calculate pending payments (vendors who haven't submitted today)
+    const today = new Date().toISOString().split('T')[0];
+    const pendingCount = vendors.filter(v =>
+        !v.vendor_daily_revenue?.some((r: any) => r.entry_date === today)
+    ).length;
+
+    const totalRevenue = vendors.reduce((acc, v) =>
+        acc + (v.vendor_daily_revenue?.find((r: any) => r.entry_date === today)?.revenue_amount || 0), 0
+    );
+
+    const totalCommission = vendors.reduce((acc, v) => {
+        const rev = v.vendor_daily_revenue?.find((r: any) => r.entry_date === today)?.revenue_amount || 0;
+        return acc + (rev * (v.commission_rate / 100));
+    }, 0);
 
     if (isLoading) return <div className="p-12 text-center text-slate-400 font-bold">Loading Revenue Data...</div>;
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard
                     title="Total Revenue (Today)"
-                    value={`₹${vendors.reduce((acc, v) => acc + (v.vendor_daily_revenue?.find((r: any) => r.entry_date === new Date().toISOString().split('T')[0])?.revenue_amount || 0), 0).toLocaleString()}`}
+                    value={`₹${totalRevenue.toLocaleString('en-IN')}`}
                     icon={IndianRupee}
                     color="text-blue-600"
                     bg="bg-blue-50"
                 />
                 <StatCard
-                    title="Expected Commission"
-                    value={`₹${vendors.reduce((acc, v) => {
-                        const rev = v.vendor_daily_revenue?.find((r: any) => r.entry_date === new Date().toISOString().split('T')[0])?.revenue_amount || 0;
-                        return acc + (rev * (v.commission_rate / 100));
-                    }, 0).toLocaleString()}`}
+                    title="Total Commission"
+                    value={`₹${totalCommission.toLocaleString('en-IN')}`}
                     icon={Calendar}
                     color="text-emerald-600"
                     bg="bg-emerald-50"
                 />
                 <StatCard
-                    title="Active Vendors"
-                    value={vendors.length.toString()}
-                    icon={Users}
+                    title="Pending Entries"
+                    value={pendingCount.toString()}
+                    icon={Clock}
                     color="text-amber-600"
                     bg="bg-amber-50"
+                />
+                <StatCard
+                    title="Active Vendors"
+                    value={vendors.length.toString()}
+                    icon={Store}
+                    color="text-indigo-600"
+                    bg="bg-indigo-50"
                 />
             </div>
 
@@ -524,10 +581,10 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
                         <p className="text-slate-500 text-xs font-medium mt-1">Real-time revenue tracking per vendor.</p>
                     </div>
                     <button
-                        onClick={handleExportAll}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-900 border border-slate-200 rounded-xl text-sm font-black hover:bg-slate-200 transition-all"
+                        onClick={() => setShowExportModal(true)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all"
                     >
-                        <FileDown className="w-4 h-4" /> Export All
+                        <FileDown className="w-4 h-4" /> Export
                     </button>
                 </div>
 
@@ -549,7 +606,7 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
                                 </tr>
                             ) : (
                                 vendors.map((vendor) => {
-                                    const todayRevenue = vendor.vendor_daily_revenue?.find((r: any) => r.entry_date === new Date().toISOString().split('T')[0])?.revenue_amount || 0;
+                                    const todayRevenue = vendor.vendor_daily_revenue?.find((r: any) => r.entry_date === today)?.revenue_amount || 0;
                                     const commission = (todayRevenue * (vendor.commission_rate / 100)).toFixed(2);
 
                                     return (
@@ -567,18 +624,18 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
                                             </td>
                                             <td className="px-8 py-5 text-right">
                                                 <p className={`font-black text-sm ${todayRevenue > 0 ? 'text-slate-900' : 'text-slate-300'}`}>
-                                                    ₹{todayRevenue.toLocaleString()}
+                                                    ₹{todayRevenue.toLocaleString('en-IN')}
                                                 </p>
                                             </td>
                                             <td className="px-8 py-5 text-right text-emerald-600 font-black text-sm">
-                                                ₹{Number(commission).toLocaleString()}
+                                                ₹{Number(commission).toLocaleString('en-IN')}
                                             </td>
                                             <td className="px-8 py-5 text-center">
                                                 <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${todayRevenue > 0
                                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                     : 'bg-amber-50 text-amber-600 border-amber-100'
                                                     }`}>
-                                                    {todayRevenue > 0 ? 'Submitted' : 'Pending Entry'}
+                                                    {todayRevenue > 0 ? 'Paid' : 'Pending'}
                                                 </span>
                                             </td>
                                         </tr>
@@ -589,6 +646,13 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
                     </table>
                 </div>
             </div>
+
+            <VendorExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                onExport={handleExport}
+                isExporting={isExporting}
+            />
         </div>
     );
 };
