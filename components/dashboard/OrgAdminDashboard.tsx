@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
+import { HapticCard } from '@/components/ui/HapticCard';
 
 // Types
 type Tab = 'overview' | 'properties' | 'users' | 'tickets' | 'settings';
@@ -380,19 +381,22 @@ const OrgAdminDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 ml-72 p-8 lg:p-12 overflow-y-auto min-h-screen">
-                <header className="flex justify-between items-center mb-10">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight capitalize">{activeTab}</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Manage your organization's resources.</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="hidden md:flex flex-col items-end">
-                            <span className="text-sm font-black text-slate-900 tracking-tight">System Status</span>
-                            <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Online</span>
+            <main className={`flex-1 ml-72 overflow-y-auto min-h-screen ${activeTab === 'overview' ? '' : 'p-8 lg:p-12'}`}>
+                {/* Only show header for non-overview tabs */}
+                {activeTab !== 'overview' && (
+                    <header className="flex justify-between items-center mb-10">
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight capitalize">{activeTab}</h1>
+                            <p className="text-slate-500 text-sm font-medium mt-1">Manage your organization's resources.</p>
                         </div>
-                    </div>
-                </header>
+                        <div className="flex items-center gap-4">
+                            <div className="hidden md:flex flex-col items-end">
+                                <span className="text-sm font-black text-slate-900 tracking-tight">System Status</span>
+                                <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Online</span>
+                            </div>
+                        </div>
+                    </header>
+                )}
 
                 <AnimatePresence mode="wait">
                     <motion.div
@@ -446,22 +450,303 @@ const OrgAdminDashboard = () => {
 };
 
 // Sub-components
-const OverviewTab = ({ propertiesCount, usersCount }: { propertiesCount: number, usersCount: number }) => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-            <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Total Properties</h3>
-            <p className="text-4xl font-black text-slate-900">{propertiesCount}</p>
+const OverviewTab = ({ propertiesCount, usersCount }: { propertiesCount: number, usersCount: number }) => {
+    const [selectedProperty, setSelectedProperty] = useState('All Properties');
+
+    // Mock data for the dashboard
+    const kpiData = {
+        activeRequests: 96,
+        completed: 118,
+        completionRate: 55.1,
+        totalIn: 124,
+        totalOut: 539
+    };
+
+    const dieselData = {
+        thisMonth: 1269,
+        trend: -36,
+        compared: 'November'
+    };
+
+    const cafeteriaRevenue = {
+        amount: 100000,
+        trend: 49
+    };
+
+    // Fixed energy data to avoid hydration mismatch (no Math.random)
+    const energyData = [45, 72, 58, 89, 34, 67, 90, 45, 78, 52, 85, 60, 73, 88, 42, 65, 80];
+
+    const topPerformers = [
+        { name: 'Vishu Kumar', avatar: 'V' },
+        { name: 'KIRAN K', avatar: 'K' }
+    ];
+
+    const procurementData = [
+        { property: 'Green Oasis Residence', address: '3284 Skyview Lane, WA 68001', spoc: 'Naresh', cost: '6,92,000', views: 1251, status: 'Active' },
+        { property: 'SS Plaza', address: 'Main Street', spoc: 'Raj', cost: '4,50,000', views: 892, status: 'Active' }
+    ];
+
+    return (
+        <div className="min-h-screen">
+            {/* Header Section */}
+            <div className="bg-slate-900 px-8 lg:px-12 py-8 rounded-b-[40px]">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-3xl font-black text-white">Unified Dashboard</h1>
+                        <select
+                            className="bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                            value={selectedProperty}
+                            onChange={(e) => setSelectedProperty(e.target.value)}
+                        >
+                            <option>All Properties</option>
+                            <option>SS Plaza</option>
+                            <option>Green Oasis</option>
+                        </select>
+                        <span className="bg-slate-700 text-white text-xs font-bold px-3 py-1 rounded-lg">{propertiesCount}</span>
+                    </div>
+                    <Search className="w-6 h-6 text-slate-400 cursor-pointer hover:text-white transition-colors" />
+                </div>
+
+                {/* Breadcrumb */}
+                <div className="flex items-center gap-2 mb-6">
+                    <span className="text-yellow-400 text-sm font-bold">Dashboard /Home</span>
+                </div>
+
+                {/* KPI Cards Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {/* Active Requests */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
+                        <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Active Requests</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-black text-green-400">{kpiData.activeRequests}</span>
+                            <span className="text-xs text-white/60 font-bold">7 urgent</span>
+                        </div>
+                    </div>
+
+                    {/* Completed */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
+                        <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Completed</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-black text-white">{kpiData.completed}</span>
+                            <span className="text-xs text-white/60 font-bold">Avg 0m response</span>
+                        </div>
+                    </div>
+
+                    {/* Completion Rate */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
+                        <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Completion Rate</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-black text-white">{kpiData.completionRate}%</span>
+                            <span className="text-xs text-white/60 font-bold">118 of 214 closed</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content Grid - with padding */}
+            <div className="px-8 lg:px-12 py-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column */}
+                    <div className="lg:col-span-3 space-y-6">
+                        {/* Diesel Consumption */}
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-black text-slate-900">Diesel Consumption</h3>
+                            </div>
+                            <div className="text-red-500 text-xs font-bold mb-4">Diesel Management</div>
+
+                            {/* Gauge Placeholder */}
+                            <div className="flex justify-center mb-4">
+                                <div className="w-24 h-24 rounded-full border-8 border-cyan-400 border-t-transparent flex items-center justify-center">
+                                    <span className="text-xs font-bold text-slate-400">Gauge</span>
+                                </div>
+                            </div>
+
+                            <div className="text-slate-400 text-xs font-bold mb-1">This month</div>
+                            <div className="text-3xl font-black text-slate-900 mb-1">1,269 litres</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-rose-500 font-bold text-sm">{dieselData.trend}% ↓</span>
+                            </div>
+                            <div className="text-xs text-emerald-500 font-bold mt-2">
+                                ✓ 49 litres less consumed compared to {dieselData.compared}
+                            </div>
+                        </div>
+
+                        {/* Cafeteria Revenue */}
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                            <h3 className="text-sm font-black text-slate-900 mb-2">Cafeteria Revenue</h3>
+                            <div className="text-slate-400 text-xs font-bold mb-2">November 2025</div>
+                            <div className="text-3xl font-black text-slate-900">₹ 1,00,000</div>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-emerald-500 font-bold text-sm">+{cafeteriaRevenue.trend}% ↑</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Center Column - Property Card */}
+                    <div className="lg:col-span-4">
+                        <div className="bg-yellow-400 rounded-3xl p-6 h-full relative overflow-hidden">
+                            <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center text-white font-bold text-sm">
+                                {propertiesCount}
+                            </div>
+
+                            <h3 className="text-2xl font-black text-slate-900 mb-2">SS Plaza</h3>
+                            <div className="text-red-600 text-sm font-bold mb-6">(Property Name)</div>
+
+                            {/* Building Image Placeholder */}
+                            <div className="bg-yellow-500/50 rounded-2xl h-40 mb-6 flex items-center justify-center">
+                                <Building2 className="w-16 h-16 text-yellow-600" />
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="text-slate-700 text-xs font-bold">Total In</div>
+                                    <div className="text-2xl font-black text-slate-900">{kpiData.totalIn}</div>
+                                </div>
+                                <div>
+                                    <div className="text-slate-700 text-xs font-bold">Total Out</div>
+                                    <div className="text-2xl font-black text-slate-900">{kpiData.totalOut}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="lg:col-span-5 space-y-6">
+                        {/* Top Performers */}
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                            <h3 className="text-sm font-black text-slate-900 mb-4">Top Performers</h3>
+                            <div className="space-y-3">
+                                {topPerformers.map((person, idx) => (
+                                    <div key={idx} className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold">
+                                            {person.avatar}
+                                        </div>
+                                        <span className="font-bold text-slate-900">{person.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <button className="w-full mt-4 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 transition-colors">
+                                Search now
+                            </button>
+                        </div>
+
+                        {/* EB Consumption */}
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-black text-slate-900">EB Consumption (Energy Consumption)</h3>
+                                <div className="flex gap-2 text-xs">
+                                    <button className="px-3 py-1 bg-slate-100 rounded-lg font-bold text-slate-600">Daily</button>
+                                    <button className="px-3 py-1 text-slate-400 font-bold">Monthly</button>
+                                </div>
+                            </div>
+
+                            <div className="text-emerald-500 text-xs font-bold mb-4">
+                                ✓ Energy Consumed logged
+                            </div>
+
+                            <div className="text-slate-600 text-sm mb-2">this month</div>
+                            <div className="flex items-baseline gap-2 mb-4">
+                                <span className="text-xl font-black text-slate-900">125.kwh</span>
+                                <span className="text-emerald-500 text-sm font-bold">more than december</span>
+                            </div>
+
+                            {/* Bar Chart */}
+                            <div className="text-red-500 text-xs font-bold mb-2">(Energy Consumed per day)</div>
+                            <div className="flex items-end gap-1 h-20">
+                                {energyData.map((value, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex-1 bg-yellow-400 rounded-t-sm transition-all hover:bg-yellow-500"
+                                        style={{ height: `${value}%` }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-400 mt-2">
+                                {Array.from({ length: 17 }, (_, i) => (
+                                    <span key={i}>{i + 1}</span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Procurement Dashboard */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mt-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <input type="checkbox" className="w-4 h-4 rounded" />
+                            Procurement Dashboard
+                        </h3>
+                        <div className="flex gap-3">
+                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                                <Search className="w-4 h-4" /> Search
+                            </button>
+                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                                <Filter className="w-4 h-4" /> District
+                            </button>
+                            <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                                <Building2 className="w-4 h-4" /> Property type
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-slate-100">
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Property Name</th>
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">SPOC</th>
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Cost</th>
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Views</th>
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                    <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {procurementData.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50">
+                                        <td className="py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center">
+                                                    <Building2 className="w-6 h-6 text-slate-400" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-slate-900">{item.property}</div>
+                                                    <div className="text-xs text-slate-400">{item.address}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 font-bold text-slate-600">{item.spoc}</td>
+                                        <td className="py-4 font-bold text-slate-900">₹ {item.cost}</td>
+                                        <td className="py-4 font-bold text-slate-600">{item.views} views</td>
+                                        <td className="py-4">
+                                            <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-lg">
+                                                {item.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-4">
+                                            <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                                                <Settings className="w-4 h-4 text-slate-400" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                        <span className="text-sm text-orange-500 font-bold">
+                            (Overview of Ongoing Payment and Procurement Activities)
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-            <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Total Users</h3>
-            <p className="text-4xl font-black text-slate-900">{usersCount}</p>
-        </div>
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-            <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Open Tickets</h3>
-            <p className="text-4xl font-black text-emerald-600">5</p>
-        </div>
-    </div>
-);
+    );
+};
 
 const PropertiesTab = ({ properties, onCreate, onEdit, onDelete }: any) => (
     <div className="space-y-6">

@@ -9,9 +9,10 @@ import { createAdminClient } from '@/utils/supabase/admin';
  */
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: ticketId } = await params;
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -30,7 +31,7 @@ export async function POST(
         const { data: ticket } = await supabase
             .from('tickets')
             .select('id')
-            .eq('id', params.id)
+            .eq('id', ticketId)
             .single();
 
         if (!ticket) {
@@ -51,7 +52,7 @@ export async function POST(
         const { data: newComment, error: insertError } = await supabase
             .from('ticket_comments')
             .insert({
-                ticket_id: params.id,
+                ticket_id: ticketId,
                 user_id: user.id,
                 comment,
                 is_internal: finalIsInternal
@@ -82,9 +83,10 @@ export async function POST(
  */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: ticketId } = await params;
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -98,7 +100,7 @@ export async function GET(
         *,
         user:users(id, full_name, email)
       `)
-            .eq('ticket_id', params.id)
+            .eq('ticket_id', ticketId)
             .order('created_at', { ascending: true });
 
         if (fetchError) {

@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import OrgPropertyDashboard from './OrgPropertyDashboard';
 import TicketsView from './TicketsView';
 import InviteLinkGenerator from './InviteLinkGenerator';
+import { HapticCard } from '@/components/ui/HapticCard';
 
 type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'invite-links' | 'modules' | 'settings';
 
@@ -413,75 +414,204 @@ const MasterAdminDashboard = () => {
     );
 };
 
-// Sub-component: Overview Grid
-const OverviewGrid = () => (
-    <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-                { label: 'Licensed Entities', value: '1,284', icon: Building2, trend: '+12%', color: 'text-blue-600', bg: 'bg-blue-50' },
-                { label: 'Active Sessions', value: '45,092', icon: Activity, trend: 'LIVE', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                { label: 'Security Alerts', value: '0', icon: ShieldCheck, trend: 'SAFE', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                { label: 'Pending Deletions', value: '3', icon: Trash2, trend: 'COOLED', color: 'text-rose-600', bg: 'bg-rose-50' },
-            ].map((stat, i) => (
-                <div key={i} className="bg-white px-6 py-7 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="flex justify-between items-start mb-6">
-                        <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center`}>
-                            <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                        </div>
-                        <span className="text-[11px] font-black bg-slate-50 text-slate-400 px-2 py-1 rounded-lg uppercase tracking-wider">{stat.trend}</span>
+// Sub-component: Overview Grid with Haptic Hover
+const OverviewGrid = () => {
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [reducedMotion, setReducedMotion] = useState(false);
+
+    // Detect prefers-reduced-motion
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        setReducedMotion(mediaQuery.matches);
+        const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+        mediaQuery.addEventListener('change', handler);
+        return () => mediaQuery.removeEventListener('change', handler);
+    }, []);
+
+    const kpiStats = [
+        {
+            id: 'licensed-entities',
+            label: 'Licensed Entities',
+            value: '1,284',
+            icon: Building2,
+            trend: '+12%',
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            analytics: {
+                title: 'Entity Growth',
+                items: [
+                    { region: 'North America', count: 542, delta: '+8%' },
+                    { region: 'Europe', count: 389, delta: '+15%' },
+                    { region: 'Asia Pacific', count: 353, delta: '+18%' },
+                ]
+            }
+        },
+        {
+            id: 'active-sessions',
+            label: 'Active Sessions',
+            value: '45,092',
+            icon: Activity,
+            trend: 'LIVE',
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+            analytics: {
+                title: 'Session Heatmap',
+                items: [
+                    { time: 'Peak', count: '12:00 - 14:00', delta: '8.2k' },
+                    { time: 'Low', count: '03:00 - 05:00', delta: '1.4k' },
+                    { time: 'Avg Duration', count: '24 min', delta: '+2min' },
+                ]
+            }
+        },
+        {
+            id: 'security-alerts',
+            label: 'Security Alerts',
+            value: '0',
+            icon: ShieldCheck,
+            trend: 'SAFE',
+            color: 'text-indigo-600',
+            bg: 'bg-indigo-50',
+            analytics: {
+                title: 'Threat Timeline',
+                items: [
+                    { label: 'Resolved Today', count: 3, delta: '100%' },
+                    { label: 'Blocked IPs', count: 12, delta: 'Active' },
+                    { label: 'Last Incident', count: '7d ago', delta: 'Resolved' },
+                ]
+            }
+        },
+        {
+            id: 'pending-deletions',
+            label: 'Pending Deletions',
+            value: '3',
+            icon: Trash2,
+            trend: 'COOLED',
+            color: 'text-rose-600',
+            bg: 'bg-rose-50',
+            analytics: {
+                title: 'Deletion Queue',
+                items: [
+                    { name: 'Acme Corp', expires: '23h left', status: 'Pending' },
+                    { name: 'Test Org', expires: '18h left', status: 'Pending' },
+                    { name: 'Demo Ltd', expires: '4h left', status: 'Urgent' },
+                ]
+            }
+        },
+    ];
+
+    return (
+        <div className="space-y-8">
+            <div
+                className="grid gap-6 transition-all duration-500 ease-out"
+                style={{
+                    gridTemplateColumns: expandedId
+                        ? 'repeat(4, minmax(0, 1fr))'
+                        : 'repeat(4, minmax(0, 1fr))'
+                }}
+            >
+                {kpiStats.map((stat) => {
+                    const isExpanded = expandedId === stat.id;
+                    const isSibling = expandedId !== null && !isExpanded;
+
+                    return (
+                        <HapticCard
+                            key={stat.id}
+                            id={stat.id}
+                            isExpanded={isExpanded}
+                            onActivate={setExpandedId}
+                            reducedMotion={reducedMotion}
+                            className={isSibling ? 'opacity-60' : ''}
+                            baseContent={
+                                <>
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center`}>
+                                            <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                        </div>
+                                        <span className="text-[11px] font-black bg-slate-50 text-slate-400 px-2 py-1 rounded-lg uppercase tracking-wider">
+                                            {stat.trend}
+                                        </span>
+                                    </div>
+                                    <p className="text-4xl font-black text-slate-900 mb-1">{stat.value}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                                </>
+                            }
+                            expandedContent={
+                                <div className="pt-4 space-y-3">
+                                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">
+                                        {stat.analytics.title}
+                                    </h4>
+                                    {stat.analytics.items.map((item: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                                            <span className="text-sm font-bold text-slate-700">
+                                                {item.region || item.time || item.label || item.name}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-slate-900">
+                                                    {item.count || item.expires}
+                                                </span>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.status === 'Urgent' ? 'bg-rose-100 text-rose-600' :
+                                                        item.delta?.startsWith('+') ? 'bg-emerald-100 text-emerald-600' :
+                                                            'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                    {item.delta || item.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            }
+                        />
+                    );
+                })}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-slate-900 p-8 rounded-[40px] text-white">
+                    <h3 className="text-2xl font-black mb-6">Regional Performance</h3>
+                    <div className="space-y-6">
+                        {[
+                            { name: 'North America', status: 'Optimal', load: 45 },
+                            { name: 'European Union', status: 'Maintenance', load: 88 },
+                            { name: 'Asia Pacific', status: 'Optimal', load: 12 },
+                        ].map((reg, i) => (
+                            <div key={i} className="space-y-2">
+                                <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
+                                    <span>{reg.name}</span>
+                                    <span className={reg.load > 80 ? 'text-rose-400' : 'text-emerald-400'}>{reg.status}</span>
+                                </div>
+                                <div className="w-full h-1 bg-white/10 rounded-full">
+                                    <div className={`h-full ${reg.load > 80 ? 'bg-rose-400' : 'bg-emerald-400'} rounded-full`} style={{ width: `${reg.load}%` }} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <p className="text-4xl font-black text-slate-900 mb-1">{stat.value}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
                 </div>
-            ))}
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-slate-900 p-8 rounded-[40px] text-white">
-                <h3 className="text-2xl font-black mb-6">Regional Performance</h3>
-                <div className="space-y-6">
-                    {[
-                        { name: 'North America', status: 'Optimal', load: 45 },
-                        { name: 'European Union', status: 'Maintenance', load: 88 },
-                        { name: 'Asia Pacific', status: 'Optimal', load: 12 },
-                    ].map((reg, i) => (
-                        <div key={i} className="space-y-2">
-                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                                <span>{reg.name}</span>
-                                <span className={reg.load > 80 ? 'text-rose-400' : 'text-emerald-400'}>{reg.status}</span>
+                <div className="bg-white border border-slate-100 p-8 rounded-[40px]">
+                    <h3 className="text-2xl font-black text-slate-900 mb-6">System Health</h3>
+                    <div className="space-y-4">
+                        {[
+                            { id: 'AUTH-SV', label: 'Auth Middleware', status: 'Healthy' },
+                            { id: 'DB-IDX', label: 'Global Indexes', status: 'Warning' },
+                            { id: 'OAUTH-API', label: 'OAuth Gateway', status: 'Healthy' }
+                        ].map((svc, i) => (
+                            <div key={i} className="flex items-center justify-between p-4 border border-slate-50 rounded-2xl">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-slate-300 px-2 py-0.5 border border-slate-100 rounded-md uppercase tracking-widest">{svc.id}</span>
+                                    <span className="text-sm font-bold text-slate-800">{svc.label}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${svc.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                    <span className="text-xs font-bold text-slate-500">{svc.status}</span>
+                                </div>
                             </div>
-                            <div className="w-full h-1 bg-white/10 rounded-full">
-                                <div className={`h-full ${reg.load > 80 ? 'bg-rose-400' : 'bg-emerald-400'} rounded-full`} style={{ width: `${reg.load}%` }} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="bg-white border border-slate-100 p-8 rounded-[40px]">
-                <h3 className="text-2xl font-black text-slate-900 mb-6">System Health</h3>
-                <div className="space-y-4">
-                    {[
-                        { id: 'AUTH-SV', label: 'Auth Middleware', status: 'Healthy' },
-                        { id: 'DB-IDX', label: 'Global Indexes', status: 'Warning' },
-                        { id: 'OAUTH-API', label: 'OAuth Gateway', status: 'Healthy' }
-                    ].map((svc, i) => (
-                        <div key={i} className="flex items-center justify-between p-4 border border-slate-50 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black text-slate-300 px-2 py-0.5 border border-slate-100 rounded-md uppercase tracking-widest">{svc.id}</span>
-                                <span className="text-sm font-bold text-slate-800">{svc.label}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className={`w-1.5 h-1.5 rounded-full ${svc.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                <span className="text-xs font-bold text-slate-500">{svc.status}</span>
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 // Sub-component: Organization Management
 const OrganizationsList = ({ organizations, users, isLoading, onSoftDelete, onRestore, onDrillDown }: {

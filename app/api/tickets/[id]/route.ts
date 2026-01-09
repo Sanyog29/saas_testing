@@ -9,9 +9,10 @@ import { createAdminClient } from '@/utils/supabase/admin';
  */
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: ticketId } = await params;
         const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -50,7 +51,7 @@ export async function PATCH(
         const { data: ticket, error: updateError } = await adminClient
             .from('tickets')
             .update(updateData)
-            .eq('id', params.id)
+            .eq('id', ticketId)
             .select(`
         *,
         organization:organizations(id, name, code),
