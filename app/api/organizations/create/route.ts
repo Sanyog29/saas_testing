@@ -4,7 +4,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 
 interface CreateOrgRequest {
     name: string
-    slug: string
+    code: string
     available_modules?: string[]
 }
 
@@ -21,22 +21,22 @@ interface CreateOrgRequest {
 export async function POST(request: NextRequest) {
     try {
         const body: CreateOrgRequest = await request.json()
-        const { name, slug, available_modules = ['ticketing', 'viewer', 'analytics'] } = body
+        const { name, code, available_modules = ['ticketing', 'viewer', 'analytics'] } = body
 
         // Validation
-        if (!name || !slug) {
+        if (!name || !code) {
             return NextResponse.json(
-                { error: 'Missing required fields: name, slug' },
+                { error: 'Missing required fields: name, code' },
                 { status: 400 }
             )
         }
 
-        // Sanitize slug
-        const sanitizedSlug = slug.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+        // Sanitize code
+        const sanitizedCode = code.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
-        if (sanitizedSlug.length < 3) {
+        if (sanitizedCode.length < 3) {
             return NextResponse.json(
-                { error: 'Slug must be at least 3 characters long' },
+                { error: 'Code must be at least 3 characters long' },
                 { status: 400 }
             )
         }
@@ -81,16 +81,16 @@ export async function POST(request: NextRequest) {
         // Generate deletion secret
         const deletionSecret = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
 
-        // Check if slug already exists
+        // Check if code already exists
         const { data: existing } = await adminClient
             .from('organizations')
             .select('id')
-            .eq('slug', sanitizedSlug)
+            .eq('code', sanitizedCode)
             .single()
 
         if (existing) {
             return NextResponse.json(
-                { error: `Organization with slug "${sanitizedSlug}" already exists` },
+                { error: `Organization with code "${sanitizedCode}" already exists` },
                 { status: 409 }
             )
         }
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
             .from('organizations')
             .insert({
                 name,
-                slug: sanitizedSlug,
+                code: sanitizedCode,
                 deletion_secret: deletionSecret,
                 available_modules,
             })
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
             organization: {
                 id: newOrg.id,
                 name: newOrg.name,
-                slug: newOrg.slug,
+                code: newOrg.code,
             },
             deletion_secret: deletionSecret, // Return once for user to save
         })

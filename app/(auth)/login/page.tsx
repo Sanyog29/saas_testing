@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Sparkles, Building2, BarChart3, Ticket, Eye, Lock, Mail, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Sparkles, Building2, BarChart3, Ticket, Eye, EyeOff, Lock, Mail, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -37,6 +37,8 @@ function AuthContent() {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
     const [currentFeature, setCurrentFeature] = useState(0);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const { signIn, signUp, signInWithGoogle, resetPassword, signOut } = useAuth();
     const router = useRouter();
@@ -63,75 +65,73 @@ function AuthContent() {
                     throw new Error('Signup failed to return user data.');
                 }
             } else if (authMode === 'signin') {
-                const { data: { user }, error: signInError } = await signIn(email, password);
-                if (signInError || !user) throw new Error(signInError?.message || 'Login failed');
+                const { data: { user: authUser }, error: signInError } = await signIn(email, password);
+                if (signInError || !authUser) throw new Error(signInError?.message || 'Login failed');
 
-                const { data: authUser, error: authUserError } = await supabase.auth.getUser();
-                if (!authUser?.user || authUserError) throw new Error('Not authenticated');
-                const userId = authUser.user.id;
-
-                /* 1️⃣ Master admin */
-                const { data: profile } = await supabase
+                // ✅ Step 1: Fetch user FIRST (and ONLY user)
+                const { data: userProfile, error: profileError } = await supabase
                     .from('users')
-                    .select('is_master_admin')
-                    .eq('id', userId)
-                    .maybeSingle();
+                    .select('id, is_master_admin')
+                    .eq('id', authUser.id)
+                    .single();
 
-                if (profile?.is_master_admin) {
-                    router.push('/master');
+                if (profileError || !userProfile) {
+                    console.error('Profile fetch error:', profileError);
+                    throw new Error('User profile not found.');
+                }
+
+                // ✅ Step 2: HARD SHORT-CIRCUIT for master admin
+                if (userProfile.is_master_admin) {
+                    router.replace('/master');
                     return;
                 }
 
-                /* 2️⃣ Organization admin */
-                const { data: orgMembership, error: orgMembershipError } = await supabase
+                // ✅ Step 3: Now resolve organization membership (Strictly Org Super Admin first)
+                const { data: orgMembership } = await supabase
                     .from('organization_memberships')
                     .select('organization_id, role')
-                    .eq('user_id', userId)
-                    .eq('is_active', true)
-                    .in('role', ['org_super_admin'])
-                    .maybeSingle();
-
-                if (orgMembershipError) {
-                    console.error('Organization membership check failed:', orgMembershipError);
-                }
+                    .eq('user_id', userProfile.id)
+                    .eq('role', 'org_super_admin')
+                    .is('is_active', true) // Maintaining is_active check for safety
+                    .maybeSingle(); // Changed to maybeSingle to avoid errors if not found
 
                 if (orgMembership) {
-                    router.push(`/org/${orgMembership.organization_id}/dashboard`);
+                    router.replace(`/org/${orgMembership.organization_id}/dashboard`);
                     return;
                 }
 
-                /* 3️⃣ Property admin / staff / tenant */
-                const { data: propertyMembership } = await supabase
+                // ✅ Step 4: Finally resolve property membership
+                const { data: propMembership } = await supabase
                     .from('property_memberships')
-                    .select('property_id, role')
-                    .eq('user_id', userId)
-                    .eq('is_active', true)
+                    .select('property_id, organization_id, role')
+                    .eq('user_id', userProfile.id)
+                    .is('is_active', true) // Maintaining is_active check
                     .maybeSingle();
 
-                if (propertyMembership) {
-                    const role = propertyMembership.role;
-                    const propertyId = propertyMembership.property_id;
+                if (propMembership) {
+                    const role = propMembership.role;
+                    const pId = propMembership.property_id;
 
                     if (role === 'property_admin') {
-                        router.push(`/property/${propertyId}/dashboard`);
-                    } else if (role === 'staff') {
-                        router.push(`/property/${propertyId}/staff`);
+                        router.replace(`/property/${pId}/dashboard`);
                     } else if (role === 'tenant') {
-                        router.push(`/property/${propertyId}/tenant`);
+                        router.replace(`/property/${pId}/tenant`);
                     } else if (role === 'security') {
-                        router.push(`/property/${propertyId}/security`);
+                        router.replace(`/property/${pId}/security`);
+                    } else if (role === 'staff') {
+                        router.replace(`/property/${pId}/staff`);
                     } else if (role === 'mst') {
-                        router.push(`/property/${propertyId}/mst`);
+                        router.replace(`/property/${pId}/mst`);
                     } else if (role === 'vendor') {
-                        router.push(`/property/${propertyId}/vendor`);
+                        router.replace(`/property/${pId}/vendor`);
                     } else {
-                        // Default fallback for unknown roles
-                        router.push(`/property/${propertyId}/dashboard`);
+                        // Fallback for unknown roles
+                        router.replace(`/property/${pId}/dashboard`);
                     }
                     return;
                 }
 
-                /* 4️⃣ Nothing found */
+                /* Nothing found */
                 await signOut();
                 throw new Error(
                     'Your account is not assigned to any organization or property.'
@@ -248,14 +248,54 @@ function AuthContent() {
                                                 <label className="text-sm font-bold text-slate-700">{authMode === 'update-password' ? 'New Password*' : 'Password*'}</label>
                                                 {authMode === 'signin' && (<button type="button" onClick={() => setAuthMode('forgot')} className="text-xs font-bold text-[#0a4d3c] hover:underline">Forgot Password?</button>)}
                                             </div>
-                                            <input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                            <div className="relative">
+                                                <input
+                                                    type={showPassword ? "text" : "password"}
+                                                    placeholder="Enter your password"
+                                                    value={password}
+                                                    onChange={(e) => setPassword(e.target.value)}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50 pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="w-5 h-5" />
+                                                    ) : (
+                                                        <Eye className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
                                     {authMode === 'update-password' && (
                                         <div className="space-y-1">
                                             <label className="text-sm font-bold text-slate-700 ml-1">Confirm New Password*</label>
-                                            <input type="password" placeholder="Confirm your password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50" />
+                                            <div className="relative">
+                                                <input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    placeholder="Confirm your password"
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#0a4d3c] focus:ring-4 focus:ring-emerald-100 outline-none transition-all font-medium bg-slate-50/50 pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                                >
+                                                    {showConfirmPassword ? (
+                                                        <EyeOff className="w-5 h-5" />
+                                                    ) : (
+                                                        <Eye className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 

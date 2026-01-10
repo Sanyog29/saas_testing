@@ -3,7 +3,7 @@ import { Building, Floor, Organization, Property, Space } from "@/types/core";
 export const MOCK_ORG: Organization = {
     id: 'org_001',
     name: 'Autopilot Corp',
-    slug: 'autopilot-corp',
+    code: 'autopilot-corp',
 };
 
 export const MOCK_PROPERTIES: Property[] = [

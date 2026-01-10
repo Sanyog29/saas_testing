@@ -45,7 +45,7 @@ interface OrgUser {
 interface Organization {
     id: string;
     name: string;
-    slug: string;
+    code: string;
     logo_url?: string;
 }
 
@@ -86,33 +86,32 @@ const OrgAdminDashboard = () => {
     const fetchOrgDetails = async () => {
         setIsLoading(true);
         setErrorMsg('');
+
+        // 1. Decode URL param
         const decoded = decodeURIComponent(orgSlugOrId);
 
-        // Try slug first
-        let { data, error } = await supabase
+        // 2. Sanitize ID (Remove spaces/newlines that might have crept in)
+        // This fixes the issue if the URL somehow looks like "uuid part 1 - uuid part 2"
+        const cleanId = decoded.trim().replace(/\s+/g, '');
+
+        console.log(`🔍 [Dashboard] Lookup Org ID: "${cleanId}" (Original: "${decoded}")`);
+
+        // 3. Fetch strict by ID
+        const { data, error } = await supabase
             .from('organizations')
             .select('*')
-            .eq('slug', decoded)
+            .eq('id', cleanId)
             .is('deleted_at', null)
             .maybeSingle();
 
-        // Fallback to ID
-        if (!data || error) {
-            const { data: dataById, error: errorById } = await supabase
-                .from('organizations')
-                .select('*')
-                .eq('id', decoded)
-                .maybeSingle();
-
-            if (dataById) {
-                data = dataById;
-                error = null;
-            }
-        }
-
-        if (error || !data) {
-            setErrorMsg('Organization not found.');
+        if (error) {
+            console.error('❌ [Dashboard] Supabase Error:', error);
+            setErrorMsg(`Access Denied (403) or System Error. ID: ${cleanId}`);
+        } else if (!data) {
+            console.warn('⚠️ [Dashboard] Organization not found in DB.');
+            setErrorMsg(`Organization not found. ID: ${cleanId}`);
         } else {
+            console.log('✅ [Dashboard] Organization found:', data.name);
             setOrg(data);
         }
         setIsLoading(false);

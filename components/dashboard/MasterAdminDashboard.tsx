@@ -62,9 +62,25 @@ const MasterAdminDashboard = () => {
     };
 
     useEffect(() => {
-        fetchOrganizations();
-        fetchUsers();
-    }, []);
+        // Strict Role Check before Data Fetch
+        const initDashboard = async () => {
+            // Re-verify master admin just in case (optional but safe)
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('is_master_admin')
+                .eq('id', user?.id)
+                .single();
+
+            if (userProfile?.is_master_admin) {
+                fetchOrganizations();
+                fetchUsers();
+            }
+        };
+
+        if (user) {
+            initDashboard();
+        }
+    }, [user]);
 
     // We now fetch users on mount to ensure counts are accurate across the dashboard
 
@@ -1063,13 +1079,13 @@ const ModuleConfig = ({ organizations, onUpdateModules }: {
 // Sub-component: Create Organization Modal
 const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void; onCreated: () => void; showToast: (msg: string, type: 'success' | 'error') => void }) => {
     const [name, setName] = useState('');
-    const [slug, setSlug] = useState('');
+    const [code, setCode] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [createdSecret, setCreatedSecret] = useState<string | null>(null);
     const [showSecret, setShowSecret] = useState(false);
 
     const handleCreate = async () => {
-        if (!name || !slug) return;
+        if (!name || !code) return;
 
         setIsCreating(true);
 
@@ -1082,7 +1098,7 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
                 },
                 body: JSON.stringify({
                     name,
-                    slug: slug.toLowerCase().replace(/\s+/g, '-'),
+                    code: code.toLowerCase().replace(/\s+/g, '-'),
                     available_modules: ['ticketing', 'viewer', 'analytics']
                 }),
             });
@@ -1140,7 +1156,7 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
                                 value={name}
                                 onChange={(e) => {
                                     setName(e.target.value);
-                                    setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                                    setCode(e.target.value.toLowerCase().replace(/\s+/g, '-'));
                                 }}
                                 placeholder="e.g. Acme Corporation"
                                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-100"
@@ -1148,11 +1164,11 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700">URL Slug*</label>
+                            <label className="text-sm font-bold text-slate-700">Organization Code*</label>
                             <input
                                 type="text"
-                                value={slug}
-                                onChange={(e) => setSlug(e.target.value)}
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
                                 placeholder="e.g. acme-corp"
                                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-100"
                             />
@@ -1161,7 +1177,7 @@ const CreateOrgModal = ({ onClose, onCreated, showToast }: { onClose: () => void
 
                         <button
                             onClick={handleCreate}
-                            disabled={isCreating || !name || !slug}
+                            disabled={isCreating || !name || !code}
                             className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isCreating ? 'Creating...' : 'Create Organization'}
