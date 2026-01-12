@@ -13,6 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { HapticCard } from '@/components/ui/HapticCard';
 import UserDirectory from './UserDirectory';
 import SignOutModal from '@/components/ui/SignOutModal';
+import Snowfall from '@/components/ui/Snowfall';
 
 // Types
 type Tab = 'overview' | 'properties' | 'requests' | 'users' | 'visitors' | 'cafeteria' | 'settings' | 'profile' | 'revenue';
@@ -316,6 +317,8 @@ const OrgAdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-[#F8F9FC] flex font-inter text-slate-900">
+            {/* Snowfall Effect */}
+            <Snowfall intensity={60} />
             {/* Sidebar */}
             <aside className="w-72 bg-white border-r border-slate-100 flex flex-col fixed h-full z-10 transition-all duration-300">
                 <div className="p-8 pb-4">
