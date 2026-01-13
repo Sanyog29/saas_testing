@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, RefreshCw, ChevronDown, User, X } from 'lucide-react';
+import { AlertTriangle, Clock, RefreshCw, ChevronDown, User, X, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -202,6 +202,22 @@ export default function AdminSPOCDashboard({
         }
     };
 
+    const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this ticket? This action is permanent.')) return;
+
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                fetchData();
+            }
+        } catch (error) {
+            console.error('Error deleting ticket:', error);
+        }
+    };
+
     const waitlistTickets = tickets.filter(t => t.status === 'waitlist' || t.is_vague);
     const slaRiskTickets = tickets.filter(t => {
         if (!t.sla_deadline || t.sla_paused) return false;
@@ -221,9 +237,9 @@ export default function AdminSPOCDashboard({
     });
 
     return (
-        <div className="min-h-full bg-transparent text-slate-900 p-0 lg:p-6">
+        <div className="min-h-full bg-transparent text-slate-900 p-0 lg:p-5">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
                         <User className="w-6 h-6 text-emerald-600" />
@@ -238,9 +254,9 @@ export default function AdminSPOCDashboard({
                 </button>
             </div>
 
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-5">
                 {/* Live Ticket Board */}
-                <div className="col-span-12 lg:col-span-3 bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                <div className="col-span-12 lg:col-span-3 bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
                     <h2 className="text-xs font-black text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-widest">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                         Live Ticket Board
@@ -267,7 +283,13 @@ export default function AdminSPOCDashboard({
                                         >
                                             <td className="py-3 text-slate-500 font-bold">{ticket.ticket_number?.slice(-5)}</td>
                                             <td className="py-3 text-slate-900 font-medium truncate max-w-[120px] pl-2">{ticket.title}</td>
-                                            <td className="py-3 text-right">
+                                            <td className="py-3 text-right flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={(e) => handleDeleteTicket(e, ticket.id)}
+                                                    className="p-1 text-slate-300 hover:text-rose-500 rounded transition-colors"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                                 {sla ? (
                                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${sla.color}`}>
                                                         {sla.text}
@@ -283,7 +305,7 @@ export default function AdminSPOCDashboard({
                 </div>
 
                 {/* Resolver Load Map */}
-                <div className="col-span-12 lg:col-span-5 bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm relative overflow-hidden">
+                <div className="col-span-12 lg:col-span-5 bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm relative overflow-hidden">
                     <h2 className="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Resolver Load Map</h2>
 
                     {/* Coming Soon Overlay */}
@@ -342,9 +364,9 @@ export default function AdminSPOCDashboard({
                 </div>
 
                 {/* Right Panel */}
-                <div className="col-span-12 lg:col-span-4 space-y-6">
+                <div className="col-span-12 lg:col-span-4 space-y-5">
                     {/* Waitlist */}
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-[24px] p-6 relative overflow-hidden">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-[24px] p-5 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-100/50 rounded-full -mr-8 -mt-8" />
 
                         <div className="flex items-center justify-between mb-3 relative z-10">
@@ -376,7 +398,7 @@ export default function AdminSPOCDashboard({
                     </div>
 
                     {/* Manual Assignment */}
-                    <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                    <div className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
                         <h2 className="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Manual Assignment</h2>
 
                         {selectedTicket ? (
@@ -415,7 +437,7 @@ export default function AdminSPOCDashboard({
                 </div>
 
                 {/* SLA Risk Queue */}
-                <div className="col-span-12 lg:col-span-6 bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                <div className="col-span-12 lg:col-span-6 bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
                     <h2 className="text-xs font-black text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-widest">
                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                         SLA Risk Queue
@@ -454,9 +476,9 @@ export default function AdminSPOCDashboard({
                 </div>
 
                 {/* Audit Log + Quick Actions */}
-                <div className="col-span-12 lg:col-span-6 grid grid-cols-2 gap-6">
+                <div className="col-span-12 lg:col-span-6 grid grid-cols-2 gap-5">
                     {/* Audit Log */}
-                    <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                    <div className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
                         <h2 className="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Override & Audit Log</h2>
 
                         <div className="space-y-3 text-xs max-h-[150px] overflow-auto pr-2">
@@ -491,7 +513,7 @@ export default function AdminSPOCDashboard({
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                    <div className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm">
                         <h2 className="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Quick Actions</h2>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -547,7 +569,7 @@ export default function AdminSPOCDashboard({
                             className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between mb-5">
                                 <h3 className="text-lg font-black text-slate-900">Override Classification</h3>
                                 <button onClick={() => setShowOverrideModal(false)} className="text-slate-400 hover:text-slate-900">
                                     <X className="w-6 h-6" />
@@ -555,12 +577,12 @@ export default function AdminSPOCDashboard({
                             </div>
 
                             <p className="text-sm font-bold text-slate-900 mb-1">Ticket: {selectedTicket.title}</p>
-                            <p className="text-xs text-slate-500 mb-6 font-medium">Current Category: {selectedTicket.category?.name || 'Unclassified'}</p>
+                            <p className="text-xs text-slate-500 mb-5 font-medium">Current Category: {selectedTicket.category?.name || 'Unclassified'}</p>
 
                             <select
                                 value={overrideCategory}
                                 onChange={(e) => setOverrideCategory(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-100 mb-6"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-100 mb-5"
                             >
                                 <option value="">Select new category...</option>
                                 <option value="reset">Reset Classification</option>

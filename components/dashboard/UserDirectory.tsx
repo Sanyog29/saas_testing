@@ -255,7 +255,7 @@ const UserDirectory = ({ orgId, propertyId, properties = [], onUserUpdated }: Us
     });
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -328,7 +328,7 @@ const UserDirectory = ({ orgId, propertyId, properties = [], onUserUpdated }: Us
                     filteredUsers.map((user) => (
                         <div
                             key={user.id}
-                            className="bg-white border border-slate-100 rounded-2xl p-6 hover:shadow-md transition-shadow"
+                            className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-md transition-shadow"
                         >
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 {/* User Info */}
@@ -432,7 +432,7 @@ const UserDirectory = ({ orgId, propertyId, properties = [], onUserUpdated }: Us
                         exit={{ opacity: 0, y: 20, scale: 0.9 }}
                         className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100]"
                     >
-                        <div className={`px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border ${toast.type === 'success'
+                        <div className={`px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border ${toast.type === 'success'
                             ? 'bg-emerald-900 border-emerald-500/50 text-emerald-50'
                             : 'bg-rose-900 border-rose-500/50 text-rose-50'
                             }`}>

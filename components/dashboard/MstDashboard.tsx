@@ -5,12 +5,13 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Bell, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, RefreshCw, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench
+    AlertOctagon, BarChart3, FileText, Wrench, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
+import { checkInResolver } from '@/utils/resolver';
 import SignOutModal from '@/components/ui/SignOutModal';
 import DieselStaffDashboard from '@/components/diesel/DieselStaffDashboard';
 import TenantTicketingDashboard from '@/components/tickets/TenantTicketingDashboard';
@@ -39,6 +40,7 @@ interface Ticket {
         full_name: string;
         email: string;
     } | null;
+    photo_before_url?: string;
 }
 
 const MstDashboard = () => {
@@ -56,16 +58,20 @@ const MstDashboard = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [showQuickActions, setShowQuickActions] = useState(true);
     const [incomingTickets, setIncomingTickets] = useState<Ticket[]>([]);
+    const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
     const [isFetching, setIsFetching] = useState(false);
 
     const supabase = createClient();
 
     useEffect(() => {
-        if (propertyId && user) {
+        if (propertyId) {
             fetchPropertyDetails();
             fetchTickets();
+            if (user?.id) {
+                checkInResolver(user.id, propertyId);
+            }
         }
-    }, [propertyId, user]);
+    }, [propertyId, user?.id]);
 
     const fetchTickets = async () => {
         if (!user || !propertyId) return;
@@ -85,9 +91,10 @@ const MstDashboard = () => {
             console.error('Error fetching tickets:', error);
         } else {
             console.log('Tickets fetched:', data);
-            // Filter non-closed tickets for the dashboard view
-            const filtered = (data || []).filter(t => !['resolved', 'closed'].includes(t.status));
-            setIncomingTickets(filtered);
+            const active = (data || []).filter((t: any) => !['resolved', 'closed'].includes(t.status));
+            const completed = (data || []).filter((t: any) => ['resolved', 'closed'].includes(t.status));
+            setIncomingTickets(active);
+            setCompletedTickets(completed);
         }
         setIsFetching(false);
     };
@@ -171,26 +178,14 @@ const MstDashboard = () => {
                         <div className="grid grid-cols-2 gap-1.5">
                             <button
                                 onClick={() => setActiveTab('create_request')}
-                                className="flex items-center gap-1.5 px-2 py-1.5 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d]"
+                                className="col-span-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d] transition-all"
                             >
-                                <Plus className="w-3 h-3" />
+                                <Plus className="w-3 h-3 text-emerald-500" />
                                 New Request
                             </button>
-                            <button className="flex items-center gap-1.5 px-2 py-1.5 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d]">
-                                <Cog className="w-3 h-3" />
-                                Manage Pro...
-                            </button>
-                            <button className="flex items-center gap-1.5 px-2 py-1.5 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d]">
-                                <AlertOctagon className="w-3 h-3" />
-                                Emergency ...
-                            </button>
-                            <button className="flex items-center gap-1.5 px-2 py-1.5 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d]">
-                                <FileText className="w-3 h-3" />
-                                Quick Report
-                            </button>
-                            <button className="col-span-2 flex items-center gap-1.5 px-2 py-1.5 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d]">
-                                <BarChart3 className="w-3 h-3" />
-                                System Stat...
+                            <button className="col-span-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-[#21262d] hover:bg-[#30363d] rounded-md text-[10px] text-slate-300 border border-[#30363d] transition-all">
+                                <Cog className="w-3 h-3 text-emerald-500" />
+                                Manage Prop
                             </button>
                         </div>
                     )}
@@ -364,6 +359,7 @@ const MstDashboard = () => {
                             {activeTab === 'dashboard' && property && user && (
                                 <DashboardTab
                                     tickets={incomingTickets}
+                                    completedCount={completedTickets.length}
                                     onTicketClick={(id) => router.push(`/tickets/${id}`)}
                                     userId={user.id}
                                     isLoading={isFetching}
@@ -376,7 +372,8 @@ const MstDashboard = () => {
                             {activeTab === 'projects' && <ProjectsTab />}
                             {activeTab === 'requests' && user && (
                                 <RequestsTab
-                                    tickets={incomingTickets}
+                                    activeTickets={incomingTickets}
+                                    completedTickets={completedTickets}
                                     onTicketClick={(id) => router.push(`/tickets/${id}`)}
                                     userId={user.id}
                                     isLoading={isFetching}
@@ -395,7 +392,7 @@ const MstDashboard = () => {
                             )}
                             {activeTab === 'alerts' && <AlertsTab />}
                             {activeTab === 'visitors' && <VisitorsTab />}
-                            {activeTab === 'diesel' && <DieselStaffDashboard />}
+                            {activeTab === 'diesel' && <DieselStaffDashboard isDark={true} />}
                             {activeTab === 'cafeteria' && <CafeteriaTab />}
                         </motion.div>
                     </AnimatePresence>
@@ -411,11 +408,87 @@ const MstDashboard = () => {
     );
 };
 
+// Helper Sub-component for Ticket Row
+const TicketRow = ({ ticket, onTicketClick, userId, isCompleted }: { ticket: Ticket, onTicketClick?: (id: string) => void, userId: string, isCompleted?: boolean }) => (
+    <div
+        onClick={() => onTicketClick?.(ticket.id)}
+        className={`bg-[#0d1117] border border-[#21262d] rounded-lg p-3 hover:border-emerald-500/50 transition-colors group cursor-pointer ${isCompleted ? 'opacity-75 grayscale-[0.3]' : ''}`}
+    >
+        <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+                <h3 className={`text-sm font-semibold truncate max-w-[400px] ${isCompleted ? 'text-slate-400 line-through decoration-slate-600' : 'text-white'}`}>{ticket.title}</h3>
+                {ticket.assigned_to === userId ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase tracking-widest">
+                        Your Task
+                    </span>
+                ) : ticket.assigned_to ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        {ticket.assignee?.full_name || 'Assigned'}
+                    </span>
+                ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        Unassigned
+                    </span>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    ticket.priority === 'medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                    }`}>
+                    {ticket.priority}
+                </span>
+                <button
+                    className={`text-[10px] px-3 py-1 rounded transition-all font-bold uppercase tracking-widest ${isCompleted ? 'bg-slate-700 text-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                >
+                    View
+                </button>
+            </div>
+        </div>
+
+        <div className="flex gap-4">
+            {ticket.photo_before_url && (
+                <div className="relative group/thumb shrink-0">
+                    <img
+                        src={ticket.photo_before_url}
+                        alt="Before"
+                        className="w-16 h-16 rounded-lg object-cover border border-[#30363d] group-hover/thumb:border-emerald-500 transition-colors"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-lg transition-opacity">
+                        <Camera className="w-4 h-4 text-white" />
+                    </div>
+                </div>
+            )}
+            <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-500 line-clamp-2 mb-2">{ticket.description}</p>
+                <div className="flex items-center gap-2 text-[10px] text-slate-500/60 font-medium">
+                    <span className="flex items-center gap-1">
+                        <Ticket className="w-3 h-3" />
+                        {ticket.ticket_number}
+                    </span>
+                    <span>•</span>
+                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                    <span>•</span>
+                    <span className={`uppercase font-bold ${isCompleted ? 'text-emerald-600/60' : ticket.status === 'in_progress' ? 'text-blue-400' : 'text-slate-500'}`}>
+                        {ticket.status === 'closed' || ticket.status === 'resolved' ? 'COMPLETE' : ticket.status.replace('_', ' ')}
+                    </span>
+                    {ticket.photo_before_url && (
+                        <span className="flex items-center gap-1 text-emerald-500 font-bold ml-auto bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
+                            <Camera className="w-3 h-3" />
+                            SEE SITE PHOTO
+                        </span>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
 // Dashboard Tab
-const DashboardTab = ({ tickets, onTicketClick, userId, isLoading, propertyId, propertyName, userName }: { tickets: Ticket[], onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string }) => {
-    const total = tickets.length;
-    const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
-    const completed = tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
+const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName }: { tickets: Ticket[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string }) => {
+    const total = tickets.length + completedCount;
+    const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned' || t.status === 'open').length;
+    const completed = completedCount;
 
     return (
         <div className="space-y-6">
@@ -423,81 +496,6 @@ const DashboardTab = ({ tickets, onTicketClick, userId, isLoading, propertyId, p
             <div>
                 <h1 className="text-2xl font-bold text-white">Maintenance Dashboard</h1>
                 <p className="text-slate-500 text-sm mt-1">{propertyName || 'Property'} • MST: {userName}</p>
-            </div>
-
-            {/* Property Requests */}
-            <div className="bg-[#161b22] border border-[#21262d] rounded-xl p-5">
-                <div className="mb-4">
-                    <h2 className="text-base font-bold text-white">Property Requests</h2>
-                    <p className="text-xs text-slate-500">All requests for this property</p>
-                </div>
-                <div className="flex flex-col gap-2">
-                    {isLoading ? (
-                        <div className="flex flex-col gap-2 py-4">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="h-16 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />
-                            ))}
-                        </div>
-                    ) : tickets.length === 0 ? (
-                        <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
-                            No requests found
-                        </div>
-                    ) : (
-                        tickets.map((ticket) => (
-                            <div
-                                key={ticket.id}
-                                onClick={() => onTicketClick(ticket.id)}
-                                className="bg-[#0d1117] border border-[#21262d] rounded-lg p-3 hover:border-emerald-500/50 transition-colors group cursor-pointer"
-                            >
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-sm font-semibold text-white truncate max-w-[200px]">{ticket.title}</h3>
-                                        {ticket.assigned_to === userId ? (
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                Assigned to You
-                                            </span>
-                                        ) : ticket.assigned_to ? (
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                Assigned to {ticket.assignee?.full_name || 'Staff'}
-                                            </span>
-                                        ) : (
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                Unassigned / Incoming
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                            ticket.priority === 'medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                                'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                            }`}>
-                                            {ticket.priority}
-                                        </span>
-                                        <button
-                                            onClick={() => onTicketClick(ticket.id)}
-                                            className="text-[10px] px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-all font-bold uppercase tracking-widest"
-                                        >
-                                            View
-                                        </button>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-slate-400 line-clamp-2 mb-2">{ticket.description}</p>
-                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                    <span className="flex items-center gap-1">
-                                        <Ticket className="w-3 h-3" />
-                                        {ticket.ticket_number}
-                                    </span>
-                                    <span>•</span>
-                                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
-                                    <span>•</span>
-                                    <span className={`uppercase font-bold ${ticket.status === 'in_progress' ? 'text-blue-400' : ticket.status === 'assigned' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                        {ticket.status.replace('_', ' ')}
-                                    </span>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
             </div>
 
             {/* Dashboard Section */}
@@ -534,6 +532,31 @@ const DashboardTab = ({ tickets, onTicketClick, userId, isLoading, propertyId, p
                     </div>
                 </div>
             </div>
+
+            {/* Property Requests */}
+            <div className="bg-[#161b22] border border-[#21262d] rounded-xl p-5">
+                <div className="mb-4">
+                    <h2 className="text-base font-bold text-white">Property Requests</h2>
+                    <p className="text-xs text-slate-500">All requests for this property</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                    {isLoading ? (
+                        <div className="flex flex-col gap-2 py-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-16 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />
+                            ))}
+                        </div>
+                    ) : tickets.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
+                            No requests found
+                        </div>
+                    ) : (
+                        tickets.map((ticket) => (
+                            <TicketRow key={ticket.id} userId={userId} ticket={ticket} onTicketClick={onTicketClick} />
+                        ))
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
@@ -561,84 +584,54 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ tickets = [], onTicketClick, userId, isLoading, propertyName, userName }: { tickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string }) => (
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string }) => (
     <div className="space-y-6">
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">Requests</h1>
             {propertyName && <span className="text-xs text-slate-500 font-bold uppercase tracking-widest bg-[#161b22] px-3 py-1 rounded-full border border-[#21262d]">{propertyName}</span>}
         </div>
+
+        {/* Active Requests */}
         <div className="bg-[#161b22] border border-[#21262d] rounded-xl p-5">
+            <h2 className="text-sm font-bold text-slate-400 mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-500" />
+                Active Requests ({activeTickets.length})
+            </h2>
             {isLoading ? (
                 <div className="flex flex-col gap-2 py-4">
-                    {[1, 2, 3, 4, 5].map(i => (
+                    {[1, 2, 3].map(i => (
                         <div key={i} className="h-20 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />
                     ))}
                 </div>
-            ) : tickets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Ticket className="w-12 h-12 text-slate-600 mb-3" />
-                    <p className="text-slate-500 text-sm">No requests found</p>
+            ) : activeTickets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center bg-[#0d1117] rounded-xl border border-dashed border-[#21262d]">
+                    <p className="text-slate-500 text-sm">No active requests</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-2">
-                    {tickets.map((ticket) => (
-                        <div
-                            key={ticket.id}
-                            onClick={() => onTicketClick?.(ticket.id)}
-                            className="bg-[#0d1117] border border-[#21262d] rounded-lg p-3 hover:border-emerald-500/50 transition-colors group cursor-pointer"
-                        >
-                            <div className="flex justify-between items-start mb-1">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-white truncate max-w-[400px]">{ticket.title}</h3>
-                                    {ticket.assigned_to === userId ? (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                            Assigned to You
-                                        </span>
-                                    ) : ticket.assigned_to ? (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                            Assigned to {ticket.assignee?.full_name || 'Staff'}
-                                        </span>
-                                    ) : (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                            Unassigned / Incoming
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                        ticket.priority === 'medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                            'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                        }`}>
-                                        {ticket.priority}
-                                    </span>
-                                    <button
-                                        onClick={() => onTicketClick?.(ticket.id)}
-                                        className="text-[10px] px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-all font-bold uppercase tracking-widest"
-                                    >
-                                        View
-                                    </button>
-                                </div>
-                            </div>
-                            <p className="text-xs text-slate-400 line-clamp-2 mb-2">{ticket.description}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                <span className="flex items-center gap-1">
-                                    <Ticket className="w-3 h-3" />
-                                    {ticket.ticket_number}
-                                </span>
-                                <span>•</span>
-                                <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span className={`uppercase font-bold ${ticket.status === 'in_progress' ? 'text-blue-400' : ticket.status === 'assigned' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                    {ticket.status.replace('_', ' ')}
-                                </span>
-                            </div>
-                        </div>
+                    {activeTickets.map((ticket) => (
+                        <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} />
                     ))}
                 </div>
             )}
         </div>
+
+        {/* Completed Requests */}
+        <div className="bg-[#161b22]/50 border border-[#21262d] rounded-xl p-5 opacity-90">
+            <h2 className="text-sm font-bold text-slate-500 mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600/50" />
+                Recently Completed ({completedTickets.length})
+            </h2>
+            <div className="flex flex-col gap-2">
+                {completedTickets.slice(0, 10).map((ticket) => (
+                    <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} isCompleted />
+                ))}
+            </div>
+        </div>
     </div>
 );
+
+
 
 // Alerts Tab
 const AlertsTab = () => (

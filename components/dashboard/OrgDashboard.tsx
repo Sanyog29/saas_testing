@@ -67,7 +67,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
                 { id: 'properties', label: 'Entity Manager', icon: Building2 },
                 { id: 'users', label: 'User Management', icon: Users },
                 { id: 'visitors', label: 'Visitors', icon: UsersRound },
-                { id: 'vendors', label: 'Vendor Revenue', icon: Store },
+                { id: 'vendors', label: 'Cafeteria Revenue', icon: Store },
                 { id: 'analytics', label: 'SLA Analytics', icon: BarChart3 },
             ]
         },
@@ -502,7 +502,7 @@ const VendorSummary = ({ orgId }: { orgId: string }) => {
             {/* Header */}
             <div className="flex justify-between items-end">
                 <div>
-                    <h2 className="text-4xl font-black text-white tracking-widest italic uppercase mb-2">Vendor Revenue</h2>
+                    <h2 className="text-4xl font-black text-white tracking-widest italic uppercase mb-2">Cafeteria Revenue</h2>
                     <p className="text-zinc-500 text-sm font-medium uppercase tracking-[0.2em]">Cross-Property Revenue Analytics</p>
                 </div>
                 <div className="flex gap-2">

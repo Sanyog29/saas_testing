@@ -248,7 +248,7 @@ const TenantDashboard = () => {
                             />
                         )}
                         {activeTab === 'visitors' && <VMSAdminDashboard propertyId={propertyId} />}
-                        {activeTab === 'diesel' && <DieselStaffDashboard />}
+                        {activeTab === 'diesel' && <DieselStaffDashboard isDark={false} />}
                         {activeTab === 'cafeteria' && (
                             <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm">
                                 <Coffee className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -286,7 +286,28 @@ const TenantDashboard = () => {
 // Overview Tab for Tenant - Dark Card-Based Interface
 const OverviewTab = ({ onNavigate }: { onNavigate: (tab: Tab) => void }) => {
     const { user } = useAuth();
+    const params = useParams();
     const [ticketCount, setTicketCount] = useState({ active: 0, completed: 0 });
+    const propertyId = params?.propertyId as string;
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchCounts = async () => {
+            if (!user?.id || !propertyId) return;
+            const { data } = await supabase
+                .from('tickets')
+                .select('status')
+                .eq('property_id', propertyId)
+                .eq('created_by', user.id);
+
+            if (data) {
+                const active = data.filter(t => !['resolved', 'closed'].includes(t.status)).length;
+                const completed = data.filter(t => ['resolved', 'closed'].includes(t.status)).length;
+                setTicketCount({ active, completed });
+            }
+        };
+        fetchCounts();
+    }, [user?.id, propertyId]);
 
     return (
         <div className="min-h-screen bg-background p-8">

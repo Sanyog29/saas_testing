@@ -9,6 +9,7 @@ interface GeneratorConfigModalProps {
     onClose: () => void;
     onSubmit: (generator: GeneratorFormData) => Promise<void>;
     existingGenerator?: GeneratorFormData & { id: string };
+    isDark?: boolean;
 }
 
 interface GeneratorFormData {
@@ -27,6 +28,7 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
     onClose,
     onSubmit,
     existingGenerator,
+    isDark = false,
 }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -77,7 +79,7 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                    className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                 />
 
                 {/* Modal */}
@@ -85,33 +87,33 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+                    className={`relative ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white'} border rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden`}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-white">
+                    <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-[#21262d] bg-gradient-to-r from-[#0d1117] to-[#161b22]' : 'border-slate-100 bg-gradient-to-r from-amber-50 to-white'}`}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                                <Settings2 className="w-5 h-5 text-amber-600" />
+                            <div className={`w-10 h-10 ${isDark ? 'bg-emerald-500/10' : 'bg-amber-100'} rounded-xl flex items-center justify-center`}>
+                                <Settings2 className={`w-5 h-5 ${isDark ? 'text-emerald-500' : 'text-amber-600'}`} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-slate-900">
+                                <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                     {existingGenerator ? 'Edit Generator' : 'Add Generator'}
                                 </h2>
-                                <p className="text-xs text-slate-500">Configure diesel generator settings</p>
+                                <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Configure diesel generator settings</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                            className={`p-2 ${isDark ? 'hover:bg-[#21262d]' : 'hover:bg-slate-100'} rounded-lg transition-colors`}
                         >
-                            <X className="w-5 h-5 text-slate-400" />
+                            <X className={`w-5 h-5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                         </button>
                     </div>
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="p-6 space-y-5">
                         {error && (
-                            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-lg">
+                            <div className={`${isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700'} text-sm px-4 py-3 rounded-lg border`}>
                                 {error}
                             </div>
                         )}
@@ -119,7 +121,7 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                         {/* Name and Make */}
                         <div className="grid grid-cols-2 gap-4">
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>
                                     Name <span className="text-rose-500">*</span>
                                 </span>
                                 <input
@@ -127,17 +129,17 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                                     value={formData.name}
                                     onChange={(e) => updateField('name', e.target.value)}
                                     placeholder="e.g., DG-1"
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Make</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Make</span>
                                 <input
                                     type="text"
                                     value={formData.make}
                                     onChange={(e) => updateField('make', e.target.value)}
                                     placeholder="e.g., Cummins"
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                         </div>
@@ -145,21 +147,21 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                         {/* Capacity and Tank */}
                         <div className="grid grid-cols-2 gap-4">
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Capacity (KVA)</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Capacity (KVA)</span>
                                 <input
                                     type="number"
                                     value={formData.capacity_kva}
                                     onChange={(e) => updateField('capacity_kva', parseInt(e.target.value) || 0)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tank Capacity (L)</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Tank Capacity (L)</span>
                                 <input
                                     type="number"
                                     value={formData.tank_capacity_litres}
                                     onChange={(e) => updateField('tank_capacity_litres', parseInt(e.target.value) || 0)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                         </div>
@@ -167,21 +169,21 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                         {/* Fuel Efficiency and Status */}
                         <div className="grid grid-cols-2 gap-4">
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Fuel Rate (L/hr)</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Fuel Rate (L/hr)</span>
                                 <input
                                     type="number"
                                     step="0.1"
                                     value={formData.fuel_efficiency_lphr}
                                     onChange={(e) => updateField('fuel_efficiency_lphr', parseFloat(e.target.value) || 0)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Status</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Status</span>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => updateField('status', e.target.value)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 cursor-pointer"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border cursor-not-allowed`}
                                 >
                                     <option value="active">Active</option>
                                     <option value="standby">Standby</option>
@@ -193,29 +195,29 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                         {/* Maintenance Dates */}
                         <div className="grid grid-cols-2 gap-4">
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Last Maintenance</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Last Maintenance</span>
                                 <input
                                     type="date"
                                     value={formData.last_maintenance_date || ''}
                                     onChange={(e) => updateField('last_maintenance_date', e.target.value)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                             <label className="flex flex-col gap-1.5">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Next Maintenance</span>
+                                <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Next Maintenance</span>
                                 <input
                                     type="date"
                                     value={formData.next_maintenance_date || ''}
                                     onChange={(e) => updateField('next_maintenance_date', e.target.value)}
-                                    className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-400'} rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                                 />
                             </label>
                         </div>
 
                         {/* Info Box */}
-                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex items-start gap-3">
-                            <Fuel className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                            <div className="text-xs text-amber-700">
+                        <div className={`${isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-50 border-amber-100'} rounded-lg p-4 flex items-start gap-3 border`}>
+                            <Fuel className={`w-5 h-5 ${isDark ? 'text-emerald-500' : 'text-amber-500'} mt-0.5 flex-shrink-0`} />
+                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-amber-700'}`}>
                                 <p className="font-bold mb-1">Fuel Rate Calculation</p>
                                 <p>The fuel rate is used to estimate daily consumption. Set this to your generator&apos;s average litres per hour of operation.</p>
                             </div>
@@ -226,14 +228,14 @@ const GeneratorConfigModal: React.FC<GeneratorConfigModalProps> = ({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                                className={`flex-1 px-4 py-3 border ${isDark ? 'border-[#30363d] text-slate-400 hover:bg-[#21262d]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'} font-bold rounded-xl transition-colors`}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="flex-1 px-4 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className={`flex-1 px-4 py-3 ${isDark ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-500 hover:bg-amber-600'} text-white font-bold rounded-xl transition-colors shadow-lg ${isDark ? 'shadow-emerald-900/40' : 'shadow-amber-200'} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                             >
                                 {isSubmitting ? (
                                     <>

@@ -1,41 +1,36 @@
-# Implementation Plan - Super Admin Management Enhancements
+# Implementation Plan - Enhancing Property Management & Assignment Flow
 
-This plan outlines the enhancements to the Super Admin (Organization Admin) dashboard to include comprehensive user and property management features.
+The goal is to improve the Property Admin experience by making requests more accessible, allowing assignment to MSTs, and enabling full CRUD on requests.
 
 ## Proposed Changes
 
-### Dashboard Component Enhancements
-#### [MODIFY] [OrgAdminDashboard.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one_v1/saas_one/components/dashboard/OrgAdminDashboard.tsx)
-- **Data Fetching**:
-    - Update `fetchOrgUsers` to aggregate users from both `organization_memberships` and `property_memberships` associated with the organization.
-    - Add user data to include property associations.
-- **State Management**:
-    - Add state for managing selected user/property for editing.
-    - Add state for various modals (Create/Edit User, Edit Property).
-- **CRUD Operations**:
-    - `handleUpdateUser`: Update user metadata (full name, phone) and role.
-    - `handleDeleteUser`: Remove membership from organization/properties.
-    - `handleCreateUser`: (Optional/Mock) Logic for adding a new user to the organization.
-    - `handleUpdateProperty`: Update property details (name, code, address).
-    - `handleDeleteProperty`: Remove property (and its memberships).
-- **UI Components**:
-    - Refine `PropertiesTab` with Action buttons (Edit, Delete).
-    - Refine `UsersTab` with Action buttons (Edit, Delete).
-    - Implement `UpdatePropertyModal`.
-    - Implement `UserManagementModal` (for creating/editing users and their roles/property assignments).
+### [Dashboard] Property Admin Dashboard
+#### [MODIFY] [PropertyAdminDashboard.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one_v4/saas_one/components/dashboard/PropertyAdminDashboard.tsx)
+- Update `ActivityItem` to accept an `onClick` prop.
+- Wrap `ActivityItem` calls in `OverviewTab` to navigate to `/tickets/[id]`.
+- Replace `TenantTicketingDashboard` with `TicketsView` in the `Requests` tab for Property Admins.
+- Ensure `propertyId` is passed correctly to `TicketsView`.
+
+### [Dashboard] Tickets View
+#### [MODIFY] [TicketsView.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one_v4/saas_one/components/dashboard/TicketsView.tsx)
+- Add `propertyId` to `TicketsViewProps`.
+- Update `fetchTickets` to use the `propertyId` prop if provided.
+- Add a "Delete" button for each ticket (only if user has admin permissions).
+- Implement `handleDeleteTicket` function.
+
+### [API] Tickets
+#### [MODIFY] [route.ts](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one_v4/saas_one/app/api/tickets/%5Bid%5D/route.ts)
+- Implement `DELETE` method to allow admins to remove tickets.
+
+### [User Management] MST Assignment
+#### [MODIFY] [page.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one_v4/saas_one/app/tickets/%5BticketId%5D/page.tsx)
+- Ensure the assignment modal filters and displays MST/Staff correctly.
+- (Optional) Add a "Mark as Resolver" action in User Management or a login trigger.
 
 ## Verification Plan
-
-### Automated Tests
-- N/A (Manual verification preferred for UI components)
-
 ### Manual Verification
-- Log in as a Super Admin and navigate to the dashboard.
-- **Properties**:
-    - Create a new property and verify it appears in the list.
-    - Edit an existing property and verify changes persist.
-    - Delete a property and verify it is removed.
-- **Users**:
-    - Verify the user list shows users assigned to the organization and its properties.
-    - Edit a user's role and verify the update.
-    - Remove a user from the organization and verify they no longer appear in the list.
+- Log in as Property Admin.
+- Click a request in "Recent Intelligence" and verify it opens the detail page.
+- Go to "Requests" tab and verify it shows all property tickets.
+- Delete a test ticket and verify it's removed from the list.
+- Open a ticket and verify the "Reassign" button shows available MSTs.

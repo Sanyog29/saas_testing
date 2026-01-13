@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { ArrowRight, Sparkles, Building2, BarChart3, Ticket, Eye, EyeOff, Lock, Mail, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -268,20 +269,16 @@ function AuthContent() {
                 className="relative z-10 enterprise-card w-full max-w-5xl overflow-hidden flex flex-col lg:flex-row min-h-[680px]"
             >
                 {/* Left Side - Auth Form */}
-                <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center bg-surface">
+                <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-start pt-6 lg:pt-8 bg-surface">
                     {/* Logo */}
-                    <div className="flex items-center gap-2 mb-10">
-                        <div className="w-10 h-10 bg-primary rounded-[var(--radius-md)] flex items-center justify-center shadow-sm">
-                            <svg viewBox="0 0 32 40" fill="currentColor" className="h-5 text-white">
-                                <path d="M0 40 L16 0 L32 40 L24 40 L16 16 L8 40 Z" />
-                            </svg>
-                        </div>
-                        <span className="font-display font-semibold text-xl tracking-tight text-text-primary flex items-center">
-                            <svg viewBox="0 0 16 20" fill="currentColor" className="h-5 -mr-0.5">
-                                <path d="M0 20 L8 0 L16 20 L12 20 L8 8 L4 20 Z" />
-                            </svg>
-                            utopilot
-                        </span>
+                    <div className="flex items-center gap-2 mb-4 -mt-[10px]">
+                        <Image
+                            src="/autopilot-logo.png"
+                            alt="Autopilot Logo"
+                            width={240}
+                            height={80}
+                            className="object-contain"
+                        />
                     </div>
 
                     <AnimatePresence mode="wait">
@@ -329,21 +326,19 @@ function AuthContent() {
                                     <div className="flex gap-2 mb-8 p-1 bg-surface-elevated rounded-[var(--radius-md)] border border-border">
                                         <button
                                             onClick={() => setAuthMode('signin')}
-                                            className={`flex-1 py-3 px-4 rounded-[var(--radius-sm)] font-semibold text-sm transition-smooth ${
-                                                authMode === 'signin'
-                                                    ? 'bg-primary text-text-inverse shadow-sm'
-                                                    : 'text-text-secondary hover:text-text-primary'
-                                            }`}
+                                            className={`flex-1 py-3 px-4 rounded-[var(--radius-sm)] font-semibold text-sm transition-smooth ${authMode === 'signin'
+                                                ? 'bg-primary text-text-inverse shadow-sm'
+                                                : 'text-text-secondary hover:text-text-primary'
+                                                }`}
                                         >
                                             Sign In
                                         </button>
                                         <button
                                             onClick={() => setAuthMode('signup')}
-                                            className={`flex-1 py-3 px-4 rounded-[var(--radius-sm)] font-semibold text-sm transition-smooth ${
-                                                authMode === 'signup'
-                                                    ? 'bg-primary text-text-inverse shadow-sm'
-                                                    : 'text-text-secondary hover:text-text-primary'
-                                            }`}
+                                            className={`flex-1 py-3 px-4 rounded-[var(--radius-sm)] font-semibold text-sm transition-smooth ${authMode === 'signup'
+                                                ? 'bg-primary text-text-inverse shadow-sm'
+                                                : 'text-text-secondary hover:text-text-primary'
+                                                }`}
                                         >
                                             Sign Up
                                         </button>

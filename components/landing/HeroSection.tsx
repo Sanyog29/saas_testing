@@ -148,16 +148,18 @@ export default function HeroSection() {
             </div>
 
             {/* Content Overlay */}
-            <div className="absolute inset-0 z-20 flex flex-col justify-between p-8 md:p-12 lg:p-14">
-                <header className="flex justify-between items-center w-full pointer-events-auto bg-transparent">
+            <div className="absolute inset-0 z-20 flex flex-col justify-between pt-4 md:pt-6 lg:pt-8 px-8 md:px-12 lg:px-14 pb-12 md:pb-16">
+                <header className="flex justify-between items-center w-full pointer-events-auto bg-transparent -mt-[10px]">
                     <div className="flex items-center text-white">
-                        {/* New Minimalist Logo */}
-                        <div className="flex items-center gap-0.5 group cursor-pointer">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white group-hover:text-primary transition-smooth">
-                                <path d="M4.5 16.5 L12 3 L19.5 16.5" />
-                                <path d="M8 12 L16 12" />
-                            </svg>
-                            <span className="text-lg font-display font-semibold tracking-[0.15em] text-white group-hover:text-white/90 transition-smooth">UTOPILOT</span>
+                        {/* Brand Logo */}
+                        <div className="flex items-center group cursor-pointer">
+                            <Image
+                                src="/autopilot-logo.png"
+                                alt="Autopilot Logo"
+                                width={180}
+                                height={60}
+                                className="brightness-0 invert object-contain"
+                            />
                         </div>
                     </div>
                     <div className="flex gap-8 items-center">

@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS tickets (
   status text DEFAULT 'open', -- 'open', 'in_progress', 'resolved', 'closed'
   priority text DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
   assigned_to uuid REFERENCES users(id), -- Master Admin who takes the ticket
+  work_started_at timestamptz,
   resolved_at timestamptz,
+  closed_at timestamptz,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

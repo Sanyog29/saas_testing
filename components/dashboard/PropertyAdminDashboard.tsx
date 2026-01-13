@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, Ticket, Settings, UserCircle, UsersRound,
     Search, Plus, Filter, Bell, LogOut, ChevronRight, MapPin, Building2,
-    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown, Fuel, Store
+    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown, Fuel, Store, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -16,6 +16,8 @@ import DieselAnalyticsDashboard from '@/components/diesel/DieselAnalyticsDashboa
 import VendorExportModal from '@/components/vendor/VendorExportModal';
 import VMSAdminDashboard from '@/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/components/tickets/TenantTicketingDashboard';
+import TicketCreateModal from '@/components/tickets/TicketCreateModal';
+import TicketsView from './TicketsView';
 import { useTheme } from '@/context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 
@@ -53,6 +55,8 @@ const PropertyAdminDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState('');
     const [showSignOutModal, setShowSignOutModal] = useState(false);
+    const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+    const [statsVersion, setStatsVersion] = useState(0);
 
     const supabase = createClient();
 
@@ -115,41 +119,34 @@ const PropertyAdminDashboard = () => {
                 </div>
 
                 <nav className="flex-1 px-4 overflow-y-auto">
-                    {/* Quick Actions */}
+                    {/* Quick Actions - Compact Version */}
                     <div className="mb-6">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
-                            <span className="w-0.5 h-3 bg-blue-500 rounded-full"></span>
-                            Quick Actions
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 px-2">
-                            <button
-                                onClick={() => setActiveTab('requests')}
-                                className="flex flex-col items-start gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all text-left"
-                            >
-                                <Plus className="w-4 h-4 text-blue-600" />
-                                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">New Request</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('users')}
-                                className="flex flex-col items-start gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 transition-all text-left"
-                            >
-                                <UserCircle className="w-4 h-4 text-emerald-600" />
-                                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Manage Users</span>
-                            </button>
-                            <button
-                                onClick={() => alert('URGENT: Emergency SOS Signal Broadcasted to all Staff.')}
-                                className="flex flex-col items-start gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all text-left"
-                            >
-                                <AlertCircle className="w-4 h-4 text-rose-600" />
-                                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Emergency</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('diesel')}
-                                className="flex  flex-col items-start gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-amber-50 hover:border-amber-200 transition-all text-left"
-                            >
-                                <Clock className="w-4 h-4 text-amber-600" />
-                                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Quick Report</span>
-                            </button>
+                        {/* Quick Actions - Simplified White Version */}
+                        <div className="mb-8">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-6 mb-4 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                                Quick Actions
+                            </p>
+                            <div className="px-4 grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => setShowCreateTicketModal(true)}
+                                    className="flex flex-col items-center justify-center gap-2 p-3 bg-white text-slate-900 rounded-xl hover:bg-slate-50 transition-all border border-slate-200 shadow-sm group"
+                                >
+                                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                                        <Plus className="w-4 h-4" />
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-tight text-center">New Request</span>
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('users')}
+                                    className="flex flex-col items-center justify-center gap-2 p-3 bg-white text-slate-900 rounded-xl hover:bg-slate-50 transition-all border border-slate-200 shadow-sm group"
+                                >
+                                    <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                                        <UserCircle className="w-4 h-4" />
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-tight text-center">Manage Users</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -231,16 +228,6 @@ const PropertyAdminDashboard = () => {
                                 Diesel Analytics
                             </button>
                             <button
-                                onClick={() => setActiveTab('cafeteria')}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'cafeteria'
-                                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                                    : 'text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Coffee className="w-4 h-4" />
-                                Cafeteria Management
-                            </button>
-                            <button
                                 onClick={() => setActiveTab('vendor_revenue')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${activeTab === 'vendor_revenue'
                                     ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
@@ -248,7 +235,7 @@ const PropertyAdminDashboard = () => {
                                     }`}
                             >
                                 <IndianRupee className="w-4 h-4" />
-                                Vendor Revenue
+                                Cafeteria Revenue
                             </button>
                         </div>
                     </div>
@@ -285,38 +272,7 @@ const PropertyAdminDashboard = () => {
                 </nav>
 
                 <div className="p-6 border-t border-border mt-auto">
-                    {/* User Profile Section */}
-                    <div className="flex items-center gap-3 px-2 mb-6">
-                        <div className="w-10 h-10 bg-brand-orange/10 rounded-full flex items-center justify-center text-brand-orange font-bold text-sm shadow-lg shadow-orange-500/10">
-                            {user?.email?.[0].toUpperCase() || 'P'}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="font-bold text-sm text-foreground truncate">
-                                {user?.user_metadata?.full_name || 'Property Admin'}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate font-medium">
-                                {user?.email}
-                            </p>
-                        </div>
-                    </div>
-
                     <div className="space-y-2">
-                        <button
-                            onClick={toggleTheme}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-all font-bold text-sm"
-                        >
-                            {theme === 'light' ? (
-                                <>
-                                    <Moon className="w-4 h-4" />
-                                    <span>Dark Mode</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Sun className="w-4 h-4" />
-                                    <span>Light Mode</span>
-                                </>
-                            )}
-                        </button>
                         <button
                             onClick={() => setShowSignOutModal(true)}
                             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 transition-all font-bold text-sm"
@@ -334,6 +290,18 @@ const PropertyAdminDashboard = () => {
                 onConfirm={signOut}
             />
 
+            {property && (
+                <TicketCreateModal
+                    isOpen={showCreateTicketModal}
+                    onClose={() => setShowCreateTicketModal(false)}
+                    propertyId={property.id}
+                    organizationId={property.organization_id}
+                    onSuccess={() => {
+                        setStatsVersion(v => v + 1);
+                    }}
+                />
+            )}
+
             {/* Main Content */}
             <main className="flex-1 ml-72 p-8 lg:p-12 overflow-y-auto min-h-screen">
                 <header className="flex justify-between items-center mb-10">
@@ -341,10 +309,39 @@ const PropertyAdminDashboard = () => {
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight capitalize">{activeTab}</h1>
                         <p className="text-slate-500 text-sm font-medium mt-1">{property.address || 'Property Management Hub'}</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="hidden md:flex flex-col items-end">
-                            <span className="text-sm font-black text-slate-900 tracking-tight">Access Level</span>
-                            <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Property admin</span>
+                    <div className="flex items-center gap-6">
+                        {/* Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all group"
+                            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                        >
+                            {theme === 'light' ? <Moon className="w-5 h-5 group-hover:text-slate-900" /> : <Sun className="w-5 h-5 group-hover:text-amber-500" />}
+                        </button>
+
+                        {/* User Account Info - Simplified Level Look */}
+                        <div className="flex items-center gap-6">
+                            <button
+                                onClick={() => setActiveTab('profile')}
+                                className="flex items-center gap-4 group transition-all"
+                            >
+                                <div className="w-11 h-11 bg-indigo-500 rounded-2xl flex items-center justify-center text-white font-bold text-base shadow-xl shadow-indigo-100 group-hover:scale-105 transition-transform">
+                                    {user?.email?.[0].toUpperCase() || 'P'}
+                                </div>
+                                <div className="text-left hidden md:block">
+                                    <h4 className="text-[15px] font-black text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                                        {user?.user_metadata?.full_name || 'Property Admin'}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em]">
+                                        View Profile
+                                    </p>
+                                </div>
+                            </button>
+
+                            <div className="hidden lg:flex flex-col items-end border-l border-slate-200 pl-6 h-8 justify-center">
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Access Level</span>
+                                <span className="text-xs text-indigo-600 font-black uppercase tracking-widest leading-none">Property admin</span>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -357,15 +354,15 @@ const PropertyAdminDashboard = () => {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
                     >
-                        {activeTab === 'overview' && <OverviewTab />}
+                        {activeTab === 'overview' && <OverviewTab propertyId={propertyId} statsVersion={statsVersion} />}
                         {activeTab === 'users' && <UserDirectory propertyId={propertyId} />}
                         {activeTab === 'vendor_revenue' && <VendorRevenueTab propertyId={propertyId} />}
                         {activeTab === 'requests' && property && user && (
-                            <TenantTicketingDashboard
+                            <TicketsView
+                                key={`tickets-${statsVersion}`}
                                 propertyId={property.id}
-                                organizationId={property.organization_id}
-                                user={{ id: user.id, full_name: user.user_metadata?.full_name || 'User' }}
-                                propertyName={property.name}
+                                canDelete={true}
+                                onNewRequest={() => setShowCreateTicketModal(true)}
                             />
                         )}
                         {activeTab === 'visitors' && property && (
@@ -379,13 +376,6 @@ const PropertyAdminDashboard = () => {
                             </div>
                         )}
                         {activeTab === 'diesel' && <DieselAnalyticsDashboard />}
-                        {activeTab === 'cafeteria' && (
-                            <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
-                                <Coffee className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                                <h3 className="text-xl font-bold text-slate-900 mb-2 font-inter not-italic">Cafeteria Management</h3>
-                                <p className="text-slate-500 font-inter not-italic font-medium">Cafeteria services system coming soon.</p>
-                            </div>
-                        )}
                         {activeTab === 'settings' && (
                             <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
                                 <Settings className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -403,64 +393,153 @@ const PropertyAdminDashboard = () => {
                     </motion.div>
                 </AnimatePresence>
             </main>
-        </div >
+        </div>
     );
 };
 
-const OverviewTab = () => (
-    <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <StatCard title="Active Tenants" value="24" icon={Users} color="text-blue-600" bg="bg-blue-50" />
-            <StatCard title="Occupancy Rate" value="92%" icon={Building2} color="text-emerald-600" bg="bg-emerald-50" />
-            <StatCard title="Open Tickets" value="8" icon={Ticket} color="text-amber-600" bg="bg-amber-50" />
-            <StatCard title="Due Payments" value="3" icon={Clock} color="text-rose-600" bg="bg-rose-50" />
-        </div>
+const OverviewTab = ({ propertyId, statsVersion }: { propertyId: string, statsVersion: number }) => {
+    const router = useRouter();
+    const [stats, setStats] = useState({
+        activeTenants: 0,
+        occupancyRate: 0,
+        openTickets: 0,
+        completedTickets: 0,
+        totalTickets: 0,
+    });
+    const [activities, setActivities] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const supabase = createClient();
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-black text-slate-900">Recent Activity</h3>
-                    <button className="text-slate-900 text-xs font-black hover:underline uppercase tracking-widest">View All</button>
-                </div>
-                <div className="space-y-6">
-                    <ActivityItem
-                        icon={Ticket}
-                        color="bg-amber-100 text-amber-600"
-                        title="New Maintenance Request"
-                        desc="Leaking faucet in Unit 302"
-                        time="2h ago"
-                    />
-                    <ActivityItem
-                        icon={CheckCircle2}
-                        color="bg-emerald-100 text-emerald-600"
-                        title="Rent Payment Received"
-                        desc="Unit 105 - John Doe"
-                        time="5h ago"
-                    />
-                    <ActivityItem
-                        icon={Users}
-                        color="bg-slate-100 text-slate-600"
-                        title="New Tenant Check-in"
-                        desc="Sarah Parker - Unit 412"
-                        time="Yesterday"
-                    />
-                </div>
+    useEffect(() => {
+        const fetchOverviewData = async () => {
+            setIsLoading(true);
+            try {
+                // 1. Fetch Stats
+                const [tenantsRes, openTicketsRes, completedTicketsRes, totalTicketsRes, visitorsRes] = await Promise.all([
+                    supabase.from('property_memberships').select('id', { count: 'exact' }).eq('property_id', propertyId).eq('role', 'tenant'),
+                    supabase.from('tickets').select('id', { count: 'exact' }).eq('property_id', propertyId).neq('status', 'resolved').neq('status', 'closed'),
+                    supabase.from('tickets').select('id', { count: 'exact' }).eq('property_id', propertyId).in('status', ['resolved', 'closed']),
+                    supabase.from('tickets').select('id', { count: 'exact' }).eq('property_id', propertyId),
+                    supabase.from('visitor_logs').select('id', { count: 'exact' }).eq('property_id', propertyId).eq('status', 'checked_in')
+                ]);
+
+                // 2. Fetch Recent Activities (Combined)
+                const [recentTickets, recentVisitors] = await Promise.all([
+                    supabase.from('tickets').select('id, title, created_at, status').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(5),
+                    supabase.from('visitor_logs').select('id, full_name, checkin_time, checkout_time, status').eq('property_id', propertyId).order('checkin_time', { ascending: false }).limit(5)
+                ]);
+
+                setStats({
+                    activeTenants: tenantsRes.count || 0,
+                    occupancyRate: 85, // Mock until units table is confirmed
+                    openTickets: openTicketsRes.count || 0,
+                    completedTickets: completedTicketsRes.count || 0,
+                    totalTickets: totalTicketsRes.count || 0,
+                });
+
+                // Combine and sort activities
+                const combined = [
+                    ...(recentTickets.data || []).map(t => ({
+                        id: t.id,
+                        type: 'ticket',
+                        title: 'New Request',
+                        desc: t.title,
+                        time: new Date(t.created_at),
+                        icon: Ticket,
+                        color: 'bg-amber-100 text-amber-600'
+                    })),
+                    ...(recentVisitors.data || []).map(v => ({
+                        id: v.id,
+                        type: 'visitor',
+                        title: v.status === 'checked_in' ? 'Visitor Arrival' : 'Visitor Exit',
+                        desc: `${v.full_name} ${v.status === 'checked_in' ? 'checked in' : 'checked out'}`,
+                        time: new Date(v.status === 'checked_out' ? (v.checkout_time || v.checkin_time) : v.checkin_time),
+                        icon: UsersRound,
+                        color: 'bg-blue-100 text-blue-600'
+                    }))
+                ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 6);
+
+                setActivities(combined);
+
+            } catch (error) {
+                console.error('Error fetching overview data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchOverviewData();
+    }, [propertyId, statsVersion]);
+
+    if (isLoading) return <div className="p-10 text-center text-slate-400 font-bold animate-pulse">Synchronizing Dashboard Intelligence...</div>;
+
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <StatCard title="Active Tenants" value={stats.activeTenants} icon={Users} color="text-blue-600" bg="bg-blue-50" />
+                <StatCard title="Occupancy Rate" value={`${stats.occupancyRate}%`} icon={Building2} color="text-emerald-600" bg="bg-emerald-50" />
+                <StatCard title="Open Tickets" value={stats.openTickets} icon={Ticket} color="text-amber-600" bg="bg-amber-50" />
+                <StatCard title="Completed Requests" value={`${stats.completedTickets} / ${stats.totalTickets}`} icon={CheckCircle2} color="text-rose-600" bg="bg-rose-50" />
             </div>
 
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-black text-slate-900">Upcoming Inspections</h3>
-                    <Calendar className="w-5 h-5 text-slate-400" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Recent Intelligence</h3>
+                        </div>
+                        <button className="text-blue-600 text-[10px] font-black hover:bg-blue-50 px-3 py-1.5 rounded-lg uppercase tracking-widest transition-all">View All Activity</button>
+                    </div>
+                    <div className="space-y-6">
+                        {activities.length > 0 ? activities.map((item, idx) => (
+                            <ActivityItem
+                                key={item.id + idx}
+                                icon={item.icon}
+                                color={item.color}
+                                title={item.title}
+                                desc={item.desc}
+                                time={formatTimeAgo(item.time)}
+                                onClick={() => item.id && router.push(`/tickets/${item.id}`)}
+                            />
+                        )) : (
+                            <p className="text-center py-10 text-slate-400 font-bold">No recent activities found.</p>
+                        )}
+                    </div>
                 </div>
-                <div className="space-y-4">
-                    <InspectionItem date="Jan 15" unit="Unit 201" status="Scheduled" />
-                    <InspectionItem date="Jan 18" unit="Unit 505" status="Scheduled" />
-                    <InspectionItem date="Jan 20" unit="Lobby Area" status="Maintenance" />
+
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-6 bg-emerald-500 rounded-full"></span>
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Maintenance Schedule</h3>
+                        </div>
+                        <Calendar className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <div className="space-y-4">
+                        <InspectionItem date="Jan 15" unit="Unit 201" status="Scheduled" />
+                        <InspectionItem date="Jan 18" unit="Unit 505" status="Scheduled" />
+                        <InspectionItem date="Jan 20" unit="Lobby Area" status="Maintenance" />
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
+
+// Helper to format time ago
+const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (mins > 0) return `${mins}m ago`;
+    return 'Just now';
+};
 
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
@@ -474,8 +553,11 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
     </div>
 );
 
-const ActivityItem = ({ icon: Icon, color, title, desc, time }: any) => (
-    <div className="flex gap-4">
+const ActivityItem = ({ icon: Icon, color, title, desc, time, onClick }: any) => (
+    <div
+        className={`flex gap-4 p-2 rounded-xl transition-all ${onClick ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+        onClick={onClick}
+    >
         <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center shrink-0`}>
             <Icon className="w-5 h-5" />
         </div>
@@ -638,7 +720,7 @@ const VendorRevenueTab = ({ propertyId }: { propertyId: string }) => {
             <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
                     <div>
-                        <h3 className="text-xl font-bold text-slate-900">Vendor Performance</h3>
+                        <h3 className="text-xl font-bold text-slate-900">Cafeteria Performance</h3>
                         <p className="text-slate-500 text-xs font-medium mt-1">Real-time revenue tracking per vendor.</p>
                     </div>
                     <button

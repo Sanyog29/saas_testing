@@ -14,6 +14,8 @@ interface LiquidDieselGaugeProps {
     consumedLitres?: number;
     /** Label to display (e.g., "DG-1") */
     label?: string;
+    /** Whether to use dark theme colors */
+    isDark?: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ const LiquidDieselGauge: React.FC<LiquidDieselGaugeProps> = ({
     tankCapacity,
     consumedLitres,
     label,
+    isDark = false,
 }) => {
     // Clamp value between 0-100
     const clampedValue = Math.max(0, Math.min(100, value));
@@ -77,13 +80,13 @@ const LiquidDieselGauge: React.FC<LiquidDieselGaugeProps> = ({
                     { key: '100%', stopColor: colors.fill, stopOpacity: 1, offset: '100%' },
                 ]}
                 circleStyle={{
-                    fill: '#FEF3C7', // Amber-100 background
+                    fill: isDark ? '#0d1117' : '#FEF3C7',
                 }}
                 waveStyle={{
                     fill: colors.fill,
                 }}
                 textStyle={{
-                    fill: colors.text,
+                    fill: isDark ? '#FFF' : colors.text,
                     fontFamily: 'Space Grotesk, system-ui, sans-serif',
                     fontWeight: 700,
                 }}
@@ -94,12 +97,12 @@ const LiquidDieselGauge: React.FC<LiquidDieselGaugeProps> = ({
                 }}
             />
             {label && (
-                <p className="mt-2 text-sm font-bold text-slate-700">{label}</p>
+                <p className={`mt-2 text-sm font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>{label}</p>
             )}
             {consumedLitres !== undefined && tankCapacity !== undefined && (
-                <p className="text-xs text-slate-500 mt-1">
-                    <span className="font-bold text-amber-600">{consumedLitres}L</span>
-                    <span className="text-slate-400"> / {tankCapacity}L</span>
+                <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} mt-1`}>
+                    <span className={`font-bold ${isDark ? 'text-emerald-500' : 'text-amber-600'}`}>{consumedLitres}L</span>
+                    <span className={`${isDark ? 'text-slate-600' : 'text-slate-400'}`}> / {tankCapacity}L</span>
                 </p>
             )}
         </div>

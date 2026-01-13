@@ -28,6 +28,7 @@ interface DieselLoggerCardProps {
     averageConsumption?: number;
     onReadingChange: (generatorId: string, reading: DieselReading) => void;
     isSubmitting?: boolean;
+    isDark?: boolean;
 }
 
 /**
@@ -40,6 +41,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
     averageConsumption,
     onReadingChange,
     isSubmitting = false,
+    isDark = false
 }) => {
     const [openingHours, setOpeningHours] = useState<number>(previousClosing || 0);
     const [dieselAdded, setDieselAdded] = useState<number>(0);
@@ -58,15 +60,15 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
 
     // Status styling
     const getStatusColor = () => {
-        if (generator.status === 'standby') return 'bg-slate-200 text-slate-500';
+        if (generator.status === 'standby') return isDark ? 'bg-[#21262d] text-slate-400' : 'bg-slate-200 text-slate-500';
         if (generator.status === 'maintenance') return 'bg-rose-100 text-rose-600';
         return 'bg-amber-100 text-amber-600';
     };
 
     const getStripColor = () => {
-        if (!hasValidReading) return 'bg-slate-200';
+        if (!hasValidReading) return isDark ? 'bg-[#21262d]' : 'bg-slate-200';
         if (isHighConsumption) return 'bg-amber-400';
-        return 'bg-amber-500';
+        return isDark ? 'bg-emerald-500' : 'bg-amber-500';
     };
 
     // Notify parent of changes
@@ -93,7 +95,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`group relative flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 overflow-hidden ${generator.status === 'standby' ? 'opacity-60 hover:opacity-100' : ''
+            className={`group relative flex flex-col ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 border overflow-hidden ${generator.status === 'standby' ? 'opacity-60 hover:opacity-100' : ''
                 }`}
         >
             {/* Status Strip */}
@@ -104,18 +106,18 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                 <div className="flex justify-between items-start mb-6 pl-2">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <h2 className="text-xl font-bold text-slate-900">{generator.name}</h2>
+                            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{generator.name}</h2>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${getStatusColor()}`}>
                                 {generator.status}
                             </span>
                         </div>
-                        <p className="text-sm font-medium text-slate-400">
+                        <p className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                             {generator.make || 'Generator'} · {generator.capacity_kva || '—'} KVA
                         </p>
                     </div>
                     <div className="flex flex-col items-end">
                         {averageConsumption && (
-                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                            <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                 <TrendingUp className="w-3 h-3" />
                                 <span>Avg: {averageConsumption}L/day</span>
                             </div>
@@ -129,27 +131,27 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         {/* Opening Hours (readonly) */}
                         <label className="flex flex-col gap-1.5">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Opening</span>
+                            <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Opening</span>
                             <div className="relative">
                                 <input
                                     type="number"
                                     value={openingHours}
                                     readOnly
-                                    className="w-full bg-slate-50 border border-slate-200 text-slate-500 font-bold rounded-lg p-2.5 pl-3 focus:outline-none cursor-not-allowed"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'} font-bold rounded-lg p-2.5 pl-3 focus:outline-none cursor-not-allowed border`}
                                 />
-                                <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-medium">H</span>
+                                <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>H</span>
                             </div>
                         </label>
 
                         {/* Diesel Added */}
                         <label className="flex flex-col gap-1.5">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Diesel Added</span>
+                            <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'} uppercase tracking-wide`}>Diesel Added</span>
                             <div className="relative">
                                 <button
                                     onClick={() => setDieselAdded(Math.max(0, dieselAdded - 10))}
                                     className="absolute inset-y-0 left-0 flex items-center pl-2 z-10"
                                 >
-                                    <span className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                    <span className={`p-1 rounded-md ${isDark ? 'text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'} transition-colors`}>
                                         <Minus className="w-4 h-4" />
                                     </span>
                                 </button>
@@ -157,29 +159,29 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                     type="number"
                                     value={dieselAdded}
                                     onChange={(e) => setDieselAdded(Math.max(0, parseInt(e.target.value) || 0))}
-                                    className="w-full bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-slate-900 font-bold rounded-lg py-2.5 px-8 text-center transition-all shadow-sm"
+                                    className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500' : 'bg-white border-slate-200 focus:border-amber-500'} focus:ring-2 ${isDark ? 'focus:ring-emerald-500/20' : 'focus:ring-amber-200'} text-slate-900 font-bold rounded-lg py-2.5 px-8 text-center transition-all shadow-sm border`}
                                     placeholder="0"
                                 />
                                 <button
                                     onClick={() => setDieselAdded(dieselAdded + 10)}
                                     className="absolute inset-y-0 right-0 flex items-center pr-2 z-10"
                                 >
-                                    <span className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                    <span className={`p-1 rounded-md ${isDark ? 'text-slate-500 hover:text-emerald-500 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'} transition-colors`}>
                                         <Plus className="w-4 h-4" />
                                     </span>
                                 </button>
                             </div>
-                            <span className="text-xs text-slate-400 text-right">Litres</span>
+                            <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'} text-right`}>Litres</span>
                         </label>
                     </div>
 
                     {/* Row 2: Closing Reading (Main Action) */}
                     <label className="flex flex-col gap-2">
                         <div className="flex justify-between items-end">
-                            <span className={`text-xs font-bold uppercase tracking-wide ${isHighConsumption ? 'text-amber-600' : 'text-amber-500'}`}>
+                            <span className={`text-xs font-bold uppercase tracking-wide ${isHighConsumption ? 'text-amber-600' : (isDark ? 'text-emerald-500' : 'text-amber-500')}`}>
                                 Closing Reading
                             </span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${hasValidReading ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${hasValidReading ? 'bg-green-100 text-green-700' : (isDark ? 'bg-[#0d1117] text-amber-500' : 'bg-amber-100 text-amber-700')
                                 }`}>
                                 {hasValidReading ? '✓ VALID' : 'REQUIRED'}
                             </span>
@@ -191,17 +193,16 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                 onChange={(e) => setClosingHours(parseFloat(e.target.value) || 0)}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
-                                className={`w-full bg-white border-2 ${isHighConsumption ? 'border-amber-300 focus:border-amber-500' : 'border-amber-300 focus:border-amber-500'
-                                    } focus:ring-4 focus:ring-amber-100 text-slate-900 text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
+                                className={`w-full ${isDark ? 'bg-[#0d1117] border-emerald-500/50 focus:border-emerald-500 text-white' : 'bg-white border-amber-300 focus:border-amber-500 text-slate-900'} border-2 focus:ring-4 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
                                 placeholder={`>${openingHours}`}
                             />
-                            <span className="absolute right-4 top-4 text-slate-400 text-sm font-bold">Hours</span>
+                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>Hours</span>
                         </div>
                         {isFocused && (
-                            <p className="text-xs text-amber-500 animate-pulse font-medium">Typing...</p>
+                            <p className={`text-xs ${isDark ? 'text-emerald-500' : 'text-amber-500'} animate-pulse font-medium`}>Typing...</p>
                         )}
                         {isHighConsumption && hasValidReading && (
-                            <div className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold bg-amber-50 p-2 rounded border border-amber-100">
+                            <div className={`flex items-center gap-1.5 text-xs text-amber-600 font-semibold ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'} p-2 rounded border border-amber-100`}>
                                 <AlertTriangle className="w-4 h-4" />
                                 Warning: Usage &gt; 25% vs 30-day Avg
                             </div>
@@ -210,21 +211,21 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
 
                     {/* Calculation Result Box */}
                     <div className={`rounded-lg p-3 border flex justify-between items-center ${hasValidReading
-                            ? 'bg-gradient-to-br from-amber-50 to-white border-amber-100'
-                            : 'bg-slate-50 border-slate-100'
+                        ? (isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-gradient-to-br from-amber-50 to-white border-amber-100')
+                        : (isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-slate-50 border-slate-100')
                         }`}>
                         <div className="flex flex-col">
-                            <span className="text-xs text-slate-500 font-medium">Run Time</span>
-                            <span className="text-base font-bold text-slate-900">
+                            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Run Time</span>
+                            <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                 {hasValidReading ? `${Math.floor(runHours)}h ${Math.round((runHours % 1) * 60)}m` : '—'}
                             </span>
                         </div>
-                        <div className="h-8 w-[1px] bg-slate-200" />
+                        <div className={`h-8 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'}`} />
                         <div className="flex flex-col items-end">
-                            <span className="text-xs text-slate-500 font-medium">Consumption</span>
+                            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Consumption</span>
                             <div className="flex items-center gap-1">
-                                <Fuel className={`w-4 h-4 ${hasValidReading ? 'text-amber-500' : 'text-slate-300'}`} />
-                                <span className={`text-lg font-black ${hasValidReading ? 'text-amber-500' : 'text-slate-300'}`}>
+                                <Fuel className={`w-4 h-4 ${hasValidReading ? (isDark ? 'text-emerald-500' : 'text-amber-500') : 'text-slate-300'}`} />
+                                <span className={`text-lg font-black ${hasValidReading ? (isDark ? 'text-emerald-500' : 'text-amber-500') : 'text-slate-300'}`}>
                                     {hasValidReading ? `${estimatedConsumption}L` : '—'}
                                 </span>
                             </div>
@@ -237,7 +238,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Add notes (optional)..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-600 focus:outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                        className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-emerald-500/50' : 'bg-slate-50 border-slate-200 text-slate-600 focus:border-amber-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-emerald-500/10' : 'focus:ring-amber-100'} border`}
                     />
                 </div>
             </div>

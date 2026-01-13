@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-const BUCKET_NAME = 'ticket-photos';
+const BUCKET_NAME = 'ticket_photos';
 
 /**
  * POST /api/tickets/[id]/photos

@@ -11,9 +11,14 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-    CREATE TYPE app_role AS ENUM ('master_admin', 'org_super_admin', 'property_admin', 'staff', 'tenant', 'vendor');
+    CREATE TYPE app_role AS ENUM ('master_admin', 'org_super_admin', 'property_admin', 'staff', 'mst', 'tenant', 'vendor');
   ELSE
     -- Safe add for existing type
+    BEGIN
+      ALTER TYPE app_role ADD VALUE 'mst';
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END;
     BEGIN
       ALTER TYPE app_role ADD VALUE 'vendor';
     EXCEPTION

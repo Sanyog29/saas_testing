@@ -113,11 +113,10 @@ export async function PATCH(
             if (status === 'in_progress' && !currentTicket.work_started_at) {
                 updates.work_started_at = new Date().toISOString();
             }
-            if (status === 'resolved' && !currentTicket.resolved_at) {
-                updates.resolved_at = new Date().toISOString();
-            }
-            if (status === 'closed' && !currentTicket.closed_at) {
-                updates.closed_at = new Date().toISOString();
+            if (status === 'resolved' || status === 'closed') {
+                if (!currentTicket.resolved_at) {
+                    updates.resolved_at = new Date().toISOString();
+                }
             }
 
             await supabase.from('ticket_activity_log').insert({
@@ -194,6 +193,35 @@ export async function PATCH(
         return NextResponse.json({ success: true, ticket });
     } catch (error) {
         console.error('Ticket update error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id: ticketId } = await params;
+        const supabase = await createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { error } = await supabase
+            .from('tickets')
+            .delete()
+            .eq('id', ticketId);
+
+        if (error) {
+            console.error('Delete error:', error);
+            return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Delete ticket error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

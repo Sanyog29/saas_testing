@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     LayoutDashboard, Building2, Users, Ticket, Settings, UserCircle,
     Search, Plus, Filter, Bell, LogOut, ChevronRight, MapPin, Edit, Trash2, X, Check, UsersRound,
-    Coffee, IndianRupee, FileDown
+    Coffee, IndianRupee, FileDown, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -69,6 +69,7 @@ const OrgAdminDashboard = () => {
     const [errorMsg, setErrorMsg] = useState('');
     const [showSignOutModal, setShowSignOutModal] = useState(false);
     const [selectedPropertyId, setSelectedPropertyId] = useState('all');
+    const [isPropSelectorOpen, setIsPropSelectorOpen] = useState(false);
 
     // Derived state
     const activeProperty = selectedPropertyId === 'all'
@@ -339,7 +340,7 @@ const OrgAdminDashboard = () => {
 
                 <nav className="flex-1 px-4 overflow-y-auto">
                     {/* Core Operations */}
-                    <div className="mb-6">
+                    <div className="mb-5">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
                             <span className="w-0.5 h-3 bg-blue-500 rounded-full"></span>
                             Core Operations
@@ -369,7 +370,7 @@ const OrgAdminDashboard = () => {
                     </div>
 
                     {/* Management Hub */}
-                    <div className="mb-6">
+                    <div className="mb-5">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
                             <span className="w-0.5 h-3 bg-blue-500 rounded-full"></span>
                             Management Hub
@@ -419,7 +420,7 @@ const OrgAdminDashboard = () => {
                     </div>
 
                     {/* System & Personal */}
-                    <div className="mb-6">
+                    <div className="mb-5">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
                             <span className="w-0.5 h-3 bg-blue-500 rounded-full"></span>
                             System & Personal
@@ -449,9 +450,9 @@ const OrgAdminDashboard = () => {
                     </div>
                 </nav>
 
-                <div className="pt-6 border-t border-slate-100 p-6">
+                <div className="pt-5 border-t border-slate-100 p-5">
                     {/* User Profile Section */}
-                    <div className="flex items-center gap-3 px-2 mb-6">
+                    <div className="flex items-center gap-3 px-2 mb-5">
                         <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-slate-200">
                             {user?.email?.[0].toUpperCase() || 'O'}
                         </div>
@@ -493,18 +494,76 @@ const OrgAdminDashboard = () => {
                         <div className="flex items-center gap-4">
                             {/* Property Selector for Requests/Other tabs */}
                             {properties.length > 0 && (
-                                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-                                    <Building2 className="w-4 h-4 text-slate-400" />
-                                    <select
-                                        className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none cursor-pointer"
-                                        value={selectedPropertyId}
-                                        onChange={(e) => setSelectedPropertyId(e.target.value)}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsPropSelectorOpen(!isPropSelectorOpen)}
+                                        className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-400 transition-all group min-w-[200px]"
                                     >
-                                        <option value="all">All Properties</option>
-                                        {properties.map(prop => (
-                                            <option key={prop.id} value={prop.id}>{prop.name}</option>
-                                        ))}
-                                    </select>
+                                        <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden">
+                                            {activeProperty?.image_url ? (
+                                                <img src={activeProperty.image_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                            )}
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-700 flex-1 text-left">
+                                            {selectedPropertyId === 'all' ? 'All Properties' : activeProperty?.name}
+                                        </span>
+                                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPropSelectorOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isPropSelectorOpen && (
+                                            <>
+                                                <div
+                                                    className="fixed inset-0 z-[60]"
+                                                    onClick={() => setIsPropSelectorOpen(false)}
+                                                />
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                    className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[70] overflow-hidden"
+                                                >
+                                                    <div className="p-2 border-b border-slate-50">
+                                                        <button
+                                                            onClick={() => { setSelectedPropertyId('all'); setIsPropSelectorOpen(false); }}
+                                                            className={`w-full flex items-center gap-3 p-2 rounded-xl transition-colors ${selectedPropertyId === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50'}`}
+                                                        >
+                                                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                                <LayoutDashboard className="w-4 h-4" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <p className="text-xs font-black uppercase tracking-tight">All Properties</p>
+                                                                <p className="text-[10px] text-slate-400 font-bold">{properties.length} Locations</p>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                    <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                                                        {properties.map(prop => (
+                                                            <button
+                                                                key={prop.id}
+                                                                onClick={() => { setSelectedPropertyId(prop.id); setIsPropSelectorOpen(false); }}
+                                                                className={`w-full flex items-center gap-3 p-2 rounded-xl transition-colors ${selectedPropertyId === prop.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50'}`}
+                                                            >
+                                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden">
+                                                                    {prop.image_url ? (
+                                                                        <img src={prop.image_url} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <Building2 className="w-4 h-4 text-slate-400" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-left overflow-hidden">
+                                                                    <p className="text-xs font-black uppercase tracking-tight truncate">{prop.name}</p>
+                                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{prop.code}</p>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             )}
 
@@ -532,7 +591,7 @@ const OrgAdminDashboard = () => {
                                 setSelectedPropertyId={setSelectedPropertyId}
                             />
                         )}
-                        {activeTab === 'revenue' && <RevenueTab properties={properties} />}
+                        {activeTab === 'revenue' && <RevenueTab properties={properties} selectedPropertyId={selectedPropertyId} />}
                         {activeTab === 'properties' && (
                             <PropertiesTab
                                 properties={properties}
@@ -557,11 +616,12 @@ const OrgAdminDashboard = () => {
                         {activeTab === 'users' && (
                             <UserDirectory
                                 orgId={org?.id}
+                                propertyId={selectedPropertyId === 'all' ? undefined : selectedPropertyId}
                                 properties={properties.map(p => ({ id: p.id, name: p.name }))}
                                 onUserUpdated={fetchOrgUsers}
                             />
                         )}
-                        {activeTab === 'visitors' && <VisitorsTab properties={properties} />}
+                        {activeTab === 'visitors' && <VisitorsTab properties={properties} selectedPropertyId={selectedPropertyId} />}
                         {activeTab === 'cafeteria' && (
                             <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm">
                                 <Coffee className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -611,6 +671,102 @@ const OrgAdminDashboard = () => {
     );
 };
 
+const DieselSphere = ({ percentage }: { percentage: number }) => {
+    return (
+        <div className="relative w-40 h-40 mx-auto group">
+            {/* Outer Glass Sphere */}
+            <div className="absolute inset-0 rounded-full border-4 border-white/20 bg-slate-900/10 backdrop-blur-[2px] shadow-2xl overflow-hidden group-hover:scale-105 transition-transform duration-700">
+                {/* 3D Inner Shadow for Depth */}
+                <div className="absolute inset-0 rounded-full shadow-[inset_0_10px_40px_rgba(0,0,0,0.5)] z-20" />
+
+                {/* Liquid Fill */}
+                <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${percentage}%` }}
+                    transition={{ duration: 2, ease: "circOut" }}
+                    className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400"
+                >
+                    {/* Primary Wave */}
+                    <motion.div
+                        animate={{
+                            x: [0, -100],
+                        }}
+                        transition={{
+                            duration: 4,
+                            repeat: Infinity,
+                            ease: "linear",
+                        }}
+                        className="absolute top-0 left-0 w-[400%] h-8 bg-amber-400/50 -translate-y-1/2 opacity-60"
+                        style={{
+                            borderRadius: '38% 42% 35% 45%',
+                        }}
+                    />
+
+                    {/* Secondary Wave */}
+                    <motion.div
+                        animate={{
+                            x: [-100, 0],
+                        }}
+                        transition={{
+                            duration: 6,
+                            repeat: Infinity,
+                            ease: "linear",
+                        }}
+                        className="absolute top-1 left-0 w-[400%] h-8 bg-amber-300/30 -translate-y-1/2 opacity-40"
+                        style={{
+                            borderRadius: '45% 35% 42% 38%',
+                        }}
+                    />
+
+                    {/* Bubbles animation */}
+                    {[...Array(5)].map((_, i) => (
+                        <motion.div
+                            key={i}
+                            animate={{
+                                y: [0, -40],
+                                opacity: [0, 0.6, 0],
+                                x: [0, (i % 2 === 0 ? 10 : -10)],
+                            }}
+                            transition={{
+                                duration: 2 + i,
+                                repeat: Infinity,
+                                delay: i * 0.5,
+                            }}
+                            className="absolute bottom-0 rounded-full bg-white/30 backdrop-blur-sm"
+                            style={{
+                                width: 4 + (i * 2),
+                                height: 4 + (i * 2),
+                                left: `${20 + (i * 15)}%`,
+                            }}
+                        />
+                    ))}
+                </motion.div>
+
+                {/* Reflection/Lighting Highlights */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/5 to-white/20 z-30 pointer-events-none" />
+                <div className="absolute top-4 left-10 w-12 h-6 bg-white/20 rounded-full blur-[4px] rotate-[-25deg] z-30 pointer-events-none" />
+                <div className="absolute bottom-6 right-10 w-4 h-4 bg-amber-200/20 rounded-full blur-[2px] z-30 pointer-events-none" />
+            </div>
+
+            {/* Percentage Display */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-40">
+                <motion.span
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-4xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+                >
+                    {Math.round(percentage)}
+                    <span className="text-sm ml-0.5 opacity-80">%</span>
+                </motion.span>
+                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest drop-shadow-md">Diesel Level</span>
+            </div>
+
+            {/* Bottom Glow */}
+            <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-amber-500/20 blur-xl rounded-full transition-opacity duration-300 ${percentage > 0 ? 'opacity-100' : 'opacity-0'}`} />
+        </div>
+    );
+};
+
 // Sub-components
 const OverviewTab = ({
     properties,
@@ -624,6 +780,7 @@ const OverviewTab = ({
     setSelectedPropertyId: (id: string) => void
 }) => {
     const [isLoading, setIsLoading] = useState(true);
+    const [isOverviewSelectorOpen, setIsOverviewSelectorOpen] = useState(false);
 
     // Real data from org APIs
     const [ticketSummary, setTicketSummary] = useState({
@@ -633,6 +790,7 @@ const OverviewTab = ({
         resolved: 0,
         sla_breached: 0,
         avg_resolution_hours: 0,
+        properties: [] as any[],
     });
 
     const [dieselSummary, setDieselSummary] = useState({
@@ -645,12 +803,14 @@ const OverviewTab = ({
         total_visitors_today: 0,
         checked_in: 0,
         checked_out: 0,
+        properties: [] as any[],
     });
 
     const [vendorSummary, setVendorSummary] = useState({
         total_revenue: 0,
         total_commission: 0,
         total_vendors: 0,
+        properties: [] as any[],
     });
 
     // Fetch all org summaries
@@ -673,8 +833,8 @@ const OverviewTab = ({
                 if (dieselRes.ok) {
                     const data = await dieselRes.json();
                     setDieselSummary({
-                        total_consumption: data.total_consumption || 0,
-                        change_percentage: data.change_percentage || 0,
+                        total_consumption: data.org_summary?.total_litres || 0,
+                        change_percentage: 0, // Not currently implemented in API
                         properties: data.properties || [],
                     });
                 }
@@ -687,6 +847,7 @@ const OverviewTab = ({
                         total_visitors_today: data.total_visitors || 0,
                         checked_in: data.checked_in || 0,
                         checked_out: data.checked_out || 0,
+                        properties: data.properties || [],
                     });
                 }
 
@@ -698,6 +859,7 @@ const OverviewTab = ({
                         total_revenue: data.total_revenue || 0,
                         total_commission: data.total_commission || 0,
                         total_vendors: data.total_vendors || 0,
+                        properties: data.properties || [],
                     });
                 }
             } catch (error) {
@@ -714,50 +876,165 @@ const OverviewTab = ({
         ? null
         : properties.find(p => p.id === selectedPropertyId);
 
+    // Derive display stats based on selection
+    const displayTicketStats = useMemo(() => {
+        if (selectedPropertyId === 'all') return ticketSummary;
+
+        const propStats = ticketSummary.properties?.find(p => p.property_id === selectedPropertyId);
+        if (!propStats) return {
+            total_tickets: 0,
+            open_tickets: 0,
+            in_progress: 0,
+            resolved: 0,
+            sla_breached: 0,
+            avg_resolution_hours: 0,
+            properties: ticketSummary.properties
+        };
+
+        return {
+            total_tickets: propStats.total,
+            open_tickets: propStats.open,
+            in_progress: propStats.in_progress,
+            resolved: propStats.resolved,
+            sla_breached: propStats.sla_breached,
+            avg_resolution_hours: ticketSummary.avg_resolution_hours,
+            properties: ticketSummary.properties
+        };
+    }, [selectedPropertyId, ticketSummary]);
+
+    const displayDieselStats = useMemo(() => {
+        if (selectedPropertyId === 'all') return dieselSummary;
+        const propStats = dieselSummary.properties?.find(p => p.property_id === selectedPropertyId);
+        return {
+            total_consumption: propStats?.period_total_litres || 0,
+            change_percentage: 0,
+            properties: dieselSummary.properties
+        };
+    }, [selectedPropertyId, dieselSummary]);
+
+    const displayVmsStats = useMemo(() => {
+        if (selectedPropertyId === 'all') return vmsSummary;
+        const propStats = (vmsSummary as any).properties?.find((p: any) => p.property_id === selectedPropertyId);
+        return {
+            total_visitors_today: propStats?.today || 0,
+            checked_in: propStats?.checked_in || 0,
+            checked_out: propStats?.checked_out || 0,
+        };
+    }, [selectedPropertyId, vmsSummary]);
+
+    const displayVendorStats = useMemo(() => {
+        if (selectedPropertyId === 'all') return vendorSummary;
+        const propStats = (vendorSummary as any).properties?.find((p: any) => p.property_id === selectedPropertyId);
+        return {
+            total_revenue: propStats?.total_revenue || 0,
+            total_commission: propStats?.total_commission || 0,
+            total_vendors: propStats?.vendor_count || 0,
+        };
+    }, [selectedPropertyId, vendorSummary]);
+
     // Calculated metrics
-    const completionRate = ticketSummary.total_tickets > 0
-        ? Math.round((ticketSummary.resolved / ticketSummary.total_tickets) * 100 * 10) / 10
+    const completionRate = displayTicketStats.total_tickets > 0
+        ? Math.round((displayTicketStats.resolved / displayTicketStats.total_tickets) * 100 * 10) / 10
         : 0;
 
     return (
         <div className="min-h-screen">
             {/* Header Section */}
             <div className="bg-slate-900 px-8 lg:px-12 py-8 rounded-b-[40px]">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-4">
                         <h1 className="text-3xl font-black text-white">Unified Dashboard</h1>
-                        <select
-                            className="bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                            value={selectedPropertyId}
-                            onChange={(e) => setSelectedPropertyId(e.target.value)}
-                        >
-                            <option value="all">All Properties</option>
-                            {properties.map(prop => (
-                                <option key={prop.id} value={prop.id}>{prop.name}</option>
-                            ))}
-                        </select>
-                        <span className="bg-slate-700 text-white text-xs font-bold px-3 py-1 rounded-lg">
-                            {selectedPropertyId === 'all' ? properties.length : 1}
-                        </span>
+
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsOverviewSelectorOpen(!isOverviewSelectorOpen)}
+                                className="flex items-center gap-3 bg-slate-800 text-white border border-slate-700 rounded-xl px-4 py-2.5 shadow-sm hover:border-yellow-400 transition-all group min-w-[220px]"
+                            >
+                                <div className="w-6 h-6 rounded-lg bg-slate-700 flex items-center justify-center overflow-hidden">
+                                    {activeProperty?.image_url ? (
+                                        <img src={activeProperty.image_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                </div>
+                                <span className="text-sm font-bold flex-1 text-left">
+                                    {selectedPropertyId === 'all' ? 'All Properties' : activeProperty?.name}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOverviewSelectorOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            <AnimatePresence>
+                                {isOverviewSelectorOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-[60]"
+                                            onClick={() => setIsOverviewSelectorOpen(false)}
+                                        />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            className="absolute left-0 mt-2 w-80 bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 z-[70] overflow-hidden"
+                                        >
+                                            <div className="p-2 border-b border-slate-800">
+                                                <button
+                                                    onClick={() => { setSelectedPropertyId('all'); setIsOverviewSelectorOpen(false); }}
+                                                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === 'all' ? 'bg-yellow-400 text-slate-900' : 'text-slate-300 hover:bg-slate-800'}`}
+                                                >
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+                                                        <LayoutDashboard className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-xs font-black uppercase tracking-tight">Show All Properties</p>
+                                                        <p className={`text-[10px] font-bold ${selectedPropertyId === 'all' ? 'text-slate-900/60' : 'text-slate-500'}`}>{properties.length} Active Locations</p>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                            <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+                                                {properties.map(prop => (
+                                                    <button
+                                                        key={prop.id}
+                                                        onClick={() => { setSelectedPropertyId(prop.id); setIsOverviewSelectorOpen(false); }}
+                                                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === prop.id ? 'bg-yellow-400 text-slate-900' : 'text-slate-300 hover:bg-slate-800'}`}
+                                                    >
+                                                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+                                                            {prop.image_url ? (
+                                                                <img src={prop.image_url} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <Building2 className="w-5 h-5 text-slate-500" />
+                                                            )}
+                                                        </div>
+                                                        <div className="text-left overflow-hidden">
+                                                            <p className="text-xs font-black uppercase tracking-tight truncate">{prop.name}</p>
+                                                            <p className={`text-[10px] font-bold uppercase tracking-widest ${selectedPropertyId === prop.id ? 'text-slate-900/60' : 'text-slate-500'}`}>{prop.code}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-5">
                         <Search className="w-6 h-6 text-slate-400 cursor-pointer hover:text-white transition-colors" />
                     </div>
                 </div>
 
                 {/* Breadcrumb */}
-                <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center gap-2 mb-5">
                     <span className="text-yellow-400 text-sm font-bold">Dashboard /Home</span>
                 </div>
 
                 {/* KPI Cards Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                     {/* Active Requests */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
                         <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Open Tickets</div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-black text-green-400">{ticketSummary.open_tickets + ticketSummary.in_progress}</span>
-                            <span className="text-xs text-white/60 font-bold">{ticketSummary.sla_breached} SLA breached</span>
+                            <span className="text-4xl font-black text-green-400">{displayTicketStats.open_tickets + displayTicketStats.in_progress}</span>
+                            <span className="text-xs text-white/60 font-bold">{displayTicketStats.sla_breached} SLA breached</span>
                         </div>
                     </div>
 
@@ -765,8 +1042,8 @@ const OverviewTab = ({
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
                         <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Resolved</div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-black text-white">{ticketSummary.resolved}</span>
-                            <span className="text-xs text-white/60 font-bold">Avg {ticketSummary.avg_resolution_hours}h resolution</span>
+                            <span className="text-4xl font-black text-white">{displayTicketStats.resolved}</span>
+                            <span className="text-xs text-white/60 font-bold">Avg {displayTicketStats.avg_resolution_hours}h resolution</span>
                         </div>
                     </div>
 
@@ -775,54 +1052,61 @@ const OverviewTab = ({
                         <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Completion Rate</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-white">{completionRate}%</span>
-                            <span className="text-xs text-white/60 font-bold">{ticketSummary.resolved} of {ticketSummary.total_tickets} closed</span>
+                            <span className="text-xs text-white/60 font-bold">{displayTicketStats.resolved} of {displayTicketStats.total_tickets} closed</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Main Content Grid - with padding */}
-            <div className="px-8 lg:px-12 py-6 space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="px-8 lg:px-12 py-5 space-y-5">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                     {/* Left Column */}
-                    <div className="lg:col-span-3 space-y-6">
+                    <div className="lg:col-span-3 space-y-5">
                         {/* Diesel Consumption */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-sm font-black text-slate-900">Diesel Consumption</h3>
                             </div>
-                            <div className="text-amber-500 text-xs font-bold mb-4">This Month</div>
-
-                            {/* Gauge Placeholder */}
-                            <div className="flex justify-center mb-4">
-                                <div className="w-24 h-24 rounded-full border-8 border-amber-400 border-t-transparent flex items-center justify-center">
-                                    <span className="text-lg font-black text-slate-900">{dieselSummary.total_consumption}</span>
-                                </div>
+                            <div className="text-amber-500 text-xs font-bold mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                                Real-time Tank Status
                             </div>
 
-                            <div className="text-slate-400 text-xs font-bold mb-1">Total consumption</div>
-                            <div className="text-3xl font-black text-slate-900 mb-1">{dieselSummary.total_consumption.toLocaleString()} L</div>
-                            <div className="flex items-center gap-2">
-                                <span className={`font-bold text-sm ${dieselSummary.change_percentage >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                    {dieselSummary.change_percentage >= 0 ? '+' : ''}{dieselSummary.change_percentage}%
-                                </span>
+                            {/* 3D Sphere Visualization */}
+                            <div className="flex justify-center my-6">
+                                <DieselSphere percentage={Math.min(100, (displayDieselStats.total_consumption / 5000) * 100)} />
+                            </div>
+
+                            <div className="space-y-1">
+                                <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Total consumption</div>
+                                <div className="text-3xl font-black text-slate-900 flex items-baseline gap-1">
+                                    {displayDieselStats.total_consumption.toLocaleString()}
+                                    <span className="text-sm text-slate-400 font-bold">L</span>
+                                </div>
+                                <div className="flex items-center gap-2 pt-2 border-t border-slate-50 mt-2">
+                                    <span className={`font-black text-xs ${displayDieselStats.change_percentage >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                        {displayDieselStats.change_percentage >= 0 ? '+' : ''}{displayDieselStats.change_percentage}%
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">vs Last Month</span>
+                                </div>
                             </div>
                         </div>
 
                         {/* Vendor Revenue */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
                             <h3 className="text-sm font-black text-slate-900 mb-2">Vendor Revenue</h3>
                             <div className="text-slate-400 text-xs font-bold mb-2">This Month</div>
-                            <div className="text-3xl font-black text-slate-900">₹ {vendorSummary.total_revenue.toLocaleString()}</div>
+                            <div className="text-3xl font-black text-slate-900">₹ {displayVendorStats.total_revenue.toLocaleString()}</div>
                             <div className="text-xs text-slate-500 mt-2">
-                                Commission: ₹ {vendorSummary.total_commission.toLocaleString()} from {vendorSummary.total_vendors} vendors
+                                Commission: ₹ {displayVendorStats.total_commission.toLocaleString()} from {displayVendorStats.total_vendors} vendors
                             </div>
                         </div>
                     </div>
 
                     {/* Center Column - Property Card */}
                     <div className="lg:col-span-4">
-                        <div className="bg-yellow-400 rounded-3xl p-6 h-full relative overflow-hidden">
+                        <div className="bg-yellow-400 rounded-3xl p-5 h-full relative overflow-hidden">
                             <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center text-white font-bold text-sm">
                                 {properties.length}
                             </div>
@@ -830,32 +1114,46 @@ const OverviewTab = ({
                             <h3 className="text-2xl font-black text-slate-900 mb-2 truncate">
                                 {activeProperty ? activeProperty.name : 'All Properties'}
                             </h3>
-                            <div className="text-red-600 text-sm font-bold mb-6 truncate">
+                            <div className="text-red-600 text-sm font-bold mb-5 truncate">
                                 {activeProperty ? `Property: ${activeProperty.code}` : 'Multi-Property View'}
                             </div>
 
-                            {/* Building Image Placeholder */}
-                            <div className="bg-yellow-500/50 rounded-2xl h-40 mb-6 flex items-center justify-center">
-                                <Building2 className="w-16 h-16 text-yellow-600" />
+                            {/* Building Image */}
+                            <div className="bg-yellow-500/50 rounded-[2rem] h-56 mb-5 flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-2xl group relative">
+                                {activeProperty?.image_url ? (
+                                    <>
+                                        <img
+                                            src={activeProperty.image_url}
+                                            alt={activeProperty.name}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-yellow-400/20 to-transparent" />
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Building2 className="w-20 h-20 text-yellow-600/30" />
+                                        <span className="text-[10px] font-black text-yellow-700/40 uppercase tracking-widest">Awaiting Visuals</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-slate-700 text-xs font-bold">Visitors Today</div>
-                                    <div className="text-2xl font-black text-slate-900">{vmsSummary.total_visitors_today}</div>
+                                    <div className="text-2xl font-black text-slate-900">{displayVmsStats.total_visitors_today}</div>
                                 </div>
                                 <div>
                                     <div className="text-slate-700 text-xs font-bold">Checked In / Out</div>
-                                    <div className="text-2xl font-black text-slate-900">{vmsSummary.checked_in} / {vmsSummary.checked_out}</div>
+                                    <div className="text-2xl font-black text-slate-900">{displayVmsStats.checked_in} / {displayVmsStats.checked_out}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Right Column */}
-                    <div className="lg:col-span-5 space-y-6">
+                    <div className="lg:col-span-5 space-y-5">
                         {/* Property Breakdown */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
                             <h3 className="text-sm font-black text-slate-900 mb-4">Tickets by Property</h3>
                             <div className="space-y-3 max-h-48 overflow-y-auto">
                                 {(ticketSummary as any).properties?.slice(0, 5).map((prop: any, idx: number) => (
@@ -877,24 +1175,24 @@ const OverviewTab = ({
                         </div>
 
                         {/* Module Summary */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
                             <h3 className="text-sm font-black text-slate-900 mb-4">Module Summary</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-blue-50 rounded-xl">
                                     <div className="text-xs font-bold text-blue-600 mb-1">Tickets</div>
-                                    <div className="text-2xl font-black text-blue-900">{ticketSummary.total_tickets}</div>
+                                    <div className="text-2xl font-black text-blue-900">{displayTicketStats.total_tickets}</div>
                                 </div>
                                 <div className="p-4 bg-emerald-50 rounded-xl">
                                     <div className="text-xs font-bold text-emerald-600 mb-1">Visitors</div>
-                                    <div className="text-2xl font-black text-emerald-900">{vmsSummary.total_visitors_today}</div>
+                                    <div className="text-2xl font-black text-emerald-900">{displayVmsStats.total_visitors_today}</div>
                                 </div>
                                 <div className="p-4 bg-amber-50 rounded-xl">
                                     <div className="text-xs font-bold text-amber-600 mb-1">Diesel (L)</div>
-                                    <div className="text-2xl font-black text-amber-900">{dieselSummary.total_consumption}</div>
+                                    <div className="text-2xl font-black text-amber-900">{displayDieselStats.total_consumption}</div>
                                 </div>
                                 <div className="p-4 bg-purple-50 rounded-xl">
                                     <div className="text-xs font-bold text-purple-600 mb-1">Vendors</div>
-                                    <div className="text-2xl font-black text-purple-900">{vendorSummary.total_vendors}</div>
+                                    <div className="text-2xl font-black text-purple-900">{displayVendorStats.total_vendors}</div>
                                 </div>
                             </div>
                         </div>
@@ -908,7 +1206,7 @@ const OverviewTab = ({
 };
 
 const PropertiesTab = ({ properties, onCreate, onEdit, onDelete }: any) => (
-    <div className="space-y-6">
+    <div className="space-y-5">
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -926,30 +1224,59 @@ const PropertiesTab = ({ properties, onCreate, onEdit, onDelete }: any) => (
             </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {properties.map((prop: any) => (
-                <div key={prop.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-transform group-hover:scale-110">
-                            <Building2 className="w-6 h-6" />
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => onEdit(prop)} className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                <div key={prop.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden flex flex-col">
+                    {/* Image Header with aspect-ratio handling */}
+                    <div className="relative h-56 bg-slate-50 overflow-hidden">
+                        {prop.image_url ? (
+                            <img
+                                src={prop.image_url}
+                                alt={prop.name}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-200 gap-2">
+                                <Building2 className="w-16 h-16" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Standard Asset View</span>
+                            </div>
+                        )}
+
+                        {/* Overlay Controls */}
+                        <div className="absolute top-4 right-4 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                            <button
+                                onClick={() => onEdit(prop)}
+                                className="p-3 bg-white/90 backdrop-blur-xl text-slate-600 rounded-2xl hover:bg-blue-500 hover:text-white shadow-xl shadow-black/5 transition-all"
+                            >
                                 <Edit className="w-4 h-4" />
                             </button>
-                            <button onClick={() => onDelete(prop.id)} className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                            <button
+                                onClick={() => onDelete(prop.id)}
+                                className="p-3 bg-white/90 backdrop-blur-xl text-slate-600 rounded-2xl hover:bg-rose-500 hover:text-white shadow-xl shadow-black/5 transition-all"
+                            >
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </div>
+
+                        {/* Property Tag */}
+                        <div className="absolute bottom-4 left-4">
+                            <span className="px-3 py-1.5 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black rounded-xl uppercase tracking-widest border border-white/10 shadow-lg">
+                                {prop.code}
+                            </span>
+                        </div>
                     </div>
-                    <h3 className="text-lg font-black text-slate-900 leading-tight mb-1">{prop.name}</h3>
-                    <div className="flex items-center gap-1 text-slate-400 text-xs font-medium mb-6">
-                        <MapPin className="w-3 h-3" />
-                        {prop.address || 'No address provided'}
+
+                    <div className="p-8 flex-1 flex flex-col">
+                        <h3 className="text-xl font-black text-slate-900 leading-tight mb-2 truncate decoration-blue-500 decoration-4">{prop.name}</h3>
+                        <div className="flex items-start gap-2.5 text-slate-500 text-xs font-medium mb-8">
+                            <MapPin className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" />
+                            <span className="line-clamp-2 leading-relaxed">{prop.address || 'No physical address registered'}</span>
+                        </div>
+
+                        <button className="w-full py-4 bg-slate-50 border border-slate-100 text-slate-900 font-bold rounded-2xl text-[10px] hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all mt-auto uppercase tracking-[0.2em] shadow-sm">
+                            View Live Analytics
+                        </button>
                     </div>
-                    <button className="w-full py-3 border border-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all">
-                        Manage Property
-                    </button>
                 </div>
             ))}
         </div>
@@ -958,7 +1285,7 @@ const PropertiesTab = ({ properties, onCreate, onEdit, onDelete }: any) => (
 
 const UsersTab = ({ users, orgId, allProperties, onEdit, onDelete }: any) => (
     <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+        <div className="p-5 border-b border-slate-50 flex justify-between items-center">
             <h3 className="font-black text-slate-900">User Directory</h3>
             <div className="flex gap-2">
                 <button className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:text-slate-900 transition-colors">
@@ -969,16 +1296,16 @@ const UsersTab = ({ users, orgId, allProperties, onEdit, onDelete }: any) => (
         <table className="w-full text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Role</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Properties</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Role</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Properties</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {users.map((u: any) => (
                     <tr key={`${u.user_id}-${orgId}`} className="hover:bg-slate-50/30 transition-colors group">
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-xs">
                                     {u.user?.full_name?.substring(0, 1) || 'U'}
@@ -989,7 +1316,7 @@ const UsersTab = ({ users, orgId, allProperties, onEdit, onDelete }: any) => (
                                 </div>
                             </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-4">
                             {u.role ? (
                                 <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide ${u.role === 'org_super_admin' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-900 text-white'
                                     }`}>
@@ -1005,7 +1332,7 @@ const UsersTab = ({ users, orgId, allProperties, onEdit, onDelete }: any) => (
                                 </span>
                             )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-4">
                             <div className="flex flex-wrap gap-1.5 max-w-[280px]">
                                 {u.role === 'org_super_admin' ? (
                                     // Super Admins see all properties
@@ -1033,7 +1360,7 @@ const UsersTab = ({ users, orgId, allProperties, onEdit, onDelete }: any) => (
                                 )}
                             </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
                                 <button onClick={() => onEdit(u)} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors">
                                     <Edit className="w-4 h-4" />
@@ -1054,6 +1381,32 @@ const PropertyModal = ({ property, onClose, onSave }: any) => {
     const [name, setName] = useState(property?.name || '');
     const [code, setCode] = useState(property?.code || '');
     const [address, setAddress] = useState(property?.address || '');
+    const [imageUrl, setImageUrl] = useState(property?.image_url || '');
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImageUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImageUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1062,7 +1415,7 @@ const PropertyModal = ({ property, onClose, onSave }: any) => {
                 animate={{ scale: 1, opacity: 1 }}
                 className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden"
             >
-                <button onClick={onClose} className="absolute right-6 top-6 text-slate-300 hover:text-slate-900 transition-colors">
+                <button onClick={onClose} className="absolute right-6 top-5 text-slate-300 hover:text-slate-900 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
                 <div className="flex items-center gap-4 mb-8">
@@ -1091,9 +1444,48 @@ const PropertyModal = ({ property, onClose, onSave }: any) => {
                         <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="123 Main St, City" />
                     </div>
 
+                    <div>
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Property Image</label>
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                            onDragLeave={() => setIsDragging(false)}
+                            onDrop={handleDrop}
+                            className={`relative h-40 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden bg-slate-50 ${isDragging ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200'
+                                }`}
+                        >
+                            {imageUrl ? (
+                                <>
+                                    <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => setImageUrl('')}
+                                        className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-full shadow-lg hover:bg-rose-600 transition-colors"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 pointer-events-none">
+                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400">
+                                        <Plus className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Drop Image Here</p>
+                                        <p className="text-[9px] text-slate-400 font-bold">or click to browse</p>
+                                    </div>
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex gap-3 mt-8">
                         <button onClick={onClose} className="flex-1 py-4 font-black text-slate-400 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors uppercase text-xs tracking-widest">Cancel</button>
-                        <button onClick={() => onSave({ name, code, address })} className="flex-1 py-4 font-black text-white bg-slate-900 rounded-2xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200 uppercase text-xs tracking-widest flex items-center justify-center gap-2">
+                        <button onClick={() => onSave({ name, code, address, image_url: imageUrl })} className="flex-1 py-4 font-black text-white bg-slate-900 rounded-2xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200 uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                             <Check className="w-4 h-4" /> {property ? 'Update' : 'Create'}
                         </button>
                     </div>
@@ -1115,7 +1507,7 @@ const UserModal = ({ user, onClose, onSave }: any) => {
                 animate={{ scale: 1, opacity: 1 }}
                 className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative"
             >
-                <button onClick={onClose} className="absolute right-6 top-6 text-slate-300 hover:text-slate-900 transition-colors">
+                <button onClick={onClose} className="absolute right-6 top-5 text-slate-300 hover:text-slate-900 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
                 <div className="flex items-center gap-4 mb-8">
@@ -1157,11 +1549,15 @@ const UserModal = ({ user, onClose, onSave }: any) => {
     );
 }
 
-const RevenueTab = ({ properties }: { properties: any[] }) => {
+const RevenueTab = ({ properties, selectedPropertyId }: { properties: any[], selectedPropertyId: string }) => {
     const [vendors, setVendors] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedProperty, setSelectedProperty] = useState('all');
+    const [selectedProperty, setSelectedProperty] = useState(selectedPropertyId);
     const supabase = createClient();
+
+    useEffect(() => {
+        setSelectedProperty(selectedPropertyId);
+    }, [selectedPropertyId]);
 
     useEffect(() => {
         fetchRevenueData();
@@ -1215,7 +1611,7 @@ const RevenueTab = ({ properties }: { properties: any[] }) => {
 
     return (
         <div className="space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
                 <div>
                     <h2 className="text-xl font-black text-slate-900 leading-tight">Revenue Analytics</h2>
                     <p className="text-slate-500 text-sm font-medium">Cross-property financial oversight.</p>
@@ -1238,7 +1634,7 @@ const RevenueTab = ({ properties }: { properties: any[] }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-500" />
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">Total Revenue</p>
@@ -1279,18 +1675,18 @@ const RevenueTab = ({ properties }: { properties: any[] }) => {
                                     const comm = rev * (v.commission_rate / 100);
                                     return (
                                         <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-8 py-6">
+                                            <td className="px-8 py-5">
                                                 <div>
                                                     <p className="font-black text-slate-900 text-sm group-hover:text-blue-600 transition-colors uppercase tracking-tight">{v.shop_name}</p>
                                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{v.properties?.name}</p>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-sm font-bold text-slate-600">{v.owner_name}</td>
-                                            <td className="px-8 py-6 text-center">
+                                            <td className="px-8 py-5 text-sm font-bold text-slate-600">{v.owner_name}</td>
+                                            <td className="px-8 py-5 text-center">
                                                 <span className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-wider">{v.commission_rate}%</span>
                                             </td>
-                                            <td className="px-8 py-6 text-right font-black text-sm text-slate-900">₹{rev.toLocaleString()}</td>
-                                            <td className="px-8 py-6 text-right font-black text-sm text-emerald-600">₹{comm.toLocaleString()}</td>
+                                            <td className="px-8 py-5 text-right font-black text-sm text-slate-900">₹{rev.toLocaleString()}</td>
+                                            <td className="px-8 py-5 text-right font-black text-sm text-emerald-600">₹{comm.toLocaleString()}</td>
                                         </tr>
                                     );
                                 })
@@ -1303,12 +1699,16 @@ const RevenueTab = ({ properties }: { properties: any[] }) => {
     );
 };
 
-const VisitorsTab = ({ properties }: { properties: any[] }) => {
+const VisitorsTab = ({ properties, selectedPropertyId }: { properties: any[], selectedPropertyId: string }) => {
     const [visitors, setVisitors] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedProperty, setSelectedProperty] = useState('all');
+    const [selectedProperty, setSelectedProperty] = useState(selectedPropertyId);
     const [searchTerm, setSearchTerm] = useState('');
     const supabase = createClient();
+
+    useEffect(() => {
+        setSelectedProperty(selectedPropertyId);
+    }, [selectedPropertyId]);
 
     useEffect(() => {
         fetchVisitors();
@@ -1368,8 +1768,8 @@ const VisitorsTab = ({ properties }: { properties: any[] }) => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="space-y-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
                 <div>
                     <h2 className="text-xl font-black text-slate-900 leading-tight">Visitor Management</h2>
                     <p className="text-slate-500 text-sm font-medium">Track and manage visitors across all properties.</p>
@@ -1407,11 +1807,11 @@ const VisitorsTab = ({ properties }: { properties: any[] }) => {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50/50 border-b border-slate-100">
                             <tr>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Visitor Info</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Host / Purpose</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Timing</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Visitor Info</th>
+                                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
+                                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Host / Purpose</th>
+                                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Timing</th>
+                                <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -1422,7 +1822,7 @@ const VisitorsTab = ({ properties }: { properties: any[] }) => {
                             ) : (
                                 filteredVisitors.map((visitor) => (
                                     <tr key={visitor.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold">
                                                     {visitor.name?.[0]}
@@ -1434,17 +1834,17 @@ const VisitorsTab = ({ properties }: { properties: any[] }) => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-4">
                                             <div className="flex items-center gap-1.5">
                                                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                                                 <span className="text-sm font-bold text-slate-700">{visitor.properties?.name}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-4">
                                             <div className="text-sm font-bold text-slate-900">{visitor.whom_to_meet}</div>
                                             <div className="text-xs text-slate-500 capitalize">{visitor.category}</div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-4">
                                             <div className="text-xs font-bold text-slate-900">
                                                 In: {new Date(visitor.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </div>
@@ -1454,7 +1854,7 @@ const VisitorsTab = ({ properties }: { properties: any[] }) => {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-4">
                                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${visitor.status === 'checked_in'
                                                 ? 'bg-emerald-100 text-emerald-700'
                                                 : 'bg-slate-100 text-slate-600'

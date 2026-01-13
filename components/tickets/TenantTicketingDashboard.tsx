@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Paperclip, Send, Clock, Star, User, ChevronRight, X, MessageSquare, Loader2, CheckCircle } from 'lucide-react';
+import { Plus, Paperclip, Send, Clock, Star, User, ChevronRight, X, MessageSquare, Loader2, CheckCircle, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { compressImage } from '@/utils/image-compression';
 
 interface Ticket {
     id: string;
@@ -20,6 +21,8 @@ interface Ticket {
     category?: { name: string; code: string };
     assignee?: { full_name: string };
     rating?: number;
+    photo_before_url?: string;
+    photo_after_url?: string;
 }
 
 interface Classification {
@@ -79,36 +82,22 @@ export default function TenantTicketingDashboard({
         }
     };
 
-    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const maxSize = 800;
-                let width = img.width;
-                let height = img.height;
+            try {
+                const compressedFile = await compressImage(file, { maxWidth: 1280, maxHeight: 1280 });
+                setPhotoFile(compressedFile);
 
-                if (width > height && width > maxSize) {
-                    height = (height * maxSize) / width;
-                    width = maxSize;
-                } else if (height > maxSize) {
-                    width = (width * maxSize) / height;
-                    height = maxSize;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        setPhotoFile(new File([blob], file.name.replace(/\.\w+$/, '.webp'), { type: 'image/webp' }));
-                        setPhotoPreview(canvas.toDataURL('image/webp', 0.8));
-                    }
-                }, 'image/webp', 0.8); // WebP: ~30% smaller than JPEG
-            };
-            img.src = URL.createObjectURL(file);
+                // Create preview URL
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setPhotoPreview(reader.result as string);
+                };
+                reader.readAsDataURL(compressedFile);
+            } catch (error) {
+                console.error('Compression failed:', error);
+            }
         }
     };
 
@@ -212,26 +201,28 @@ export default function TenantTicketingDashboard({
         waitlist: 'text-slate-400',
     };
 
+    const isDark = isStaff;
+
     return (
-        <div className="min-h-screen bg-[var(--canvas-bg)] p-8 font-body">
+        <div className={`min-h-screen ${isDark ? 'bg-[#0f1419] text-white' : 'bg-[var(--canvas-bg)] text-slate-900'} p-8 font-body transition-colors duration-300`}>
             {/* Header */}
             <div className="max-w-6xl mx-auto">
                 <div className="flex items-center justify-between mb-12">
                     <div>
-                        <h1 className="text-4xl font-display font-semibold text-text-primary tracking-tight">
+                        <h1 className={`text-4xl font-display font-semibold ${isDark ? 'text-white' : 'text-text-primary'} tracking-tight`}>
                             <span className="text-primary">{propertyName || 'Property'}</span>{' '}
                             {isStaff ? 'Maintenance Portal' : 'Request Manager'}
                         </h1>
-                        <p className="text-sm text-text-secondary mt-1 font-medium">Efficiently handle your facility needs</p>
+                        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-text-secondary'} mt-1 font-medium`}>Efficiently handle your facility needs</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-3 premium-panel px-6 py-3">
+                        <div className={`flex items-center gap-3 ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'premium-panel'} px-6 py-3 rounded-2xl border`}>
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
-                                <User className="w-5 h-5 text-primary" />
+                                <User className={`w-5 h-5 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
                             </div>
                             <div>
-                                <p className="text-text-primary font-semibold text-sm">{user.full_name}</p>
-                                <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">{isStaff ? 'MST Account' : 'Tenant Account'}</p>
+                                <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-text-primary'}`}>{user.full_name}</p>
+                                <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-text-tertiary'} font-bold uppercase tracking-widest`}>{isStaff ? 'MST Account' : 'Tenant Account'}</p>
                             </div>
                         </div>
                     </div>
@@ -240,8 +231,8 @@ export default function TenantTicketingDashboard({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left Panel - Raise New Request */}
                     <div className="space-y-6">
-                        <div className="glass-panel p-10">
-                            <h2 className="text-xs font-bold text-secondary mb-8 flex items-center gap-3 uppercase tracking-[0.2em]">
+                        <div className={`${isDark ? 'bg-[#161b22] border-[#21262d] shadow-2xl' : 'glass-panel'} p-10 rounded-3xl border transition-all`}>
+                            <h2 className={`text-xs font-bold ${isDark ? 'text-emerald-500' : 'text-secondary'} mb-8 flex items-center gap-3 uppercase tracking-[0.2em]`}>
                                 <Plus className="w-4 h-4" />
                                 Raise a New Request
                             </h2>
@@ -251,18 +242,18 @@ export default function TenantTicketingDashboard({
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Describe the issue in your words.&#10;Example: Leaking tap in kitchenette"
-                                    className="w-full h-40 bg-text-primary/5 border border-border/10 rounded-2xl p-6 text-text-primary placeholder-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-primary/10 transition-smooth font-medium"
+                                    className={`w-full h-40 ${isDark ? 'bg-[#0d1117] text-white border-[#30363d]' : 'bg-text-primary/5 border-border/10'} border rounded-2xl p-6 placeholder-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium`}
                                 />
-                                <div className="absolute inset-0 rounded-2xl border border-primary/5 pointer-events-none group-focus-within:border-primary/20 transition-smooth"></div>
+                                {!isDark && <div className="absolute inset-0 rounded-2xl border border-primary/5 pointer-events-none group-focus-within:border-primary/20 transition-smooth"></div>}
                             </div>
 
                             {/* Photo Preview */}
                             {photoPreview && (
                                 <div className="relative mt-4">
-                                    <img src={photoPreview} alt="Preview" className="w-full h-32 object-cover rounded-2xl border border-border/10" />
+                                    <img src={photoPreview} alt="Preview" className={`w-full h-32 object-cover rounded-2xl border ${isDark ? 'border-[#30363d]' : 'border-border/10'}`} />
                                     <button
                                         onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                                        className="absolute top-3 right-3 bg-error text-text-inverse rounded-full p-2 shadow-xl hover:scale-110 transition-smooth"
+                                        className="absolute top-3 right-3 bg-rose-500 text-white rounded-full p-2 shadow-xl hover:scale-110 transition-all"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -270,7 +261,7 @@ export default function TenantTicketingDashboard({
                             )}
 
                             <div className="flex items-center justify-between mt-10">
-                                <label className="flex items-center gap-3 text-text-secondary hover:text-primary cursor-pointer transition-smooth text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl hover:bg-primary/5 border border-transparent hover:border-primary/10">
+                                <label className={`flex items-center gap-3 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl border border-transparent hover:border-primary/10`}>
                                     <Paperclip className="w-5 h-5" />
                                     <span>Attach File</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
@@ -278,7 +269,7 @@ export default function TenantTicketingDashboard({
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !description.trim()}
-                                    className="px-10 py-4 bg-primary hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-text-inverse font-semibold rounded-2xl transition-smooth flex items-center gap-3 shadow-xl shadow-primary/20 uppercase tracking-widest text-[11px]"
+                                    className={`px-10 py-4 ${isDark ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-primary shadow-primary/20'} hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all flex items-center gap-3 shadow-xl uppercase tracking-widest text-[11px]`}
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -297,20 +288,20 @@ export default function TenantTicketingDashboard({
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    className="premium-list p-8 border-success/30 bg-success/5"
+                                    className={`${isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'premium-list border-success/30 bg-success/5'} p-8 border rounded-3xl`}
                                 >
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-success font-bold uppercase tracking-widest text-[11px]">✓ Request Submitted Successfully</h3>
-                                        <span className="text-[10px] bg-success text-text-inverse px-3 py-1 rounded-full font-bold tracking-tighter">SUCCESS</span>
+                                        <h3 className={`${isDark ? 'text-emerald-400' : 'text-success'} font-bold uppercase tracking-widest text-[11px]`}>✓ Request Submitted Successfully</h3>
+                                        <span className={`text-[10px] ${isDark ? 'bg-emerald-600' : 'bg-success'} text-white px-3 py-1 rounded-full font-bold tracking-tighter`}>SUCCESS</span>
                                     </div>
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-text-secondary font-medium text-sm">AI Classification:</span>
-                                            <span className="text-text-primary font-display font-semibold capitalize">{classification.category?.replace(/_/g, ' ') || 'General Request'}</span>
+                                            <span className={`${isDark ? 'text-slate-400' : 'text-text-secondary'} font-medium text-sm`}>AI Classification:</span>
+                                            <span className={`${isDark ? 'text-white' : 'text-text-primary'} font-display font-semibold capitalize`}>{classification.category?.replace(/_/g, ' ') || 'General Request'}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-text-secondary font-medium text-sm">System Priority:</span>
-                                            <span className="text-primary font-bold uppercase tracking-widest text-[10px]">Processing</span>
+                                            <span className={`${isDark ? 'text-slate-400' : 'text-text-secondary'} font-medium text-sm`}>System Priority:</span>
+                                            <span className={`${isDark ? 'text-emerald-400' : 'text-primary'} font-bold uppercase tracking-widest text-[10px]`}>Processing</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -320,15 +311,15 @@ export default function TenantTicketingDashboard({
 
                     {/* Right Panel - My Tickets */}
                     <div className="space-y-8">
-                        <div className="glass-panel p-10">
-                            <h2 className="text-xs font-bold text-text-tertiary mb-10 uppercase tracking-[0.2em] border-b border-border/5 pb-6">
+                        <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'glass-panel'} p-10 rounded-3xl border transition-all`}>
+                            <h2 className={`text-xs font-bold ${isDark ? 'text-slate-500 border-[#21262d]' : 'text-text-tertiary border-border/5'} mb-10 uppercase tracking-[0.2em] border-b pb-6`}>
                                 {isStaff ? 'Assigned Operations' : 'Recent Activity'}
                             </h2>
 
                             {loading ? (
                                 <div className="space-y-6">
                                     {[1, 2, 3].map(i => (
-                                        <div key={i} className="bg-text-primary/5 rounded-3xl p-8 border border-border/5 animate-pulse">
+                                        <div key={i} className={`${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-text-primary/5 border-border/5'} rounded-3xl p-8 border animate-pulse`}>
                                             <div className="h-5 bg-text-primary/10 rounded-lg w-3/4 mb-4" />
                                             <div className="h-2.5 bg-text-primary/5 rounded-full w-1/2" />
                                         </div>
@@ -336,10 +327,10 @@ export default function TenantTicketingDashboard({
                                 </div>
                             ) : activeTickets.length === 0 ? (
                                 <div className="text-center py-20 px-8">
-                                    <div className="w-20 h-20 bg-text-primary/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <MessageSquare className="w-8 h-8 text-text-tertiary/30" />
+                                    <div className={`w-20 h-20 ${isDark ? 'bg-[#0d1117]' : 'bg-text-primary/5'} rounded-full flex items-center justify-center mx-auto mb-6`}>
+                                        <MessageSquare className={`w-8 h-8 ${isDark ? 'text-slate-800' : 'text-text-tertiary/30'}`} />
                                     </div>
-                                    <p className="text-text-tertiary font-medium">No active requests currently in progress</p>
+                                    <p className={`${isDark ? 'text-slate-600' : 'text-text-tertiary'} font-medium`}>No active requests currently in progress</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -349,34 +340,46 @@ export default function TenantTicketingDashboard({
                                             <div
                                                 key={ticket.id}
                                                 onClick={() => router.push(`/tickets/${ticket.id}`)}
-                                                className="group/ticket premium-list p-8 cursor-pointer transition-smooth border-border/5 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
+                                                className={`group/ticket ${isDark ? 'bg-[#0d1117] border-[#21262d] hover:border-emerald-500/30' : 'premium-list border-border/5 hover:border-primary/20'} p-8 cursor-pointer transition-all rounded-2xl border hover:shadow-2xl`}
                                             >
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex items-start gap-6">
-                                                        <div className="w-14 h-14 kpi-icon flex items-center justify-center flex-shrink-0">
-                                                            <MessageSquare className="w-7 h-7 text-primary" />
+                                                        <div className={`w-14 h-14 ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'kpi-icon'} flex items-center justify-center flex-shrink-0 rounded-xl border`}>
+                                                            <MessageSquare className={`w-7 h-7 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
                                                         </div>
                                                         <div>
-                                                            <p className="font-display font-semibold text-text-primary text-xl mb-1.5 group-hover/ticket:text-primary transition-smooth">{ticket.title}</p>
+                                                            <p className={`font-display font-semibold ${isDark ? 'text-white group-hover/ticket:text-emerald-400' : 'text-text-primary group-hover/ticket:text-primary'} text-xl mb-1.5 transition-all`}>{ticket.title}</p>
                                                             <div className="flex items-center gap-3">
-                                                                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest bg-text-primary/5 px-2.5 py-1 rounded-md">{ticket.category?.name || 'General'}</span>
+                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-slate-500 bg-[#161b22]' : 'text-text-tertiary bg-text-primary/5'} uppercase tracking-widest px-2.5 py-1 rounded-md`}>{ticket.category?.name || 'General'}</span>
                                                                 {sla && <span className={`text-[10px] font-bold uppercase tracking-widest ${sla.color}`}>{sla.text}</span>}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="pt-2">
-                                                        <ChevronRight className="w-6 h-6 text-text-tertiary group-hover/ticket:text-primary group-hover/ticket:translate-x-1 transition-smooth" />
+                                                        <ChevronRight className={`w-6 h-6 ${isDark ? 'text-slate-800' : 'text-text-tertiary'} group-hover/ticket:text-primary group-hover/ticket:translate-x-1 transition-all`} />
                                                     </div>
                                                 </div>
-                                                {sla && (
-                                                    <div className="mt-8 h-1.5 bg-text-primary/5 rounded-full overflow-hidden">
-                                                        <motion.div
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${sla.progress}%` }}
-                                                            className={`h-full rounded-full transition-all duration-1000 ${sla.progress > 80 ? 'bg-error shadow-[0_0_12px_rgba(239,68,68,0.2)]' : 'bg-primary shadow-[0_0_12px_rgba(112,143,150,0.2)]'}`}
-                                                        />
+                                                <div className="flex gap-4">
+                                                    {ticket.photo_before_url && (
+                                                        <div className="shrink-0 relative group/thumb">
+                                                            <img src={ticket.photo_before_url} alt="Site" className="w-16 h-16 rounded-xl object-cover border border-border/10" />
+                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-xl transition-all">
+                                                                <Camera className="w-4 h-4 text-white" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        {sla && (
+                                                            <div className={`mt-2 h-1.5 ${isDark ? 'bg-[#161b22]' : 'bg-text-primary/5'} rounded-full overflow-hidden`}>
+                                                                <motion.div
+                                                                    initial={{ width: 0 }}
+                                                                    animate={{ width: `${sla.progress}%` }}
+                                                                    className={`h-full rounded-full transition-all duration-1000 ${sla.progress > 80 ? 'bg-error shadow-[0_0_12px_rgba(239,68,68,0.2)]' : (isDark ? 'bg-emerald-500' : 'bg-primary')} shadow-[0_0_12px_rgba(112,143,150,0.2)]`}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -385,35 +388,39 @@ export default function TenantTicketingDashboard({
                         </div>
 
                         {/* History Panel */}
-                        <div className="glass-panel p-10 bg-opacity-40">
+                        <div className={`${isDark ? 'bg-[#161b22]/40 border-[#21262d]' : 'glass-panel bg-opacity-40'} p-10 rounded-3xl border transition-all`}>
                             <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-xs font-bold text-text-tertiary uppercase tracking-[0.2em]">Recently Resolved</h2>
+                                <h2 className={`text-xs font-bold ${isDark ? 'text-slate-600' : 'text-text-tertiary'} uppercase tracking-[0.2em]`}>Recently Resolved</h2>
                                 <button
                                     onClick={() => router.push(`/tickets?createdBy=${user.id}`)}
-                                    className="text-[10px] font-bold text-primary hover:text-secondary uppercase tracking-widest transition-smooth underline decoration-primary/20 underline-offset-8"
+                                    className={`text-[10px] font-bold ${isDark ? 'text-emerald-500 hover:text-emerald-400' : 'text-primary hover:text-secondary'} uppercase tracking-widest transition-all underline decoration-primary/20 underline-offset-8`}
                                 >
                                     Full Archive
                                 </button>
                             </div>
 
                             {resolvedTickets.length === 0 ? (
-                                <p className="text-center text-text-tertiary/60 py-8 font-medium italic">Your resolution history will appear here</p>
+                                <p className={`text-center ${isDark ? 'text-slate-700' : 'text-text-tertiary/60'} py-8 font-medium italic`}>Your resolution history will appear here</p>
                             ) : (
                                 <div className="space-y-4">
                                     {resolvedTickets.map((ticket) => (
-                                        <div key={ticket.id} className="premium-list p-6 bg-white/20 border-border/5">
-                                            <div className="flex items-center justify-between">
+                                        <div key={ticket.id} className={`${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'premium-list bg-white/20 border-border/5'} p-6 rounded-2xl border`}>
+                                            <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-5">
-                                                    <div className="w-12 h-12 kpi-icon flex items-center justify-center">
-                                                        <CheckCircle className="w-6 h-6 text-primary" />
+                                                    <div className={`w-12 h-12 ${isDark ? 'bg-[#161b22]' : 'kpi-icon'} flex items-center justify-center rounded-xl`}>
+                                                        {ticket.photo_after_url ? (
+                                                            <img src={ticket.photo_after_url} className="w-full h-full object-cover rounded-xl" />
+                                                        ) : (
+                                                            <CheckCircle className={`w-6 h-6 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <p className="font-display font-semibold text-text-primary text-lg mb-1">{ticket.title}</p>
+                                                        <p className={`font-display font-semibold ${isDark ? 'text-white' : 'text-text-primary'} text-lg mb-1 leading-tight`}>{ticket.title}</p>
                                                         <div className="flex items-center gap-1.5">
                                                             {[1, 2, 3, 4, 5].map((star) => (
                                                                 <Star
                                                                     key={star}
-                                                                    className={`w-3.5 h-3.5 transition-smooth ${star <= (ticket.rating || 0) ? 'text-secondary fill-secondary' : 'text-text-tertiary/20 hover:text-secondary/40'}`}
+                                                                    className={`w-3.5 h-3.5 transition-all ${star <= (ticket.rating || 0) ? (isDark ? 'text-emerald-500 fill-emerald-500' : 'text-secondary fill-secondary') : (isDark ? 'text-slate-800' : 'text-text-tertiary/20 hover:text-secondary/40')}`}
                                                                     onClick={() => {
                                                                         if (!ticket.rating) {
                                                                             setRatingTicket(ticket);
@@ -428,12 +435,18 @@ export default function TenantTicketingDashboard({
                                                 {!ticket.rating && (
                                                     <button
                                                         onClick={() => setRatingTicket(ticket)}
-                                                        className="text-[10px] text-primary hover:text-text-inverse hover:bg-primary font-bold uppercase tracking-widest border border-primary/30 px-4 py-2 rounded-xl transition-smooth"
+                                                        className={`text-[10px] ${isDark ? 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10' : 'text-primary border-primary/30 hover:bg-primary hover:text-white'} font-bold uppercase tracking-widest border px-4 py-2 rounded-xl transition-all`}
                                                     >
                                                         Rate
                                                     </button>
                                                 )}
                                             </div>
+                                            {ticket.photo_before_url && (
+                                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">
+                                                    <Camera className="w-3.5 h-3.5 text-emerald-500" />
+                                                    Evidence Logged
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -450,22 +463,22 @@ export default function TenantTicketingDashboard({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
                         onClick={() => setRatingTicket(null)}
                     >
                         <motion.div
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
-                            className="bg-[#161b22] border border-[#21262d] rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl"
+                            className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} border rounded-[2.5rem] p-8 max-w-sm w-full mx-4 shadow-2xl`}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Rate Request</h3>
-                            <p className="text-sm text-slate-400 mb-8">{ratingTicket.title}</p>
+                            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'} mb-2 uppercase tracking-tight`}>Rate Request</h3>
+                            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'} mb-8`}>{ratingTicket.title}</p>
                             <div className="flex justify-center gap-3 mb-8">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                     <Star
                                         key={star}
-                                        className={`w-8 h-8 cursor-pointer transition-all hover:scale-120 ${star <= selectedRating ? 'text-emerald-500 fill-emerald-500' : 'text-[#21262d]'
+                                        className={`w-8 h-8 cursor-pointer transition-all hover:scale-120 ${star <= selectedRating ? (isDark ? 'text-emerald-500 fill-emerald-500' : 'text-yellow-400 fill-yellow-400') : (isDark ? 'text-[#21262d]' : 'text-slate-100')
                                             }`}
                                         onClick={() => setSelectedRating(star)}
                                     />
@@ -474,14 +487,14 @@ export default function TenantTicketingDashboard({
                             <div className="flex gap-4">
                                 <button
                                     onClick={() => setRatingTicket(null)}
-                                    className="flex-1 py-3 text-slate-400 font-bold uppercase tracking-widest text-xs hover:text-white transition-colors"
+                                    className={`flex-1 py-3 ${isDark ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-900'} font-bold uppercase tracking-widest text-xs transition-colors`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleRatingSubmit}
                                     disabled={selectedRating < 1}
-                                    className="flex-1 py-3 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-emerald-700 disabled:bg-[#21262d] disabled:text-slate-600 transition-all shadow-lg shadow-emerald-900/40"
+                                    className={`flex-1 py-4 ${isDark ? 'bg-emerald-600 shadow-emerald-900/40 hover:bg-emerald-500' : 'bg-slate-900 hover:bg-black'} text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all shadow-lg disabled:opacity-30`}
                                 >
                                     Submit
                                 </button>

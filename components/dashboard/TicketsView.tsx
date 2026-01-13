@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, MessageSquare, User, Building2, Clock, CheckCircle2,
-    XCircle, RefreshCw, Filter, Send, ChevronRight
+    XCircle, RefreshCw, Filter, Send, ChevronRight, Camera, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,6 +23,8 @@ interface Ticket {
     creator: { id: string; full_name: string; email: string };
     assignee: { id: string; full_name: string; email: string } | null;
     ticket_comments: { count: number }[];
+    photo_before_url?: string;
+    photo_after_url?: string;
 }
 
 interface Comment {
@@ -33,7 +35,13 @@ interface Comment {
     user: { id: string; full_name: string; email: string };
 }
 
-const TicketsView: React.FC = () => {
+interface TicketsViewProps {
+    propertyId?: string;
+    canDelete?: boolean;
+    onNewRequest?: () => void;
+}
+
+const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewRequest }) => {
     const router = useRouter();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -46,9 +54,15 @@ const TicketsView: React.FC = () => {
     const fetchTickets = async () => {
         setIsLoading(true);
         try {
-            const url = statusFilter === 'all'
+            let url = statusFilter === 'all'
                 ? '/api/tickets'
                 : `/api/tickets?status=${statusFilter}`;
+
+            if (propertyId) {
+                const sep = url.includes('?') ? '&' : '?';
+                url += `${sep}propertyId=${propertyId}`;
+            }
+
             const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
@@ -77,6 +91,22 @@ const TicketsView: React.FC = () => {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this ticket?')) return;
+
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                fetchTickets();
+            }
+        } catch (error) {
+            console.error('Error deleting ticket:', error);
+        }
+    };
+
     const getPriorityColor = (priority: string) => {
         switch (priority) {
             case 'critical': return 'text-error bg-error/10 border-error/20';
@@ -89,10 +119,11 @@ const TicketsView: React.FC = () => {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'resolved': return 'text-success bg-success/10 border-success/20';
+            case 'resolved':
+            case 'closed':
+                return 'text-success bg-success/10 border-success/20';
             case 'in_progress': return 'text-info bg-info/10 border-info/20';
             case 'open': return 'text-error bg-error/10 border-error/20';
-            case 'closed': return 'text-text-tertiary bg-surface-elevated border-border';
             default: return 'text-text-tertiary bg-surface-elevated border-border';
         }
     };
@@ -118,12 +149,22 @@ const TicketsView: React.FC = () => {
                         </select>
                     </div>
                 </div>
-                <button
-                    onClick={fetchTickets}
-                    className="p-2 hover:bg-surface-elevated rounded-[var(--radius-md)] transition-smooth"
-                >
-                    <RefreshCw className="w-4 h-4 text-text-secondary" />
-                </button>
+                <div className="flex items-center gap-3">
+                    {onNewRequest && (
+                        <button
+                            onClick={onNewRequest}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-text-inverse text-xs font-bold rounded-[var(--radius-md)] hover:opacity-90 transition-smooth shadow-lg shadow-primary/20"
+                        >
+                            <Plus className="w-4 h-4" /> New Request
+                        </button>
+                    )}
+                    <button
+                        onClick={fetchTickets}
+                        className="p-2 hover:bg-surface-elevated rounded-[var(--radius-md)] transition-smooth"
+                    >
+                        <RefreshCw className="w-4 h-4 text-text-secondary" />
+                    </button>
+                </div>
             </div>
 
             {/* Tickets List */}
@@ -151,22 +192,40 @@ const TicketsView: React.FC = () => {
                                                 {ticket.priority}
                                             </span>
                                             <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-[var(--radius-sm)] border font-body ${getStatusColor(ticket.status)}`}>
-                                                {ticket.status.replace('_', ' ')}
+                                                {ticket.status === 'closed' || ticket.status === 'resolved' ? 'COMPLETE' : ticket.status.replace('_', ' ')}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-text-secondary font-body mb-3 line-clamp-2">{ticket.description}</p>
-                                        <div className="flex items-center gap-4 text-xs text-text-tertiary font-body">
-                                            <div className="flex items-center gap-1">
-                                                <Building2 className="w-3 h-3" />
-                                                {ticket.organization?.name || 'N/A'}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <User className="w-3 h-3" />
-                                                {ticket.creator?.full_name || 'System'}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}
+                                        <div className="flex gap-4 mt-3">
+                                            {ticket.photo_before_url && (
+                                                <div className="shrink-0 relative group/thumb">
+                                                    <img src={ticket.photo_before_url} alt="Site" className="w-16 h-16 rounded-lg object-cover border border-border/10" />
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-lg transition-smooth">
+                                                        <Camera className="w-4 h-4 text-white" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-text-secondary font-body mb-3 line-clamp-2">{ticket.description}</p>
+                                                <div className="flex items-center gap-4 text-xs text-text-tertiary font-body">
+                                                    <div className="flex items-center gap-1">
+                                                        <Building2 className="w-3 h-3" />
+                                                        {ticket.organization?.name || 'N/A'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <User className="w-3 h-3" />
+                                                        {ticket.creator?.full_name || 'System'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}
+                                                    </div>
+                                                    {ticket.photo_before_url && (
+                                                        <div className="flex items-center gap-1 text-primary font-bold ml-auto px-2 py-0.5 rounded-full bg-primary/5 border border-primary/10">
+                                                            <Camera className="w-3 h-3" />
+                                                            SITE PHOTO
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -193,7 +252,18 @@ const TicketsView: React.FC = () => {
                                                 Resolve
                                             </button>
                                         )}
-                                        <ChevronRight className="w-5 h-5 text-text-tertiary" />
+                                        <div className="flex flex-col gap-2 items-end">
+                                            {canDelete && (
+                                                <button
+                                                    onClick={(e) => handleDelete(e, ticket.id)}
+                                                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-smooth"
+                                                    title="Delete Ticket"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            <ChevronRight className="w-5 h-5 text-text-tertiary" />
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
@@ -201,7 +271,7 @@ const TicketsView: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

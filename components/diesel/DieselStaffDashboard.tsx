@@ -37,7 +37,7 @@ interface DieselReading {
  * Staff Dashboard for daily diesel logging
  * Matches the provided HTML mockup design
  */
-const DieselStaffDashboard: React.FC = () => {
+const DieselStaffDashboard: React.FC<{ isDark?: boolean }> = ({ isDark = false }) => {
     const params = useParams();
     const router = useRouter();
     const propertyId = params?.propertyId as string;
@@ -223,26 +223,26 @@ const DieselStaffDashboard: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f9fbfa]">
+            <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0f1419]' : 'bg-[#f9fbfa]'}`}>
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
-                    <p className="text-slate-500 font-bold">Loading diesel logger...</p>
+                    <div className={`w-12 h-12 border-4 ${isDark ? 'border-emerald-500/20 border-t-emerald-500' : 'border-amber-200 border-t-amber-600'} rounded-full animate-spin`} />
+                    <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold`}>Loading diesel logger...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#f9fbfa] pb-24">
+        <div className={`min-h-screen ${isDark ? 'bg-[#0f1419]' : 'bg-[#f9fbfa]'} pb-24 transition-colors duration-300`}>
             {/* Top Navigation */}
-            <header className="sticky top-0 z-30 w-full border-b border-amber-100 bg-white/80 backdrop-blur-md">
+            <header className={`sticky top-0 z-30 w-full border-b ${isDark ? 'border-[#21262d] bg-[#161b22]/80' : 'border-amber-100 bg-white/80'} backdrop-blur-md`}>
                 <div className="px-4 sm:px-6 lg:px-8 py-3 mx-auto max-w-[1440px]">
                     <div className="flex items-center justify-between">
                         {/* Left: Property Context Lock */}
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100 select-none">
-                                <Lock className="w-4 h-4 text-amber-600" />
-                                <span className="text-sm font-bold text-slate-900 tracking-tight">
+                            <div className={`flex items-center gap-2 ${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-amber-50 border-amber-100'} px-3 py-1.5 rounded-full border select-none`}>
+                                <Lock className={`w-4 h-4 ${isDark ? 'text-emerald-500' : 'text-amber-600'}`} />
+                                <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>
                                     {property?.name || 'Property'}
                                 </span>
                             </div>
@@ -250,11 +250,11 @@ const DieselStaffDashboard: React.FC = () => {
 
                         {/* Right: Meta Info */}
                         <div className="flex items-center gap-4 sm:gap-6">
-                            <div className="hidden sm:flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
+                            <div className={`hidden sm:flex items-center gap-2 ${isDark ? 'text-emerald-500' : 'text-amber-600'} text-sm font-medium animate-pulse`}>
                                 <CheckCircle className="w-4 h-4" />
                                 <span>Auto-saved</span>
                             </div>
-                            <div className="flex items-center gap-2 text-slate-900 text-sm font-bold bg-white border border-slate-100 shadow-sm rounded-lg px-3 py-1.5">
+                            <div className={`flex items-center gap-2 ${isDark ? 'text-white bg-[#0d1117] border-[#21262d]' : 'text-slate-900 bg-white border-slate-100'} text-sm font-bold shadow-sm rounded-lg px-3 py-1.5 border`}>
                                 <span className="hidden sm:inline">{dateStr} ·</span> {timeStr}
                             </div>
                         </div>
@@ -267,28 +267,28 @@ const DieselStaffDashboard: React.FC = () => {
                 {/* Feature Header */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-2 text-amber-600 font-bold tracking-wider text-xs uppercase">
-                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <div className={`flex items-center gap-2 mb-2 ${isDark ? 'text-emerald-500' : 'text-amber-600'} font-bold tracking-wider text-xs uppercase`}>
+                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                             Live Logging
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+                        <h1 className={`text-3xl md:text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                             Daily Diesel Log
                         </h1>
-                        <p className="mt-2 text-slate-500 font-medium max-w-2xl">
+                        <p className={`mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'} font-medium max-w-2xl`}>
                             Enter readings for today. Consumption is calculated automatically based on opening/closing values.
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleExport}
-                            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                            className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold ${isDark ? 'text-slate-300 bg-[#161b22] border-[#30363d] hover:bg-[#21262d]' : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50'} rounded-lg transition-colors border`}
                         >
                             <History className="w-5 h-5" />
                             View History
                         </button>
                         <button
                             onClick={() => setShowConfigModal(true)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                            className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold ${isDark ? 'text-slate-300 bg-[#161b22] border-[#30363d] hover:bg-[#21262d]' : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50'} rounded-lg transition-colors border`}
                         >
                             <Settings className="w-5 h-5" />
                             Config
@@ -298,7 +298,7 @@ const DieselStaffDashboard: React.FC = () => {
 
                 {/* Error/Success Messages */}
                 {error && (
-                    <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                    <div className={`${isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700'} mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border`}>
                         <AlertTriangle className="w-5 h-5" />
                         {error}
                     </div>
@@ -307,7 +307,7 @@ const DieselStaffDashboard: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2"
+                        className={`${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-green-50 border-green-200 text-green-700'} mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border`}
                     >
                         <CheckCircle className="w-5 h-5" />
                         {successMessage}
@@ -323,19 +323,20 @@ const DieselStaffDashboard: React.FC = () => {
                             consumedLitres={totalConsumption}
                             tankCapacity={500}
                             label="Today's Total"
+                            isDark={isDark}
                         />
                     </div>
                 )}
 
                 {/* Generators Grid */}
                 {generators.length === 0 ? (
-                    <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-sm">
-                        <Fuel className="w-16 h-16 text-amber-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">No Generators Configured</h3>
-                        <p className="text-slate-500 mb-6">Add your first diesel generator to start logging.</p>
+                    <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100 shadow-sm'} rounded-3xl p-12 text-center border`}>
+                        <Fuel className={`w-16 h-16 ${isDark ? 'text-emerald-500/20' : 'text-amber-300'} mx-auto mb-4`} />
+                        <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'} mb-2`}>No Generators Configured</h3>
+                        <p className={`${isDark ? 'text-slate-500' : 'text-slate-500'} mb-6`}>Add your first diesel generator to start logging.</p>
                         <button
                             onClick={() => setShowConfigModal(true)}
-                            className="px-6 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200"
+                            className={`px-6 py-3 ${isDark ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'} text-white font-bold rounded-xl transition-colors shadow-lg`}
                         >
                             + Add Generator
                         </button>
@@ -350,6 +351,7 @@ const DieselStaffDashboard: React.FC = () => {
                                 averageConsumption={averages[gen.id]}
                                 onReadingChange={handleReadingChange}
                                 isSubmitting={isSubmitting}
+                                isDark={isDark}
                             />
                         ))}
                     </div>
@@ -357,25 +359,25 @@ const DieselStaffDashboard: React.FC = () => {
             </main>
 
             {/* Sticky Footer */}
-            <footer className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 z-50">
+            <footer className={`fixed bottom-0 left-0 w-full ${isDark ? 'bg-[#161b22]/90 border-[#21262d]' : 'bg-white/90 border-slate-200'} backdrop-blur-lg border-t z-50`}>
                 <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-6">
                             <button
                                 onClick={() => router.back()}
-                                className="hidden sm:flex items-center gap-1 text-slate-500 hover:text-slate-900 transition-colors font-medium text-sm"
+                                className={`hidden sm:flex items-center gap-1 ${isDark ? 'text-slate-500 hover:text-white' : 'text-slate-500 hover:text-slate-900'} transition-colors font-medium text-sm`}
                             >
                                 <ArrowLeft className="w-4 h-4" />
                                 Back to Dashboard
                             </button>
-                            <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
+                            <div className={`h-8 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'} hidden sm:block`} />
                             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-                                <span className="text-sm font-medium text-slate-500">Today Total</span>
-                                <span className="text-2xl font-black text-slate-900 tracking-tight">{totalConsumption} L</span>
+                                <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Today Total</span>
+                                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption} L</span>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 pl-4">
-                                <span className="text-sm font-medium text-slate-500">Total Run</span>
-                                <span className="text-2xl font-black text-slate-900 tracking-tight">
+                                <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Total Run</span>
+                                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>
                                     {Math.floor(totalRunTime)}h {Math.round((totalRunTime % 1) * 60)}m
                                 </span>
                             </div>
@@ -383,7 +385,7 @@ const DieselStaffDashboard: React.FC = () => {
 
                         <div className="flex items-center gap-4">
                             {warningsCount > 0 && (
-                                <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                                <div className={`hidden lg:flex items-center gap-2 text-xs font-medium ${isDark ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-amber-600 bg-amber-50 border-amber-100'} px-3 py-1.5 rounded-full border`}>
                                     <AlertTriangle className="w-4 h-4" />
                                     {warningsCount} Warning{warningsCount > 1 ? 's' : ''} pending review
                                 </div>
@@ -391,7 +393,7 @@ const DieselStaffDashboard: React.FC = () => {
                             <button
                                 onClick={handleSubmitAll}
                                 disabled={isSubmitting || validReadingsCount === 0}
-                                className="bg-amber-500 hover:bg-amber-600 text-white text-base font-bold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl hover:shadow-amber-300/30 active:scale-95 transition-all flex items-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={`${isDark ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-300/30'} text-white text-base font-bold py-3 px-8 rounded-lg shadow-lg active:scale-95 transition-all flex items-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 <CheckCircle className={`w-5 h-5 ${!isSubmitting ? 'group-hover:animate-bounce' : ''}`} />
                                 {isSubmitting ? 'Submitting...' : 'SUBMIT ALL'}
@@ -406,6 +408,7 @@ const DieselStaffDashboard: React.FC = () => {
                 isOpen={showConfigModal}
                 onClose={() => setShowConfigModal(false)}
                 onSubmit={handleAddGenerator}
+                isDark={isDark}
             />
         </div>
     );
