@@ -1,14 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-    Wrench, Sparkles, Building2, Clock, UserPlus, 
+import {
+    Wrench, Sparkles, Building2, Clock, UserPlus,
     ChevronRight, AlertCircle, Camera, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MstTicketView, TicketDepartment, MstLoad } from '@/types/ticketing';
-import { getDepartmentColor, getDepartmentDisplayName } from '@/lib/ticket-classifier';
+import { getSkillGroupColor, getSkillGroupDisplayName, type SkillGroup } from '@/lib/ticketing';
 import { MstLoadDot } from './MstLoadBadge';
+
+// Map legacy department to new skill_group
+const mapDepartmentToSkillGroup = (dept: TicketDepartment): SkillGroup => {
+    const mapping: Record<TicketDepartment, SkillGroup> = {
+        technical: 'technical',
+        soft_services: 'soft_service',
+        vendor: 'vendor'
+    };
+    return mapping[dept] || 'technical';
+};
 
 interface DepartmentTicketListProps {
     propertyId: string;
@@ -71,7 +81,7 @@ export default function DepartmentTicketList({
                 `/api/tickets/mst?propertyId=${propertyId}&view=department&dept=${activeDepartment}`
             );
             const data = await response.json();
-            
+
             if (response.ok) {
                 setTickets(data.categorized || { waitlist: [], myTickets: [], othersTickets: [] });
                 setDepartmentCounts(data.departmentCounts || { technical: 0, soft_services: 0, vendor: 0 });
@@ -118,10 +128,10 @@ export default function DepartmentTicketList({
             {/* Department Toggle */}
             <div className="flex gap-2 p-1 bg-muted rounded-xl">
                 {departments.map(({ key, icon: Icon }) => {
-                    const colors = getDepartmentColor(key);
+                    const colors = getSkillGroupColor(mapDepartmentToSkillGroup(key));
                     const count = departmentCounts[key];
                     const isActive = activeDepartment === key;
-                    
+
                     return (
                         <button
                             key={key}
@@ -129,14 +139,14 @@ export default function DepartmentTicketList({
                             className={`
                                 flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg 
                                 font-bold text-sm transition-all
-                                ${isActive 
-                                    ? `bg-card shadow-sm ${colors.text}` 
+                                ${isActive
+                                    ? `bg-card shadow-sm ${colors.text}`
                                     : 'text-text-tertiary hover:text-text-secondary'
                                 }
                             `}
                         >
                             <Icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{getDepartmentDisplayName(key)}</span>
+                            <span className="hidden sm:inline">{getSkillGroupDisplayName(mapDepartmentToSkillGroup(key))}</span>
                             {count > 0 && (
                                 <span className={`
                                     px-1.5 py-0.5 rounded-full text-[10px] font-black
@@ -159,7 +169,7 @@ export default function DepartmentTicketList({
                     </div>
                     <div className="flex flex-wrap gap-3">
                         {mstLoads.slice(0, 5).map((mst) => (
-                            <div 
+                            <div
                                 key={mst.userId}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-surface-elevated rounded-lg"
                             >
@@ -312,7 +322,7 @@ interface TicketCardProps {
 function TicketCard({ ticket, userId, onClick, onAssign, isAssigning }: TicketCardProps) {
     const isMyTicket = ticket.assigned_to === userId;
     const isPaused = ticket.work_paused;
-    const departmentColors = getDepartmentColor(ticket.department);
+    const departmentColors = getSkillGroupColor(mapDepartmentToSkillGroup(ticket.department));
 
     return (
         <motion.div
@@ -322,8 +332,8 @@ function TicketCard({ ticket, userId, onClick, onAssign, isAssigning }: TicketCa
             exit={{ opacity: 0, y: -10 }}
             className={`
                 bg-card border rounded-xl p-4 transition-all cursor-pointer group
-                ${isMyTicket 
-                    ? 'border-primary/30 ring-1 ring-primary/10' 
+                ${isMyTicket
+                    ? 'border-primary/30 ring-1 ring-primary/10'
                     : 'border-border hover:border-primary/20'
                 }
                 ${isPaused ? 'bg-amber-500/5' : ''}
@@ -337,13 +347,12 @@ function TicketCard({ ticket, userId, onClick, onAssign, isAssigning }: TicketCa
                             text-[10px] px-1.5 py-0.5 rounded font-bold border
                             ${departmentColors.bg} ${departmentColors.text} ${departmentColors.border}
                         `}>
-                            {getDepartmentDisplayName(ticket.department).toUpperCase()}
+                            {getSkillGroupDisplayName(mapDepartmentToSkillGroup(ticket.department)).toUpperCase()}
                         </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                            ticket.priority === 'high' || ticket.priority === 'critical'
-                                ? 'bg-error/10 text-error border-error/20'
-                                : 'bg-muted text-text-tertiary border-border'
-                        }`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' || ticket.priority === 'critical'
+                            ? 'bg-error/10 text-error border-error/20'
+                            : 'bg-muted text-text-tertiary border-border'
+                            }`}>
                             {ticket.priority}
                         </span>
                         {isPaused && (
@@ -394,8 +403,8 @@ function TicketCard({ ticket, userId, onClick, onAssign, isAssigning }: TicketCa
                             disabled={isAssigning}
                             className={`
                                 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                                ${isAssigning 
-                                    ? 'bg-muted text-text-tertiary cursor-wait' 
+                                ${isAssigning
+                                    ? 'bg-muted text-text-tertiary cursor-wait'
                                     : 'bg-primary text-white hover:bg-primary/90 shadow-sm'
                                 }
                             `}

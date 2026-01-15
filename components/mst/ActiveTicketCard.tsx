@@ -1,13 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-    PlayCircle, PauseCircle, CheckCircle2, Clock, Camera, 
+import {
+    PlayCircle, PauseCircle, CheckCircle2, Clock, Camera,
     AlertCircle, ChevronRight, Wrench, Sparkles, Building2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MstTicketView, TicketDepartment } from '@/types/ticketing';
-import { getDepartmentColor, getDepartmentDisplayName } from '@/lib/ticket-classifier';
+import { getSkillGroupColor, getSkillGroupDisplayName, type SkillGroup } from '@/lib/ticketing';
+
+// Map legacy department to new skill_group
+const mapDepartmentToSkillGroup = (dept: TicketDepartment): SkillGroup => {
+    const mapping: Record<TicketDepartment, SkillGroup> = {
+        technical: 'technical',
+        soft_services: 'soft_service',
+        vendor: 'vendor'
+    };
+    return mapping[dept] || 'technical';
+};
 
 interface ActiveTicketCardProps {
     ticket: MstTicketView;
@@ -40,11 +50,11 @@ export default function ActiveTicketCard({
             const startTime = new Date(ticket.work_started_at!).getTime();
             const now = Date.now();
             const diff = now - startTime;
-            
+
             const hours = Math.floor(diff / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
+
             setWorkTimer(
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
             );
@@ -55,10 +65,10 @@ export default function ActiveTicketCard({
         return () => clearInterval(interval);
     }, [ticket.work_started_at]);
 
-    const departmentColors = getDepartmentColor(ticket.department);
-    const DepartmentIcon = ticket.department === 'technical' ? Wrench 
-        : ticket.department === 'soft_services' ? Sparkles 
-        : Building2;
+    const departmentColors = getSkillGroupColor(mapDepartmentToSkillGroup(ticket.department));
+    const DepartmentIcon = ticket.department === 'technical' ? Wrench
+        : ticket.department === 'soft_services' ? Sparkles
+            : Building2;
 
     const isAssigned = ticket.status === 'assigned';
     const isInProgress = ticket.status === 'in_progress';
@@ -71,11 +81,10 @@ export default function ActiveTicketCard({
             className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden"
         >
             {/* Status Banner */}
-            <div className={`px-5 py-3 ${
-                isPaused ? 'bg-amber-500/10 border-b border-amber-500/20' :
+            <div className={`px-5 py-3 ${isPaused ? 'bg-amber-500/10 border-b border-amber-500/20' :
                 isInProgress ? 'bg-emerald-500/10 border-b border-emerald-500/20' :
-                'bg-primary/10 border-b border-primary/20'
-            }`}>
+                    'bg-primary/10 border-b border-primary/20'
+                }`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         {isPaused ? (
@@ -121,15 +130,14 @@ export default function ActiveTicketCard({
                                 ${departmentColors.bg} ${departmentColors.text} ${departmentColors.border}
                             `}>
                                 <DepartmentIcon className="w-3.5 h-3.5" />
-                                {getDepartmentDisplayName(ticket.department)}
+                                {getSkillGroupDisplayName(mapDepartmentToSkillGroup(ticket.department))}
                             </span>
-                            <span className={`text-xs px-2 py-0.5 rounded font-medium border ${
-                                ticket.priority === 'high' || ticket.priority === 'critical' 
-                                    ? 'bg-error/10 text-error border-error/20' 
-                                    : ticket.priority === 'medium' 
-                                    ? 'bg-warning/10 text-warning border-warning/20' 
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium border ${ticket.priority === 'high' || ticket.priority === 'critical'
+                                ? 'bg-error/10 text-error border-error/20'
+                                : ticket.priority === 'medium'
+                                    ? 'bg-warning/10 text-warning border-warning/20'
                                     : 'bg-info/10 text-info border-info/20'
-                            }`}>
+                                }`}>
                                 {ticket.priority}
                             </span>
                         </div>
@@ -205,7 +213,7 @@ export default function ActiveTicketCard({
                             Start Work
                         </button>
                     )}
-                    
+
                     {isInProgress && !isPaused && (
                         <>
                             <button

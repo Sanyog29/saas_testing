@@ -1,27 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { createAdminClient } from '@/utils/supabase/admin';
-import { classifyTicketDepartment } from '@/lib/ticket-classifier';
-import { TicketDepartment } from '@/types/ticketing';
-
-// Classification keywords mapped to category codes
-const CLASSIFICATION_KEYWORDS: Record<string, string[]> = {
-    ac_breakdown: ['ac', 'air conditioning', 'cooling', 'hvac', 'cold', 'hot', 'temperature'],
-    power_outage: ['power', 'electricity', 'outage', 'blackout', 'no power', 'electrical'],
-    wifi_down: ['wifi', 'wi-fi', 'internet', 'network', 'connection', 'lan'],
-    lighting_issue: ['light', 'lighting', 'bulb', 'lamp', 'dark', 'tube light', 'led'],
-    dg_issue: ['dg', 'generator', 'diesel', 'backup power'],
-    chair_broken: ['chair', 'seat', 'broken chair', 'seating'],
-    desk_alignment: ['desk', 'table', 'furniture', 'desk broken', 'table repair'],
-    water_leakage: ['leak', 'leakage', 'water leak', 'drip', 'seepage'],
-    no_water_supply: ['no water', 'water supply', 'tap not working', 'dry tap'],
-    washroom_issue: ['washroom', 'toilet', 'bathroom', 'restroom', 'loo', 'flush'],
-    lift_breakdown: ['lift', 'elevator'],
-    stuck_lift: ['stuck', 'trapped', 'lift stuck'],
-    fire_alarm_l2: ['fire', 'alarm', 'smoke', 'fire alarm'],
-    deep_cleaning: ['deep clean', 'cleaning', 'sanitize', 'housekeeping'],
-    painting: ['paint', 'painting', 'wall', 'repaint'],
-};
+import { classifyTicket } from '@/lib/ticketing';
 
 // Extract floor number from description
 function extractFloorNumber(description: string): number | null {
@@ -59,37 +38,6 @@ function extractLocation(description: string): string | null {
         if (keywords.some(k => lowerDesc.includes(k))) return loc;
     }
     return null;
-}
-
-// Classification engine
-function classifyTicket(description: string): {
-    categoryCode: string | null;
-    confidence: number;
-    isVague: boolean;
-} {
-    const lowerDesc = description.toLowerCase();
-    let bestMatch: { code: string; score: number } | null = null;
-
-    for (const [code, keywords] of Object.entries(CLASSIFICATION_KEYWORDS)) {
-        let score = 0;
-        for (const keyword of keywords) {
-            if (lowerDesc.includes(keyword)) {
-                score += keyword.split(' ').length * 10;
-            }
-        }
-        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
-            bestMatch = { code, score };
-        }
-    }
-
-    if (!bestMatch) {
-        return { categoryCode: null, confidence: 0, isVague: true };
-    }
-
-    const confidence = Math.min(100, bestMatch.score + (description.length > 20 ? 20 : 0));
-    const isVague = confidence < 40 || description.length < 10;
-
-    return { categoryCode: bestMatch.code, confidence, isVague };
 }
 
 /**
@@ -186,9 +134,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 1. Granular Classification
-        const { categoryCode, isVague } = classifyTicket(title || description);
-        console.log('[TICKET API] Classification result:', { categoryCode, isVague });
+        // 1. Deterministic Classification using centralized engine
+        const classification = classifyTicket(title || description);
+        const { issue_code, skill_group, confidence } = classification;
+        const isVague = confidence === 'low';
+        console.log('[TICKET API] Classification result:', { issue_code, skill_group, confidence });
 
         // 2. Resolve Database IDs (Category & Skill Group)
         let categoryId = null;
@@ -196,14 +146,14 @@ export async function POST(request: NextRequest) {
         let priority = 'medium';
         let slaHours = 24;
 
-        if (categoryCode) {
-            console.log('[TICKET API] Looking up category in issue_categories...', { categoryCode });
+        if (issue_code) {
+            console.log('[TICKET API] Looking up category in issue_categories...', { issue_code });
 
             // GLOBAL lookup - no property_id filter
             const { data: catData, error: catError } = await supabase
                 .from('issue_categories')
                 .select('id, skill_group_id, priority, sla_hours')
-                .eq('code', categoryCode)
+                .eq('code', issue_code)
                 .limit(1)
                 .maybeSingle();
 
@@ -218,21 +168,19 @@ export async function POST(request: NextRequest) {
                 slaHours = catData.sla_hours || 24;
                 console.log('[TICKET API] ✅ Found category!', { categoryId, skillGroupId, priority });
             } else {
-                console.warn('[TICKET API] ⚠️ Category code not found in issue_categories:', categoryCode);
+                console.warn('[TICKET API] ⚠️ Issue code not found in issue_categories:', issue_code);
             }
         }
 
-        // Fallback: If no skill group found, try direct skill_groups lookup
+        // Fallback: If no skill group found from category, use classification skill_group directly
         if (!skillGroupId) {
-            console.log('[TICKET API] Falling back to skill_groups lookup...');
-            const classification = classifyTicketDepartment(description, title);
-            const skillCode = classification.department === 'soft_services' ? 'soft_services' : 'technical';
+            console.log('[TICKET API] Falling back to skill_groups lookup with classified skill_group:', skill_group);
 
             // GLOBAL lookup - no property_id filter
             const { data: defaultSkill, error: skillError } = await supabase
                 .from('skill_groups')
                 .select('id, code, is_manual_assign')
-                .eq('code', skillCode)
+                .eq('code', skill_group)
                 .limit(1)
                 .maybeSingle();
 
@@ -242,9 +190,9 @@ export async function POST(request: NextRequest) {
 
             if (defaultSkill) {
                 skillGroupId = defaultSkill.id;
-                console.log('[TICKET API] Fallback skill_group_id:', skillGroupId, 'code:', skillCode);
+                console.log('[TICKET API] Fallback skill_group_id:', skillGroupId, 'code:', skill_group);
             } else {
-                console.error('[TICKET API] ❌ NO SKILL GROUP FOUND for code:', skillCode);
+                console.error('[TICKET API] ❌ NO SKILL GROUP FOUND for code:', skill_group);
             }
         }
 
@@ -318,7 +266,7 @@ export async function POST(request: NextRequest) {
                 organization_id: orgId,
                 title: title || description.slice(0, 100),
                 description,
-                category: categoryCode || 'general',
+                category: issue_code || 'general',
                 category_id: categoryId,
                 skill_group_id: skillGroupId,
                 priority: priority,
@@ -350,7 +298,9 @@ export async function POST(request: NextRequest) {
             success: true,
             ticket,
             classification: {
-                categoryCode: categoryCode,
+                issue_code,
+                skill_group,
+                confidence,
                 isAutoClassified: !explicitDepartment,
             },
         }, { status: 201 });

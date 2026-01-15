@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     LayoutDashboard, Building2, Users, UserPlus, Ticket, Settings, UserCircle,
     Search, Plus, Filter, Bell, LogOut, ChevronRight, MapPin, Edit, Trash2, X, Check, UsersRound,
-    Coffee, IndianRupee, FileDown, ChevronDown, Fuel
+    Coffee, IndianRupee, FileDown, ChevronDown, Fuel, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -76,6 +76,7 @@ const OrgAdminDashboard = () => {
     const [selectedPropertyId, setSelectedPropertyId] = useState('all');
     const [isPropSelectorOpen, setIsPropSelectorOpen] = useState(false);
     const [userRole, setUserRole] = useState<string>('User');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Derived state
     const activeProperty = selectedPropertyId === 'all'
@@ -339,6 +340,11 @@ const OrgAdminDashboard = () => {
         fetchOrgUsers();
     };
 
+    // Helper to change tab and close mobile sidebar
+    const handleTabChange = (tab: Tab) => {
+        setActiveTab(tab);
+        setSidebarOpen(false);
+    };
 
     if (!org && !isLoading) return (
         <div className="p-10 text-center">
@@ -349,9 +355,56 @@ const OrgAdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-background flex font-inter text-foreground">
+            {/* Mobile Side Toggle Button - Positioned on the left edge */}
+            <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`
+                    fixed top-1/2 -translate-y-1/2 z-[60] lg:hidden
+                    flex items-center justify-center
+                    w-8 h-16 rounded-r-xl
+                    bg-primary text-white shadow-lg
+                    transition-all duration-300 ease-out
+                    hover:w-10
+                    ${sidebarOpen ? 'left-72' : 'left-0'}
+                `}
+                aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+            >
+                <motion.div
+                    animate={{ rotate: sidebarOpen ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </motion.div>
+            </button>
+
+            {/* Mobile Overlay */}
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
-            <aside className="w-72 bg-white border-r border-border flex flex-col fixed h-full z-20 transition-smooth">
-                <div className="p-8 pb-4">
+            <aside className={`
+                w-72 bg-white border-r border-border flex flex-col h-screen z-50 transition-all duration-300
+                fixed lg:sticky top-0
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            `}>
+                {/* Mobile Close Button */}
+                <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="absolute top-4 right-4 lg:hidden p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                >
+                    <X className="w-5 h-5 text-text-secondary" />
+                </button>
+
+                <div className="p-6 lg:p-8 pb-4">
                     <div className="flex flex-col items-center gap-2 mb-8">
                         <img src="/autopilot-logo-new.png" alt="Logo" className="h-12 w-auto object-contain" />
                         <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Super Admin Console</p>
@@ -360,7 +413,7 @@ const OrgAdminDashboard = () => {
                     {/* Quick Action Row */}
                     <div className="mb-6 px-1 grid grid-cols-2 gap-2">
                         <button
-                            onClick={() => setActiveTab('requests')}
+                            onClick={() => handleTabChange('requests')}
                             className="w-full flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white text-text-primary rounded-xl hover:bg-muted transition-all border-2 border-primary/20 group shadow-sm"
                         >
                             <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
@@ -389,7 +442,7 @@ const OrgAdminDashboard = () => {
                         </p>
                         <div className="space-y-1">
                             <button
-                                onClick={() => setActiveTab('overview')}
+                                onClick={() => handleTabChange('overview')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'overview'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -399,7 +452,7 @@ const OrgAdminDashboard = () => {
                                 Dashboard
                             </button>
                             <button
-                                onClick={() => setActiveTab('requests')}
+                                onClick={() => handleTabChange('requests')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'requests'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -419,7 +472,7 @@ const OrgAdminDashboard = () => {
                         </p>
                         <div className="space-y-1">
                             <button
-                                onClick={() => setActiveTab('properties')}
+                                onClick={() => handleTabChange('properties')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'properties'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -429,7 +482,7 @@ const OrgAdminDashboard = () => {
                                 Property Management
                             </button>
                             <button
-                                onClick={() => setActiveTab('users')}
+                                onClick={() => handleTabChange('users')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'users'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -439,7 +492,7 @@ const OrgAdminDashboard = () => {
                                 User Management
                             </button>
                             <button
-                                onClick={() => setActiveTab('visitors')}
+                                onClick={() => handleTabChange('visitors')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'visitors'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -449,7 +502,7 @@ const OrgAdminDashboard = () => {
                                 Visitor Management
                             </button>
                             <button
-                                onClick={() => setActiveTab('revenue')}
+                                onClick={() => handleTabChange('revenue')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'revenue'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -459,7 +512,7 @@ const OrgAdminDashboard = () => {
                                 Cafeteria Revenue
                             </button>
                             <button
-                                onClick={() => setActiveTab('diesel')}
+                                onClick={() => handleTabChange('diesel')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'diesel'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -479,7 +532,7 @@ const OrgAdminDashboard = () => {
                         </p>
                         <div className="space-y-1">
                             <button
-                                onClick={() => setActiveTab('settings')}
+                                onClick={() => handleTabChange('settings')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'settings'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -489,7 +542,7 @@ const OrgAdminDashboard = () => {
                                 Settings
                             </button>
                             <button
-                                onClick={() => setActiveTab('profile')}
+                                onClick={() => handleTabChange('profile')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'profile'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -535,7 +588,7 @@ const OrgAdminDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className={`flex-1 ml-72 overflow-y-auto min-h-screen bg-white ${activeTab === 'overview' ? '' : 'p-8 lg:p-12'}`}>
+            <main className={`flex-1 lg:ml-0 overflow-y-auto min-h-screen bg-white pt-16 lg:pt-0 ${activeTab === 'overview' ? '' : 'p-4 md:p-8 lg:p-12'}`}>
                 {/* Only show header for non-overview tabs */}
                 {activeTab !== 'overview' && (
                     <header className="flex justify-between items-center mb-10">

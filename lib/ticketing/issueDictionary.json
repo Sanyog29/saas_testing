@@ -1,0 +1,138 @@
+{
+  "precedence_order": [
+    "vendor",
+    "technical",
+    "plumbing",
+    "soft_service"
+  ],
+
+  "technical": {
+    "ac_breakdown": [
+      "ac",
+      "air conditioning",
+      "cooling",
+      "hvac",
+      "cold",
+      "hot",
+      "temperature"
+    ],
+    "power_outage": [
+      "power",
+      "electricity",
+      "outage",
+      "blackout",
+      "no power",
+      "electrical"
+    ],
+    "wifi_down": [
+      "wifi",
+      "wi-fi",
+      "internet",
+      "network",
+      "connection",
+      "lan"
+    ],
+    "lighting_issue": [
+      "light",
+      "lighting",
+      "bulb",
+      "lamp",
+      "dark",
+      "tube light",
+      "led"
+    ],
+    "dg_issue": [
+      "dg",
+      "generator",
+      "diesel",
+      "backup power"
+    ]
+  },
+
+  "plumbing": {
+    "water_leakage": [
+      "leak",
+      "leakage",
+      "water leak",
+      "drip",
+      "seepage"
+    ],
+    "no_water_supply": [
+      "no water",
+      "water supply",
+      "tap not working",
+      "dry tap"
+    ],
+    "washroom_issue": [
+      "washroom",
+      "toilet",
+      "bathroom",
+      "restroom",
+      "loo",
+      "flush"
+    ]
+  },
+
+  "vendor": {
+    "stuck_lift": [
+      "stuck",
+      "trapped",
+      "lift stuck"
+    ],
+    "lift_breakdown": [
+      "lift",
+      "elevator"
+    ],
+    "fire_alarm_l2": [
+      "fire",
+      "alarm",
+      "smoke",
+      "fire alarm"
+    ],
+    "painting": [
+      "paint",
+      "painting",
+      "wall",
+      "repaint"
+    ]
+  },
+
+  "soft_service": {
+    "chair_broken": [
+      "chair",
+      "seat",
+      "broken chair",
+      "seating"
+    ],
+    "desk_alignment": [
+      "desk",
+      "table",
+      "workstation",
+      "furniture"
+    ],
+    "deep_cleaning": [
+      "deep clean",
+      "cleaning",
+      "sanitize",
+      "housekeeping"
+    ]
+  },
+
+  "defaults": {
+    "fallback_skill_group": "technical",
+    "confidence_on_fallback": "low"
+  },
+
+  "ignore_words": [
+    "floor",
+    "area",
+    "room",
+    "zone",
+    "block",
+    "wing",
+    "level",
+    "ground",
+    "basement",
+    "terrace"
+  ]
+}

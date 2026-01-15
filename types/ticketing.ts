@@ -1,18 +1,21 @@
 export type UserRole = 'tenant' | 'mst' | 'admin' | 'master_admin';
 
-// Department classification for MST ticket routing
+// Department classification for MST ticket routing (legacy)
 export type TicketDepartment = 'technical' | 'soft_services' | 'vendor';
+
+// Skill group classification (new deterministic system)
+export type SkillGroup = 'technical' | 'plumbing' | 'vendor' | 'soft_service';
 
 // Updated ticket status flow for MST-driven workflow
 // REQUESTED (open) -> WAITLIST -> ASSIGNED -> WORK_STARTED (in_progress) -> [PAUSED] -> COMPLETED (closed)
-export type TicketStatus = 
-  | 'open'        // REQUESTED - Initial tenant submission
-  | 'waitlist'    // WAITLIST - In department queue
-  | 'assigned'    // ASSIGNED - MST self-assigned
-  | 'in_progress' // WORK_STARTED - MST actively working
-  | 'paused'      // PAUSED - Explicitly paused with reason
-  | 'resolved'    // Soft complete
-  | 'closed';     // COMPLETED
+export type TicketStatus =
+    | 'open'        // REQUESTED - Initial tenant submission
+    | 'waitlist'    // WAITLIST - In department queue
+    | 'assigned'    // ASSIGNED - MST self-assigned
+    | 'in_progress' // WORK_STARTED - MST actively working
+    | 'paused'      // PAUSED - Explicitly paused with reason
+    | 'resolved'    // Soft complete
+    | 'closed';     // COMPLETED
 
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -69,10 +72,10 @@ export interface MstTicketView {
     priority: string;
     category?: string;
     assigned_to?: string;
-    assignee?: { 
+    assignee?: {
         id: string;
-        full_name: string; 
-        email: string; 
+        full_name: string;
+        email: string;
     };
     creator?: {
         id: string;

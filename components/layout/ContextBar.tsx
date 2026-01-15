@@ -3,7 +3,6 @@
 import { useGlobalContext } from "@/context/GlobalContext";
 import { ChevronRight, Home, Building2, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
 
 export function ContextBar() {
     const { context, navigateUp, selectProperty, selectBuilding } = useGlobalContext();
@@ -20,26 +19,29 @@ export function ContextBar() {
         isActive: boolean;
         onClick?: () => void;
     }) => (
-        <div className={cn("flex items-center group", onClick && "cursor-pointer")} onClick={onClick}>
-            <Icon className={cn("h-4 w-4 mr-2", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-            <span className={cn("text-xs font-medium uppercase tracking-wider", isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")}>
+        <div className={cn("flex items-center group shrink-0", onClick && "cursor-pointer")} onClick={onClick}>
+            <Icon className={cn("h-4 w-4 mr-1.5 md:mr-2 shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+            <span className={cn(
+                "text-xs font-medium uppercase tracking-wider truncate max-w-[100px] md:max-w-none",
+                isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+            )}>
                 {label}
             </span>
         </div>
     );
 
-    const Separator = () => <ChevronRight className="h-4 w-4 text-muted-foreground/40 mx-2" />;
+    const Separator = () => <ChevronRight className="h-4 w-4 text-muted-foreground/40 mx-1 md:mx-2 shrink-0" />;
 
     return (
-        <div className="w-full h-14 border-b border-border bg-white/50 backdrop-blur-sm flex items-center px-8 z-40 sticky top-0">
-            <div className="flex items-center">
+        <div className="w-full h-12 md:h-14 border-b border-border bg-white/50 backdrop-blur-sm flex items-center px-4 md:px-8 z-40 sticky top-0">
+            <div className="flex items-center min-w-0 overflow-x-auto hide-scrollbar">
                 {/* Organization (Always present) */}
                 <BreadcrumbItem
                     icon={Home}
                     label={context.organization?.name || "Loading..."}
                     isActive={!context.property}
                     onClick={() => {
-                        if (context.property) navigateUp(); // Simplistic implementation, ideally jumps to root
+                        if (context.property) navigateUp();
                     }}
                 />
 
@@ -74,8 +76,8 @@ export function ContextBar() {
                 {context.floor && (
                     <>
                         <Separator />
-                        <div className="flex items-center">
-                            <span className="w-2 h-2 rounded-full bg-brand-green mr-2 animate-pulse"></span>
+                        <div className="flex items-center shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-success mr-2 animate-pulse"></span>
                             <span className="text-sm font-bold text-foreground">
                                 {context.floor.name}
                             </span>
@@ -84,13 +86,37 @@ export function ContextBar() {
                 )}
             </div>
 
-            <div className="ml-auto flex items-center space-x-4">
-                {/* Status Indicators could go here */}
-                <div className="flex items-center space-x-2">
-                    <span className="h-2 w-2 rounded-full bg-brand-green"></span>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">System Operational</span>
+            <div className="ml-auto flex items-center shrink-0">
+                {/* Status Indicator - Hidden on small mobile */}
+                <div className="hidden sm:flex items-center space-x-2">
+                    <span className="h-2 w-2 rounded-full bg-success"></span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                        <span className="hidden md:inline">System </span>Operational
+                    </span>
                 </div>
             </div>
         </div>
     );
+}
+
+// Add hide-scrollbar utility style
+const style = `
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+`;
+
+// Inject the style if not already present
+if (typeof document !== 'undefined') {
+    const styleId = 'hide-scrollbar-style';
+    if (!document.getElementById(styleId)) {
+        const styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        styleEl.textContent = style;
+        document.head.appendChild(styleEl);
+    }
 }

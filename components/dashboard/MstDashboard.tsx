@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Bell, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, RefreshCw, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench, Camera
+    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -66,6 +66,7 @@ const MstDashboard = () => {
     const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
     const [isFetching, setIsFetching] = useState(false);
     const [userRole, setUserRole] = useState('MST Professional');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const supabase = createClient();
 
@@ -166,10 +167,55 @@ const MstDashboard = () => {
         </div>
     );
 
+    // Helper to change tab and close mobile sidebar
+    const handleTabChange = (tab: Tab) => {
+        setActiveTab(tab);
+        setSidebarOpen(false);
+    };
+
     return (
         <div className={`min-h-screen ${isDarkMode ? 'bg-[#0d1117]' : 'bg-white'} flex font-inter text-text-primary`}>
+            {/* Mobile Side Toggle Button */}
+            <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`
+                    fixed top-1/2 -translate-y-1/2 z-[60] lg:hidden
+                    flex items-center justify-center
+                    w-8 h-16 rounded-r-xl
+                    bg-primary text-white shadow-lg
+                    transition-all duration-300 ease-out
+                    hover:w-10
+                    ${sidebarOpen ? 'left-64' : 'left-0'}
+                `}
+                aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+            >
+                <motion.div
+                    animate={{ rotate: sidebarOpen ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </motion.div>
+            </button>
+
+            {/* Mobile Overlay */}
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
-            <aside className={`w-64 ${isDarkMode ? 'bg-[#161b22]' : 'bg-white'} border-r border-border flex flex-col fixed h-full z-20 transition-all duration-500`}>
+            <aside className={`
+                w-64 ${isDarkMode ? 'bg-[#161b22]' : 'bg-white'} border-r border-border flex flex-col h-screen z-50 transition-all duration-300
+                fixed lg:sticky top-0
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            `}>
                 {/* Logo */}
                 <div className="p-4 border-b border-border">
                     <div className="flex items-center gap-3">
@@ -206,7 +252,7 @@ const MstDashboard = () => {
                     {showQuickActions && (
                         <div className="grid grid-cols-2 gap-2">
                             <button
-                                onClick={() => setActiveTab('create_request')}
+                                onClick={() => handleTabChange('create_request')}
                                 className="col-span-1 flex flex-col items-center justify-center gap-1 p-2 bg-surface-elevated text-text-primary rounded-xl hover:bg-muted transition-all border border-border group"
                             >
                                 <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
@@ -234,7 +280,7 @@ const MstDashboard = () => {
                         </p>
                         <div className="space-y-0.5">
                             <button
-                                onClick={() => setActiveTab('dashboard')}
+                                onClick={() => handleTabChange('dashboard')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-sm font-bold ${activeTab === 'dashboard'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -244,7 +290,7 @@ const MstDashboard = () => {
                                 Overview
                             </button>
                             <button
-                                onClick={() => setActiveTab('requests')}
+                                onClick={() => handleTabChange('requests')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-sm font-bold ${activeTab === 'requests'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -254,7 +300,7 @@ const MstDashboard = () => {
                                 Requests
                             </button>
                             <button
-                                onClick={() => setActiveTab('tasks')}
+                                onClick={() => handleTabChange('tasks')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-sm font-bold ${activeTab === 'tasks'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -274,7 +320,7 @@ const MstDashboard = () => {
                         </p>
                         <div className="space-y-0.5">
                             <button
-                                onClick={() => setActiveTab('visitors')}
+                                onClick={() => handleTabChange('visitors')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'visitors'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -284,7 +330,7 @@ const MstDashboard = () => {
                                 Visitors
                             </button>
                             <button
-                                onClick={() => setActiveTab('diesel')}
+                                onClick={() => handleTabChange('diesel')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'diesel'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -304,7 +350,7 @@ const MstDashboard = () => {
                         </p>
                         <div className="space-y-0.5">
                             <button
-                                onClick={() => setActiveTab('settings')}
+                                onClick={() => handleTabChange('settings')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'settings'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -314,7 +360,7 @@ const MstDashboard = () => {
                                 Settings
                             </button>
                             <button
-                                onClick={() => setActiveTab('profile')}
+                                onClick={() => handleTabChange('profile')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'profile'
                                     ? 'bg-primary text-text-inverse shadow-sm'
                                     : 'text-text-secondary hover:bg-muted hover:text-text-primary'
@@ -340,9 +386,9 @@ const MstDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <div className={`flex-1 ml-64 flex flex-col min-h-screen ${isDarkMode ? 'bg-[#0d1117]' : 'bg-white'}`}>
+            <div className={`flex-1 lg:ml-0 flex flex-col min-h-screen ${isDarkMode ? 'bg-[#0d1117]' : 'bg-white'}`}>
                 {/* Top Header */}
-                <header className="h-14 bg-white border-b border-border flex items-center justify-between px-6 sticky top-0 z-10">
+                <header className="h-14 bg-white border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={fetchTickets}
