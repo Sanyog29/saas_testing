@@ -5,7 +5,7 @@ import PropertyDashboard from './PropertyDashboard';
 import OrgDashboard from './OrgDashboard';
 import TenantDashboard from './TenantDashboard';
 import MasterAdminDashboard from './MasterAdminDashboard';
-import { Loader2 } from 'lucide-react';
+import Loader from '@/components/ui/Loader';
 import { useAppSession } from '@/hooks/useAppSession';
 
 const UnifiedDashboard = () => {
@@ -14,7 +14,7 @@ const UnifiedDashboard = () => {
     if (isLoading) {
         return (
             <div className="h-screen w-full flex items-center justify-center bg-background">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <Loader size="lg" />
             </div>
         );
     }

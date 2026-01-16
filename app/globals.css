@@ -1050,3 +1050,17 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* Custom Loader Animation */
+@keyframes custom-loader-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.custom-loader-spin {
+  animation: custom-loader-rotate 1.5s linear infinite;
+}

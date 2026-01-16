@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { createClient } from '@/utils/supabase/client';
+import Loader from '@/components/ui/Loader';
 
 interface Property {
     id: string;
@@ -409,9 +410,8 @@ export default function OnboardingPage() {
     if ((loading || authLoading) && step === 0) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-10 h-10 text-violet-500 animate-spin" />
-                    <p className="text-slate-400 font-medium">Loading your workspace...</p>
+                <div className="bg-slate-800/30 backdrop-blur-sm rounded-3xl p-12 border border-slate-700/50 shadow-2xl">
+                    <Loader size="xl" text="Loading your workspace..." />
                 </div>
             </div>
         );
@@ -501,7 +501,7 @@ export default function OnboardingPage() {
                                 <p className="text-slate-400 font-medium mb-8 text-center">Select the property you'll be managing</p>
 
                                 {loading ? (
-                                    <div className="flex items-center gap-3 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" />Loading properties...</div>
+                                    <Loader size="sm" text="Loading properties..." className="text-slate-400" />
                                 ) : (
                                     <div className="w-full space-y-3 max-h-[300px] overflow-y-auto pr-2">
                                         {properties.length === 0 ? (

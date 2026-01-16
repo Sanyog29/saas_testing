@@ -7,6 +7,7 @@ import { ArrowRight, Sparkles, Building2, BarChart3, Ticket, Eye, EyeOff, Lock, 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import Loader from '@/components/ui/Loader';
 
 // Feature cards for the animated showcase
 const features = [
@@ -498,7 +499,7 @@ function AuthContent() {
 
 export default function AuthPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-emerald-50"><div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" /></div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-emerald-50"><Loader size="lg" text="Loading..." /></div>}>
             <AuthContent />
         </Suspense>
     );

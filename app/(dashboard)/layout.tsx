@@ -5,6 +5,7 @@ import { useRouter, useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ContextBar } from "@/components/layout/ContextBar";
 import DashboardSidebar, { MobileHeader } from "@/components/layout/DashboardSidebar";
+import Loader from "@/components/ui/Loader";
 
 export default function DashboardLayout({
     children,
@@ -43,10 +44,7 @@ export default function DashboardLayout({
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background text-primary font-display font-bold">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                    <p className="text-sm animate-pulse tracking-widest uppercase">Initializing...</p>
-                </div>
+                <Loader size="lg" text="Initializing..." />
             </div>
         );
     }

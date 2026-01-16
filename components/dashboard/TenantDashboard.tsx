@@ -17,6 +17,7 @@ import DieselStaffDashboard from '@/components/diesel/DieselStaffDashboard';
 import VMSAdminDashboard from '@/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/components/tickets/TenantTicketingDashboard';
 import SettingsView from './SettingsView';
+import Loader from '@/components/ui/Loader';
 
 // Types
 type Tab = 'overview' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'settings' | 'profile';
@@ -114,10 +115,7 @@ const TenantDashboard = () => {
 
     if (isLoading) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                <p className="text-text-secondary font-bold">Loading your dashboard...</p>
-            </div>
+            <Loader size="lg" text="Loading your dashboard..." />
         </div>
     );
 
