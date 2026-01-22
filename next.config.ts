@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   // Enforce strict TypeScript checks in production builds
   typescript: { ignoreBuildErrors: false },
 
+  // Disable x-powered-by header for security
+  poweredByHeader: false,
+
+  // React strict mode for catching potential problems
+  reactStrictMode: true,
+
   images: {
     remotePatterns: [
       {
@@ -16,6 +22,21 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+  },
+
+  // Security headers (additional to middleware)
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+        ],
+      },
+    ];
   },
 };
 

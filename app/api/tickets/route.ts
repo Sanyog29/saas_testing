@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         const classification = classifyTicket(title || description);
         const { issue_code, skill_group, confidence } = classification;
         const isVague = confidence === 'low';
-        console.log('[TICKET API] Classification result:', { issue_code, skill_group, confidence });
+        // Classification completed
 
         // 2. Resolve Database IDs (Category & Skill Group)
         let categoryId = null;
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         let slaHours = 24;
 
         if (issue_code) {
-            console.log('[TICKET API] Looking up category in issue_categories...', { issue_code });
+
 
             // GLOBAL lookup - no property_id filter
             const { data: catData, error: catError } = await supabase
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
                 skillGroupId = catData.skill_group_id;
                 priority = catData.priority || 'medium';
                 slaHours = catData.sla_hours || 24;
-                console.log('[TICKET API] ✅ Found category!', { categoryId, skillGroupId, priority });
+
             } else {
                 console.warn('[TICKET API] ⚠️ Issue code not found in issue_categories:', issue_code);
             }
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
 
         // Fallback: If no skill group found from category, use classification skill_group directly
         if (!skillGroupId) {
-            console.log('[TICKET API] Falling back to skill_groups lookup with classified skill_group:', skill_group);
+
 
             // GLOBAL lookup - no property_id filter
             const { data: defaultSkill, error: skillError } = await supabase
@@ -209,13 +209,13 @@ export async function POST(request: NextRequest) {
 
             if (defaultSkill) {
                 skillGroupId = defaultSkill.id;
-                console.log('[TICKET API] Fallback skill_group_id:', skillGroupId, 'code:', skill_group);
+
             } else {
                 console.error('[TICKET API] ❌ NO SKILL GROUP FOUND for code:', skill_group);
             }
         }
 
-        console.log('[TICKET API] Final IDs:', { categoryId, skillGroupId });
+
 
         // 3. CREATE TICKET
         // Note: Assignment is now handled by the PostgreSQL trigger 'trigger_auto_assign_ticket'

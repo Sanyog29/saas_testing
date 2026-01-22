@@ -223,15 +223,16 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: `User ${email} created successfully`,
+            message: `User ${email} created successfully. ${!password ? 'A password reset email should be sent to the user.' : ''}`,
             user: {
                 id: userData.user.id,
                 email: userData.user.email,
                 full_name,
                 role: createMasterAdmin ? 'master_admin' : role,
             },
-            // Only include temp password in response if it was generated
-            ...(password ? {} : { temp_password: userPassword }),
+            // Security: Never return passwords in API responses
+            // If no password was provided, user should reset via email
+            requiresPasswordReset: !password,
         })
     } catch (error) {
         console.error('Create user API error:', error)
