@@ -52,21 +52,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Check if current user is master admin
-        // Option 1: Check by email (hardcoded master admins)
-        const masterAdminEmails = ['ranganathanlohitaksha@gmail.com']
-        const isMasterByEmail = masterAdminEmails.includes(currentUser.email || '')
-
-        // Option 2: Check by role in organization_memberships
-        const { data: membership } = await supabase
-            .from('organization_memberships')
-            .select('role')
-            .eq('user_id', currentUser.id)
-            .eq('role', 'master_admin')
-            .limit(1)
+        // Check if current user is master admin (database-only check for security)
+        const { data: masterAdminData } = await supabase
+            .from('users')
+            .select('is_master_admin')
+            .eq('id', currentUser.id)
             .single()
 
-        const isMasterAdmin = isMasterByEmail || !!membership
+        const isMasterAdmin = !!masterAdminData?.is_master_admin
 
         if (!isMasterAdmin) {
             return NextResponse.json(
@@ -137,7 +130,7 @@ export async function POST(request: NextRequest) {
                 name: newOrg.name,
                 code: newOrg.code,
             },
-            deletion_secret: deletionSecret, // Return once for user to save
+            // Note: deletion_secret is stored in database - retrieve via secure admin interface if needed
         })
 
     } catch (error) {

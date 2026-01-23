@@ -25,14 +25,9 @@ export async function GET(request: NextRequest) {
             .single();
 
         if (checkError) {
-            console.error('❌ Error checking master admin status:', checkError);
+            // Log error without exposing details
             return NextResponse.json({ isMasterAdmin: false }, { status: 500 });
         }
-
-        console.log('🔍 Master Admin Check - User ID:', user.id);
-        console.log('🔍 User Record:', userRecord);
-        console.log('🔍 is_master_admin value:', userRecord?.is_master_admin);
-        console.log('🔍 Final result:', userRecord?.is_master_admin === true);
 
         return NextResponse.json({
             isMasterAdmin: userRecord?.is_master_admin === true
