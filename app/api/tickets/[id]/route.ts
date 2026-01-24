@@ -93,6 +93,9 @@ export async function PATCH(
             photo_before_url,
             photo_after_url,
             rating,
+            // Editable content fields
+            title,
+            description,
             // MST workflow actions
             action, // 'self_assign' | 'start_work' | 'pause_work' | 'resume_work' | 'complete'
             work_pause_reason,
@@ -117,8 +120,8 @@ export async function PATCH(
                 case 'self_assign':
                     // MST assigns ticket to themselves
                     if (currentTicket.assigned_to && currentTicket.assigned_to !== user.id) {
-                        return NextResponse.json({ 
-                            error: 'Ticket already assigned to another MST' 
+                        return NextResponse.json({
+                            error: 'Ticket already assigned to another MST'
                         }, { status: 400 });
                     }
                     updates.assigned_to = user.id;
@@ -127,7 +130,7 @@ export async function PATCH(
                     updates.sla_started = true;
                     const slaHoursAssign = currentTicket.sla_hours || 24;
                     updates.sla_deadline = new Date(Date.now() + slaHoursAssign * 60 * 60 * 1000).toISOString();
-                    
+
                     await supabase.from('ticket_activity_log').insert({
                         ticket_id: ticketId,
                         user_id: user.id,
@@ -139,14 +142,14 @@ export async function PATCH(
                 case 'start_work':
                     // MST starts working on ticket
                     if (currentTicket.assigned_to !== user.id) {
-                        return NextResponse.json({ 
-                            error: 'You must be assigned to this ticket to start work' 
+                        return NextResponse.json({
+                            error: 'You must be assigned to this ticket to start work'
                         }, { status: 400 });
                     }
                     updates.status = 'in_progress';
                     updates.work_started_at = new Date().toISOString();
                     updates.work_paused = false;
-                    
+
                     await supabase.from('ticket_activity_log').insert({
                         ticket_id: ticketId,
                         user_id: user.id,
@@ -159,13 +162,13 @@ export async function PATCH(
                 case 'pause_work':
                     // MST pauses work on ticket (requires reason)
                     if (currentTicket.assigned_to !== user.id) {
-                        return NextResponse.json({ 
-                            error: 'You must be assigned to this ticket to pause work' 
+                        return NextResponse.json({
+                            error: 'You must be assigned to this ticket to pause work'
                         }, { status: 400 });
                     }
                     if (!work_pause_reason) {
-                        return NextResponse.json({ 
-                            error: 'Pause reason is required' 
+                        return NextResponse.json({
+                            error: 'Pause reason is required'
                         }, { status: 400 });
                     }
                     updates.work_paused = true;
@@ -173,7 +176,7 @@ export async function PATCH(
                     updates.work_pause_reason = work_pause_reason;
                     updates.work_paused_by = user.id;
                     updates.status = 'paused';
-                    
+
                     await supabase.from('ticket_activity_log').insert({
                         ticket_id: ticketId,
                         user_id: user.id,
@@ -185,15 +188,15 @@ export async function PATCH(
                 case 'resume_work':
                     // MST resumes paused work
                     if (currentTicket.assigned_to !== user.id) {
-                        return NextResponse.json({ 
-                            error: 'You must be assigned to this ticket to resume work' 
+                        return NextResponse.json({
+                            error: 'You must be assigned to this ticket to resume work'
                         }, { status: 400 });
                     }
                     updates.work_paused = false;
                     updates.work_paused_at = null;
                     updates.work_pause_reason = null;
                     updates.status = 'in_progress';
-                    
+
                     await supabase.from('ticket_activity_log').insert({
                         ticket_id: ticketId,
                         user_id: user.id,
@@ -206,14 +209,14 @@ export async function PATCH(
                 case 'complete':
                     // MST completes ticket
                     if (currentTicket.assigned_to !== user.id) {
-                        return NextResponse.json({ 
-                            error: 'You must be assigned to this ticket to complete it' 
+                        return NextResponse.json({
+                            error: 'You must be assigned to this ticket to complete it'
                         }, { status: 400 });
                     }
                     updates.status = 'closed';
                     updates.resolved_at = new Date().toISOString();
                     updates.work_paused = false;
-                    
+
                     await supabase.from('ticket_activity_log').insert({
                         ticket_id: ticketId,
                         user_id: user.id,
@@ -224,8 +227,8 @@ export async function PATCH(
                     break;
 
                 default:
-                    return NextResponse.json({ 
-                        error: `Unknown action: ${action}` 
+                    return NextResponse.json({
+                        error: `Unknown action: ${action}`
                     }, { status: 400 });
             }
         }
@@ -301,6 +304,23 @@ export async function PATCH(
         if (photo_before_url) updates.photo_before_url = photo_before_url;
         if (photo_after_url) updates.photo_after_url = photo_after_url;
         if (rating) updates.rating = rating;
+
+        // Allow editing title and description only if the user is the one who raised the ticket
+        if (title || description) {
+            if (currentTicket.raised_by !== user.id) {
+                return NextResponse.json({ error: 'Only the creator can edit the ticket content' }, { status: 403 });
+            }
+            if (title) updates.title = title;
+            if (description) updates.description = description;
+
+            // Log edit activity
+            await supabase.from('ticket_activity_log').insert({
+                ticket_id: ticketId,
+                user_id: user.id,
+                action: 'ticket_edited',
+                old_value: 'Content updated',
+            });
+        }
 
         const { data: ticket, error } = await supabase
             .from('tickets')

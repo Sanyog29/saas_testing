@@ -390,9 +390,9 @@ const OrgAdminDashboard = () => {
                     <X className="w-5 h-5 text-text-secondary" />
                 </button>
 
-                <div className="p-6 lg:p-8 pb-4">
-                    <div className="flex flex-col items-center gap-2 mb-8">
-                        <img src="/autopilot-logo-new.png" alt="Logo" className="h-12 w-auto object-contain" />
+                <div className="p-4 lg:p-5 pb-2">
+                    <div className="flex flex-col items-center gap-1 mb-3">
+                        <img src="/autopilot-logo-new.png" alt="Logo" className="h-10 w-auto object-contain" />
                         <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Super Admin Console</p>
                     </div>
                 </div>
@@ -569,17 +569,17 @@ const OrgAdminDashboard = () => {
                     </div>
                 </nav>
 
-                <div className="pt-5 border-t border-border p-5">
+                <div className="pt-3 border-t border-border px-4 pb-3">
                     {/* User Profile Section */}
-                    <div className="flex items-center gap-3 px-2 mb-5">
-                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-text-inverse font-bold text-sm">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-text-inverse font-bold text-xs">
                             {user?.email?.[0].toUpperCase() || 'O'}
                         </div>
                         <div className="flex flex-col overflow-hidden">
-                            <span className="font-display font-semibold text-sm text-text-primary truncate">
+                            <span className="font-display font-semibold text-xs text-text-primary truncate">
                                 {user?.user_metadata?.full_name || 'Super Admin'}
                             </span>
-                            <span className="text-[10px] text-text-tertiary truncate font-body font-medium">
+                            <span className="text-[9px] text-text-tertiary truncate font-body font-medium">
                                 {user?.email}
                             </span>
                         </div>
@@ -587,9 +587,9 @@ const OrgAdminDashboard = () => {
 
                     <button
                         onClick={() => setShowSignOutModal(true)}
-                        className="flex items-center gap-3 px-4 py-3 text-text-tertiary hover:text-red-400 hover:bg-red-500/10 rounded-xl w-full transition-smooth text-sm font-bold group"
+                        className="flex items-center gap-2 px-3 py-2 text-text-tertiary hover:text-red-400 hover:bg-red-500/10 rounded-lg w-full transition-smooth text-xs font-bold group"
                     >
-                        <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         Sign Out
                     </button>
                 </div>

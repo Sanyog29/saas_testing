@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
     LayoutDashboard, Ticket as TicketIcon, Bell, Settings, LogOut, Plus,
     CheckCircle2, Clock, MessageSquare, UsersRound, Coffee, UserCircle, Fuel,
-    Calendar, Building2, Shield, ChevronRight, Sun, Moon, Menu, X, Camera
+    Calendar, Building2, Shield, ChevronRight, Sun, Moon, Menu, X, Camera, Pencil, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -39,6 +39,7 @@ interface Ticket {
     priority: string;
     created_at: string;
     photo_before_url?: string;
+    raised_by?: string;
 }
 
 const TenantDashboard = () => {
@@ -58,6 +59,12 @@ const TenantDashboard = () => {
     const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
     const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
     const [isFetchingTickets, setIsFetchingTickets] = useState(false);
+
+    // Edit Modal State
+    const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
     const searchParams = useSearchParams();
 
     // Sync activeTab with URL
@@ -135,6 +142,40 @@ const TenantDashboard = () => {
 
     // Removed navItems array as we'll use a hardcoded grouped sidebar
 
+    const handleUpdateTicket = async () => {
+        if (!editingTicket || !editTitle.trim()) return;
+        setIsUpdating(true);
+        try {
+            const res = await fetch(`/api/tickets/${editingTicket.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: editTitle,
+                    description: editDescription
+                })
+            });
+
+            if (res.ok) {
+                setEditingTicket(null);
+                fetchTickets(); // Refresh list
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to update ticket');
+            }
+        } catch (error) {
+            console.error('Update ticket error:', error);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleEditClick = (e: React.MouseEvent, ticket: Ticket) => {
+        e.stopPropagation();
+        setEditingTicket(ticket);
+        setEditTitle(ticket.title);
+        setEditDescription(ticket.description);
+    };
+
     if (isLoading) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
             <Loader size="lg" text="Loading your dashboard..." />
@@ -192,27 +233,27 @@ const TenantDashboard = () => {
                             <X className="w-5 h-5" />
                         </button>
 
-                        <div className="p-8 pb-4">
-                            <div className="flex items-center gap-3 mb-8">
+                        <div className="p-5 lg:p-6 pb-2">
+                            <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 bg-primary rounded-[var(--radius-md)] flex items-center justify-center text-text-inverse font-display font-semibold text-lg shadow-sm">
                                     {property?.name?.substring(0, 1) || 'T'}
                                 </div>
                                 <div>
-                                    <h2 className="font-display font-semibold text-sm leading-tight text-text-primary truncate max-w-[160px]">{property?.name}</h2>
-                                    <p className="text-[10px] text-text-tertiary font-body font-medium mt-1">Tenant Portal</p>
+                                    <h2 className="font-display font-semibold text-sm leading-tight text-text-primary truncate max-w-[140px]">{property?.name}</h2>
+                                    <p className="text-[10px] text-text-tertiary font-body font-medium mt-0.5">Tenant Portal</p>
                                 </div>
                             </div>
 
-                            {/* Quick Action: New Request - Bold & Clear */}
-                            <div className="mb-6">
+                            {/* Quick Action: New Request - Compact */}
+                            <div className="mb-4">
                                 <button
                                     onClick={() => { handleTabChange('create_request'); setSidebarOpen(false); }}
-                                    className="w-full flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white text-text-primary rounded-xl hover:bg-muted transition-all border-2 border-primary/20 group shadow-sm"
+                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-white text-text-primary rounded-xl hover:bg-muted transition-all border border-primary/20 group shadow-sm"
                                 >
-                                    <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                        <Plus className="w-5 h-5 font-black" />
+                                    <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                        <Plus className="w-4 h-4 font-black" />
                                     </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-center mt-1">New Request</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">New Request</span>
                                 </button>
                             </div>
                         </div>
@@ -309,17 +350,17 @@ const TenantDashboard = () => {
                             </div>
                         </nav>
 
-                        <div className="pt-6 border-t border-border p-6">
+                        <div className="pt-3 border-t border-border px-4 pb-3">
                             {/* User Profile Section */}
-                            <div className="flex items-center gap-3 px-2 mb-6">
-                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
+                            <div className="flex items-center gap-2 px-1 mb-3">
+                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-xs">
                                     {user?.email?.[0].toUpperCase() || 'T'}
                                 </div>
                                 <div className="flex flex-col overflow-hidden">
-                                    <span className="font-bold text-sm text-foreground truncate">
+                                    <span className="font-bold text-xs text-foreground truncate">
                                         {user?.user_metadata?.full_name || 'Tenant'}
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground truncate font-medium">
+                                    <span className="text-[9px] text-muted-foreground truncate font-medium">
                                         {user?.email}
                                     </span>
                                 </div>
@@ -327,9 +368,9 @@ const TenantDashboard = () => {
 
                             <button
                                 onClick={() => setShowSignOutModal(true)}
-                                className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-xl w-full transition-all duration-200 text-sm font-bold group"
+                                className="flex items-center gap-2 px-3 py-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg w-full transition-all duration-200 text-xs font-bold group"
                             >
-                                <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                                 Sign Out
                             </button>
                         </div>
@@ -339,7 +380,7 @@ const TenantDashboard = () => {
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-h-screen bg-[#fafafa]">
-                <div className="max-w-5xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-24 pb-12">
+                <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-24 pb-12">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -353,6 +394,7 @@ const TenantDashboard = () => {
                                     completedTickets={completedTickets}
                                     onNavigate={handleTabChange}
                                     isLoading={isFetchingTickets}
+                                    onEditClick={handleEditClick}
                                 />
                             )}
                             {activeTab === 'create_request' && property && user && (
@@ -541,19 +583,19 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
                 {/* Helpdesk & Ticketing Card */}
                 <button
                     onClick={() => onNavigate('requests')}
-                    className="relative group bg-white border border-slate-100 rounded-[2.5rem] p-10 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1"
+                    className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col"
                 >
                     {/* Badge */}
                     <div className="absolute top-6 right-6 w-9 h-9 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm">
                         <span className="text-slate-400 font-bold text-xs">{ticketCount.active}</span>
                     </div>
 
-                    <div className="relative z-10">
-                        <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-8 border border-slate-100 group-hover:bg-secondary group-hover:text-white transition-all">
-                            <MessageSquare className="w-8 h-8 text-slate-300 group-hover:text-white" />
+                    <div className="relative z-10 flex-1 flex flex-col">
+                        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 border border-slate-100 group-hover:bg-secondary group-hover:text-white transition-all">
+                            <MessageSquare className="w-10 h-10 text-slate-300 group-hover:text-white" />
                         </div>
-                        <h3 className="text-2xl font-display font-semibold text-slate-800 mb-2">Helpdesk & Ticketing</h3>
-                        <p className="text-slate-500 text-sm mb-6 leading-relaxed">Report issues, track requests & get support instantly.</p>
+                        <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Helpdesk & Ticketing</h3>
+                        <p className="text-slate-500 text-base mb-8 leading-relaxed">Report issues, track requests & get support instantly.</p>
                         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary">
                             • {ticketCount.active} Active • {ticketCount.completed} Completed
                         </div>
@@ -563,14 +605,14 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
                 {/* Visitor Management Card */}
                 <button
                     onClick={() => onNavigate('visitors')}
-                    className="relative group bg-white border border-slate-100 rounded-[2.5rem] p-10 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1"
+                    className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col"
                 >
-                    <div className="relative z-10">
-                        <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-8 border border-slate-100 group-hover:bg-primary group-hover:text-white transition-all">
-                            <UsersRound className="w-8 h-8 text-slate-300 group-hover:text-white" />
+                    <div className="relative z-10 flex-1 flex flex-col">
+                        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 border border-slate-100 group-hover:bg-primary group-hover:text-white transition-all">
+                            <UsersRound className="w-10 h-10 text-slate-300 group-hover:text-white" />
                         </div>
-                        <h3 className="text-2xl font-display font-semibold text-slate-800 mb-2">Visitor Management</h3>
-                        <p className="text-slate-500 text-sm mb-6 leading-relaxed">Check-in visitors & manage building access control.</p>
+                        <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Visitor Management</h3>
+                        <p className="text-slate-500 text-base mb-8 leading-relaxed">Check-in visitors & manage building access control.</p>
                         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
                             • {visitorCount} Active Visitors
                         </div>
@@ -580,14 +622,14 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
                 {/* Room Bookings Card */}
                 <button
                     onClick={() => alert('Room booking feature coming soon!')}
-                    className="relative group bg-white border border-slate-100 rounded-[2.5rem] p-10 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1"
+                    className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col"
                 >
-                    <div className="relative z-10">
-                        <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-8 border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
-                            <Calendar className="w-8 h-8 text-slate-300 group-hover:text-white" />
+                    <div className="relative z-10 flex-1 flex flex-col">
+                        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
+                            <Calendar className="w-10 h-10 text-slate-300 group-hover:text-white" />
                         </div>
-                        <h3 className="text-2xl font-display font-semibold text-slate-800 mb-2">Room Bookings</h3>
-                        <p className="text-slate-500 text-sm mb-6 leading-relaxed">Reserve meeting spaces & conference rooms with ease.</p>
+                        <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Room Bookings</h3>
+                        <p className="text-slate-500 text-base mb-8 leading-relaxed">Reserve meeting spaces & conference rooms with ease.</p>
                         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full inline-block border border-slate-100">
                             Available Today
                         </div>
@@ -599,7 +641,7 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
 };
 
 // Helper Sub-component for Ticket Row (MST Style)
-const TicketRow = ({ ticket, onTicketClick, isCompleted }: { ticket: Ticket, onTicketClick?: (id: string) => void, isCompleted?: boolean }) => (
+const TicketRow = ({ ticket, onTicketClick, isCompleted, onEditClick, currentUserId }: { ticket: Ticket, onTicketClick?: (id: string) => void, isCompleted?: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, currentUserId?: string }) => (
     <div
         onClick={() => onTicketClick?.(ticket.id)}
         className={`bg-white border rounded-2xl p-5 transition-all group cursor-pointer ${isCompleted ? 'opacity-75 grayscale-[0.3] border-slate-200' : 'border-slate-100 hover:border-primary/50 shadow-sm hover:shadow-md'}`}
@@ -625,6 +667,19 @@ const TicketRow = ({ ticket, onTicketClick, isCompleted }: { ticket: Ticket, onT
                     }`}>
                     {ticket.priority}
                 </span>
+
+                {/* Edit Button - Only for user's own tickets */}
+                {ticket.raised_by === currentUserId && !isCompleted && onEditClick && (
+                    <button
+                        onClick={(e) => onEditClick(e, ticket)}
+                        className="p-2 px-4 text-primary bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/10 transition-smooth flex items-center gap-2"
+                        title="Edit Request"
+                    >
+                        <Pencil className="w-4 h-4" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Edit</span>
+                    </button>
+                )}
+
                 <button
                     className={`text-[11px] font-black px-5 py-2 rounded-xl transition-all uppercase tracking-widest ${isCompleted ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white shadow-lg shadow-slate-200 hover:bg-black'}`}
                 >
@@ -665,7 +720,8 @@ const TicketRow = ({ ticket, onTicketClick, isCompleted }: { ticket: Ticket, onT
 );
 
 // Requests Tab for Tenant
-const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading }: { activeTickets: Ticket[], completedTickets: Ticket[], onNavigate: (tab: Tab) => void, isLoading: boolean }) => {
+const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, onEditClick }: { activeTickets: Ticket[], completedTickets: Ticket[], onNavigate: (tab: Tab) => void, isLoading: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => {
+    const { user } = useAuth();
     const router = useRouter();
 
     return (
@@ -718,6 +774,8 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading }:
                                 key={ticket.id}
                                 ticket={ticket}
                                 onTicketClick={(id) => router.push(`/tickets/${id}`)}
+                                onEditClick={onEditClick}
+                                currentUserId={user?.id}
                             />
                         ))}
                     </div>

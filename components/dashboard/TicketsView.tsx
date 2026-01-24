@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, MessageSquare, User, Building2, Clock, CheckCircle2,
-    XCircle, RefreshCw, Filter, Send, ChevronRight, Camera, Plus
+    XCircle, RefreshCw, Filter, Send, ChevronRight, Camera, Plus, Pencil, X, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@/utils/supabase/client';
 
 interface Ticket {
     id: string;
@@ -18,6 +19,7 @@ interface Ticket {
     created_at: string;
     updated_at: string;
     resolved_at: string | null;
+    raised_by?: string;
     organization: { id: string; name: string; code: string };
     property: { id: string; name: string; code: string } | null;
     creator: { id: string; full_name: string; email: string };
@@ -46,6 +48,26 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    // Edit Modal State
+    const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const supabase = createClient();
+
+    useEffect(() => {
+        // Get current user
+        const getCurrentUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setCurrentUserId(user.id);
+            }
+        };
+        getCurrentUser();
+    }, []);
 
     useEffect(() => {
         fetchTickets();
@@ -105,6 +127,49 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
         } catch (error) {
             console.error('Error deleting ticket:', error);
         }
+    };
+
+    const handleEditClick = (e: React.MouseEvent, ticket: Ticket) => {
+        e.stopPropagation();
+        setEditingTicket(ticket);
+        setEditTitle(ticket.title);
+        setEditDescription(ticket.description);
+    };
+
+    const handleEditSubmit = async () => {
+        if (!editingTicket || !editTitle.trim()) return;
+
+        setIsUpdating(true);
+        try {
+            const response = await fetch(`/api/tickets/${editingTicket.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: editTitle.trim(),
+                    description: editDescription.trim()
+                })
+            });
+
+            if (response.ok) {
+                setEditingTicket(null);
+                fetchTickets();
+            } else {
+                const data = await response.json();
+                alert(data.error || 'Failed to update ticket');
+            }
+        } catch (error) {
+            console.error('Error updating ticket:', error);
+            alert('Failed to update ticket');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    // Check if current user can edit this ticket
+    const canEditTicket = (ticket: Ticket): boolean => {
+        if (!currentUserId) return false;
+        // User can edit if they raised the ticket
+        return ticket.raised_by === currentUserId || ticket.creator?.id === currentUserId;
     };
 
     const getPriorityColor = (priority: string) => {
@@ -253,6 +318,16 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                                             </button>
                                         )}
                                         <div className="flex flex-col gap-2 items-end">
+                                            {/* Edit Button - Only for user's own tickets */}
+                                            {canEditTicket(ticket) && !['closed', 'resolved'].includes(ticket.status) && (
+                                                <button
+                                                    onClick={(e) => handleEditClick(e, ticket)}
+                                                    className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-smooth"
+                                                    title="Edit Request"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             {canDelete && (
                                                 <button
                                                     onClick={(e) => handleDelete(e, ticket.id)}
@@ -271,8 +346,86 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                     </div>
                 )}
             </div>
+
+            {/* Edit Modal */}
+            <AnimatePresence>
+                {editingTicket && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={() => setEditingTicket(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                                <h2 className="text-xl font-bold text-slate-900">Edit Request</h2>
+                                <button
+                                    onClick={() => setEditingTicket(null)}
+                                    className="text-slate-400 hover:text-slate-700 transition-colors p-1 hover:bg-slate-100 rounded-lg"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 mb-2 block">Title</label>
+                                    <input
+                                        type="text"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                                        placeholder="Request title"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 mb-2 block">Description</label>
+                                    <textarea
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        className="w-full h-32 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                                        placeholder="Describe the issue..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+                                <button
+                                    onClick={() => setEditingTicket(null)}
+                                    className="px-4 py-2 text-slate-600 font-semibold rounded-xl hover:bg-slate-100 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleEditSubmit}
+                                    disabled={isUpdating || !editTitle.trim()}
+                                    className="flex items-center gap-2 px-5 py-2 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-colors disabled:opacity-50"
+                                >
+                                    {isUpdating ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    )}
+                                    Save Changes
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div >
     );
 };
 
 export default TicketsView;
+

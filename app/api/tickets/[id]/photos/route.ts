@@ -35,7 +35,7 @@ export async function POST(
         // Get ticket to verify access
         const { data: ticket } = await supabase
             .from('tickets')
-            .select('id, property_id, created_by, assigned_to')
+            .select('id, property_id, raised_by, assigned_to')
             .eq('id', ticketId)
             .single();
 
@@ -44,7 +44,7 @@ export async function POST(
         }
 
         // Only creator or assignee can upload photos
-        if (ticket.created_by !== user.id && ticket.assigned_to !== user.id) {
+        if (ticket.raised_by !== user.id && ticket.assigned_to !== user.id) {
             return NextResponse.json({ error: 'Not authorized to upload photos' }, { status: 403 });
         }
 

@@ -141,9 +141,9 @@ const PropertyAdminDashboard = () => {
                 >
                     <X className="w-5 h-5 text-text-secondary" />
                 </button>
-                <div className="p-8 pb-4">
-                    <div className="flex flex-col items-center gap-2 mb-8">
-                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-12 w-auto object-contain" />
+                <div className="p-4 lg:p-5 pb-2">
+                    <div className="flex flex-col items-center gap-1 mb-3">
+                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-10 w-auto object-contain" />
                         <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Property Manager</p>
                     </div>
                 </div>
@@ -302,16 +302,14 @@ const PropertyAdminDashboard = () => {
                     </div>
                 </nav>
 
-                <div className="p-6 border-t border-[#21262d] mt-auto">
-                    <div className="space-y-2">
-                        <button
-                            onClick={() => setShowSignOutModal(true)}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-text-secondary hover:bg-red-50 hover:text-red-600 transition-all font-bold text-sm"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            <span>Sign Out</span>
-                        </button>
-                    </div>
+                <div className="px-4 py-3 border-t border-border mt-auto">
+                    <button
+                        onClick={() => setShowSignOutModal(true)}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign Out</span>
+                    </button>
                 </div>
             </aside>
 

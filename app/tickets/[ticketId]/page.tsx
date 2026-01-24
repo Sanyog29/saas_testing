@@ -83,6 +83,9 @@ export default function TicketDetailPage() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedResolver, setSelectedResolver] = useState('');
 
+    // Creator Role State
+    const [creatorRole, setCreatorRole] = useState<string>('Tenant');
+
     // Notification State
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
@@ -142,6 +145,27 @@ export default function TicketDetailPage() {
             setTicket(t);
 
             if (t.property_id) fetchResolvers(t.property_id);
+
+            // Fetch creator's role from property_memberships
+            if (t.raised_by && t.property_id) {
+                const { data: creatorMembership } = await supabase
+                    .from('property_memberships')
+                    .select('role')
+                    .eq('user_id', t.raised_by)
+                    .eq('property_id', t.property_id)
+                    .maybeSingle();
+                
+                if (creatorMembership?.role) {
+                    // Format role for display (e.g., 'property_admin' -> 'Property Admin')
+                    const formattedRole = creatorMembership.role
+                        .split('_')
+                        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                    setCreatorRole(formattedRole);
+                } else {
+                    setCreatorRole('Tenant');
+                }
+            }
 
             if (!skipRoleCheck && currentUserId) {
                 await determineUserRole(currentUserId, t.property_id);
@@ -679,7 +703,7 @@ export default function TicketDetailPage() {
                                         <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>{ticket.creator?.full_name || 'Unknown User'}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className={`px-1.5 py-0.5 ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} text-[9px] font-black uppercase tracking-wider rounded`}>
-                                                Tenant
+                                                {creatorRole}
                                             </span>
                                             <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-medium whitespace-nowrap`}>Raised {new Date(ticket.created_at).toLocaleDateString()}</span>
                                         </div>

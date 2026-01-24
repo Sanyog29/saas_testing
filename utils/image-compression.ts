@@ -1,6 +1,7 @@
 /**
  * Utility for frontend image compression before upload to Supabase Storage.
- * Resizes to max 1280px, converts to WebP, and aims for < 500KB.
+ * Resizes to max 1280px, converts to WebP, and enforces < 800KB limit.
+ * For iPhone photos and large images, iteratively reduces quality until target is met.
  */
 
 export interface CompressionOptions {
@@ -8,7 +9,10 @@ export interface CompressionOptions {
     maxHeight?: number;
     quality?: number;
     format?: 'image/webp' | 'image/jpeg' | 'image/png';
+    maxSizeKB?: number;
 }
+
+const MAX_SIZE_BYTES = 800 * 1024; // 800KB limit
 
 export const compressImage = async (
     file: File,
@@ -17,9 +21,12 @@ export const compressImage = async (
     const {
         maxWidth = 1280,
         maxHeight = 1280,
-        quality = 0.8,
-        format = 'image/webp'
+        quality: initialQuality = 0.8,
+        format = 'image/webp',
+        maxSizeKB = 800
     } = options;
+
+    const targetSizeBytes = maxSizeKB * 1024;
 
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -27,7 +34,7 @@ export const compressImage = async (
         reader.onload = (event) => {
             const img = new Image();
             img.src = event.target?.result as string;
-            img.onload = () => {
+            img.onload = async () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
@@ -54,28 +61,65 @@ export const compressImage = async (
                     return;
                 }
 
-                // Draw and compress
+                // Draw image to canvas
                 ctx.drawImage(img, 0, 0, width, height);
 
-                canvas.toBlob(
-                    (blob) => {
-                        if (!blob) {
-                            reject(new Error('Canvas to Blob conversion failed'));
-                            return;
-                        }
+                // Iteratively compress until under target size
+                let quality = initialQuality;
+                let blob: Blob | null = null;
+                let attempts = 0;
+                const maxAttempts = 10;
 
-                        // Create new file from compressed blob
-                        const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-                        const compressedFile = new File([blob], newFileName, {
-                            type: format,
-                            lastModified: Date.now(),
-                        });
+                while (attempts < maxAttempts) {
+                    blob = await new Promise<Blob | null>((res) => {
+                        canvas.toBlob((b) => res(b), format, quality);
+                    });
 
-                        resolve(compressedFile);
-                    },
-                    format,
-                    quality
-                );
+                    if (!blob) {
+                        reject(new Error('Canvas to Blob conversion failed'));
+                        return;
+                    }
+
+                    // If under target size or quality is too low, stop
+                    if (blob.size <= targetSizeBytes || quality <= 0.3) {
+                        break;
+                    }
+
+                    // Reduce quality for next attempt
+                    quality -= 0.1;
+                    attempts++;
+                }
+
+                // If still too large after quality reduction, resize further
+                if (blob && blob.size > targetSizeBytes && quality <= 0.3) {
+                    const scaleFactor = Math.sqrt(targetSizeBytes / blob.size);
+                    const newWidth = Math.round(width * scaleFactor);
+                    const newHeight = Math.round(height * scaleFactor);
+
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+                    blob = await new Promise<Blob | null>((res) => {
+                        canvas.toBlob((b) => res(b), format, 0.7);
+                    });
+                }
+
+                if (!blob) {
+                    reject(new Error('Final compression failed'));
+                    return;
+                }
+
+                // Create new file from compressed blob
+                const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+                const compressedFile = new File([blob], newFileName, {
+                    type: format,
+                    lastModified: Date.now(),
+                });
+
+                console.log(`[Image Compression] Original: ${(file.size / 1024).toFixed(0)}KB -> Compressed: ${(compressedFile.size / 1024).toFixed(0)}KB (Quality: ${(quality * 100).toFixed(0)}%)`);
+
+                resolve(compressedFile);
             };
             img.onerror = (err) => reject(err);
         };

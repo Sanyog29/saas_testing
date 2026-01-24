@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Bell, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
-    ClipboardList, FolderKanban, Moon, Sun, ChevronRight, RefreshCw, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu
+    ClipboardList, FolderKanban, Moon, Sun, ChevronRight, Cog, X,
+    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -47,6 +47,7 @@ interface Ticket {
         email: string;
     } | null;
     photo_before_url?: string;
+    raised_by?: string;
 }
 
 const MstDashboard = () => {
@@ -70,6 +71,12 @@ const MstDashboard = () => {
     const [userRole, setUserRole] = useState('MST Professional');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Edit Modal State
+    const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
 
     // Shift Tracking State
     const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -230,6 +237,40 @@ const MstDashboard = () => {
         setSidebarOpen(false);
     };
 
+    const handleEditClick = (e: React.MouseEvent, ticket: Ticket) => {
+        e.stopPropagation();
+        setEditingTicket(ticket);
+        setEditTitle(ticket.title);
+        setEditDescription(ticket.description);
+    };
+
+    const handleUpdateTicket = async () => {
+        if (!editingTicket || !editTitle.trim()) return;
+        setIsUpdating(true);
+        try {
+            const res = await fetch(`/api/tickets/${editingTicket.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: editTitle,
+                    description: editDescription
+                })
+            });
+
+            if (res.ok) {
+                setEditingTicket(null);
+                fetchTickets(); // Refresh list
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to update ticket');
+            }
+        } catch (error) {
+            console.error('Update ticket error:', error);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background flex font-inter text-text-primary">
             {/* Mobile Overlay */}
@@ -260,10 +301,10 @@ const MstDashboard = () => {
                 </button>
 
                 {/* Logo */}
-                <div className="p-8 pb-4">
-                    <div className="flex flex-col items-center gap-2 mb-4">
-                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-12 w-auto object-contain" />
-                        <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Maintenance Portal</p>
+                <div className="p-5 lg:p-6 pb-1">
+                    <div className="flex flex-col items-center gap-1.5 mb-3">
+                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-10 w-auto object-contain" />
+                        <p className="text-[9px] text-text-tertiary font-black uppercase tracking-[0.2em]">Maintenance Portal</p>
                     </div>
                 </div>
 
@@ -341,8 +382,8 @@ const MstDashboard = () => {
 
                 {/* Quick Actions */}
                 <div className="px-3 pb-3">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Quick Actions</span>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                        <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Quick Actions</span>
                         <button onClick={() => setShowQuickActions(!showQuickActions)} className="text-text-tertiary hover:text-slate-300">
                             <X className="w-3 h-3" />
                         </button>
@@ -351,12 +392,12 @@ const MstDashboard = () => {
                         <div className="grid grid-cols-1 gap-2">
                             <button
                                 onClick={() => handleTabChange('create_request')}
-                                className="w-full flex flex-col items-center justify-center gap-2 p-3 bg-surface-elevated text-text-primary rounded-xl hover:bg-muted transition-all border border-border group"
+                                className="w-full flex items-center gap-2.5 px-3 py-2 bg-surface-elevated text-text-primary rounded-xl hover:bg-muted transition-all border border-border group shadow-sm"
                             >
-                                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                    <Plus className="w-5 h-5 font-black" />
+                                <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                    <Plus className="w-4 h-4 font-black" />
                                 </div>
-                                <span className="text-[11px] font-black uppercase tracking-tight text-center">New Request</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">New Request</span>
                             </button>
                         </div>
                     )}
@@ -469,9 +510,9 @@ const MstDashboard = () => {
                 <div className="border-t border-border p-3">
                     <button
                         onClick={() => setShowSignOutModal(true)}
-                        className="flex items-center gap-2 px-2 py-2 text-text-tertiary hover:text-red-400 rounded-lg w-full transition-colors text-xs font-medium"
+                        className="flex items-center gap-2 px-2.5 py-2 text-text-tertiary hover:text-red-400 rounded-lg w-full transition-colors text-[11px] font-bold uppercase tracking-wider"
                     >
-                        <LogOut className="w-4 h-4" />
+                        <LogOut className="w-3.5 h-3.5" />
                         Sign Out
                     </button>
                 </div>
@@ -489,24 +530,6 @@ const MstDashboard = () => {
                         >
                             <Menu className="w-6 h-6" />
                         </button>
-
-                        <button
-                            onClick={fetchTickets}
-                            className="hidden sm:flex text-xs text-text-secondary hover:text-text-primary border border-border px-3 py-1.5 rounded-md bg-white hover:bg-slate-50 items-center"
-                        >
-                            <RefreshCw className="w-3 h-3 mr-1.5" />
-                            Refresh
-                        </button>
-                        <div className="relative hidden md:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-                            <input
-                                type="text"
-                                placeholder="Search tickets..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-48 lg:w-64 pl-10 pr-4 py-2 bg-slate-50 border border-border rounded-lg text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-primary"
-                            />
-                        </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3">
                         {/* Shift Status in Navbar */}
@@ -540,16 +563,8 @@ const MstDashboard = () => {
                         >
                             {activeTab === 'dashboard' && property && user && (
                                 <DashboardTab
-                                    tickets={incomingTickets.filter(t =>
-                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-                                    )}
-                                    completedCount={completedTickets.filter(t =>
-                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-                                    ).length}
+                                    tickets={incomingTickets}
+                                    completedCount={completedTickets.length}
                                     onTicketClick={(id) => router.push(`/tickets/${id}`)}
                                     userId={user.id}
                                     isLoading={isFetching}
@@ -557,27 +572,21 @@ const MstDashboard = () => {
                                     propertyName={property.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
                                     onSettingsClick={() => setActiveTab('settings')}
+                                    onEditClick={handleEditClick}
                                 />
                             )}
                             {activeTab === 'tasks' && <ProjectsTab />}
                             {activeTab === 'projects' && <ProjectsTab />}
                             {activeTab === 'requests' && user && (
                                 <RequestsTab
-                                    activeTickets={incomingTickets.filter(t =>
-                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-                                    )}
-                                    completedTickets={completedTickets.filter(t =>
-                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-                                    )}
+                                    activeTickets={incomingTickets}
+                                    completedTickets={completedTickets}
                                     onTicketClick={(id) => router.push(`/tickets/${id}`)}
                                     userId={user.id}
                                     isLoading={isFetching}
                                     propertyName={property?.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
+                                    onEditClick={handleEditClick}
                                 />
                             )}
                             {activeTab === 'create_request' && property && user && (
@@ -689,19 +698,91 @@ const MstDashboard = () => {
                 type={toast.type}
                 visible={toast.visible}
             />
+
+            {/* Edit Ticket Modal */}
+            <AnimatePresence>
+                {editingTicket && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl"
+                        >
+                            <div className="p-8 border-b border-border">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="text-2xl font-display font-semibold text-slate-800">Edit Maintenance Request</h2>
+                                    <button
+                                        onClick={() => setEditingTicket(null)}
+                                        className="p-2 hover:bg-muted rounded-full transition-smooth"
+                                    >
+                                        <X className="w-5 h-5 text-text-tertiary" />
+                                    </button>
+                                </div>
+                                <p className="text-text-tertiary text-sm">Update the details of your service request.</p>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Request Title</label>
+                                    <input
+                                        type="text"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:border-primary transition-all font-bold text-slate-700"
+                                        placeholder="Brief summary of the issue"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Detailed Description</label>
+                                    <textarea
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        rows={4}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:border-primary transition-all font-medium text-slate-600 resize-none"
+                                        placeholder="Please provide more details about your request..."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-8 bg-slate-50 flex gap-4">
+                                <button
+                                    onClick={() => setEditingTicket(null)}
+                                    className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-white transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUpdateTicket}
+                                    disabled={isUpdating || !editTitle.trim()}
+                                    className="flex-1 px-6 py-3 bg-primary text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:opacity-95 shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Changes'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div >
     );
 };
 
 // Helper Sub-component for Ticket Row
-const TicketRow = ({ ticket, onTicketClick, userId, isCompleted }: { ticket: Ticket, onTicketClick?: (id: string) => void, userId: string, isCompleted?: boolean }) => (
+const TicketRow = ({ ticket, onTicketClick, userId, isCompleted, onEditClick }: { ticket: Ticket, onTicketClick?: (id: string) => void, userId: string, isCompleted?: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => (
     <div
         onClick={() => onTicketClick?.(ticket.id)}
         className={`bg-surface-elevated border rounded-lg p-3 transition-colors group cursor-pointer ${isCompleted ? 'opacity-75 grayscale-[0.3] border-border' : ticket.assigned_to === userId ? 'border-success ring-1 ring-success/20 shadow-md ring-offset-1 ring-offset-background' : 'border-border hover:border-primary/50 shadow-sm hover:shadow-md'}`}
     >
         <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-2">
-                <h3 className={`text-sm font-semibold truncate max-w-[400px] ${isCompleted ? 'text-text-secondary line-through decoration-text-tertiary' : 'text-text-primary'}`}>{ticket.title}</h3>
+                <h3 className={`text-sm font-semibold truncate max-w-[300px] md:max-w-md ${isCompleted ? 'text-text-secondary line-through decoration-text-tertiary' : 'text-text-primary'}`}>{ticket.title}</h3>
                 {ticket.assigned_to === userId ? (
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-success text-text-inverse font-black uppercase tracking-tighter shadow-sm">
                         YOUR TASK
@@ -716,13 +797,28 @@ const TicketRow = ({ ticket, onTicketClick, userId, isCompleted }: { ticket: Tic
                     </span>
                 )}
             </div>
-            <div className="flex items-center gap-2">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-error/10 text-error border-error/20' :
-                    ticket.priority === 'medium' ? 'bg-warning/10 text-warning border-warning/20' :
-                        'bg-info/10 text-info border-info/20'
-                    }`}>
-                    {ticket.priority}
-                </span>
+            <div className="flex items-center gap-1.5">
+                {ticket.priority && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-error/10 text-error border-error/20' :
+                        ticket.priority === 'medium' ? 'bg-warning/10 text-warning border-warning/20' :
+                            'bg-info/10 text-info border-info/20'
+                        }`}>
+                        {ticket.priority}
+                    </span>
+                )}
+
+                {/* Edit Button - Only for user's own tickets */}
+                {ticket.raised_by === userId && !isCompleted && onEditClick && (
+                    <button
+                        onClick={(e) => onEditClick(e, ticket)}
+                        className="p-1 px-2 text-primary hover:bg-primary/10 rounded border border-primary/20 transition-smooth flex items-center gap-1.5"
+                        title="Edit Request"
+                    >
+                        <Pencil className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                    </button>
+                )}
+
                 <button
                     className={`text-[10px] px-3 py-1 rounded transition-all font-bold uppercase tracking-widest ${isCompleted ? 'bg-muted text-text-tertiary shadow-none' : 'bg-primary text-text-inverse hover:shadow-lg shadow-primary/20'}`}
                 >
@@ -772,7 +868,7 @@ const TicketRow = ({ ticket, onTicketClick, userId, isCompleted }: { ticket: Tic
 );
 
 // Dashboard Tab
-const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick }: { tickets: Ticket[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void }) => {
+const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick }: { tickets: Ticket[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => {
     const total = tickets.length + completedCount;
     const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned' || t.status === 'open').length;
     const completed = completedCount;
@@ -847,7 +943,7 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                                 return 0;
                             })
                             .map((ticket) => (
-                                <TicketRow key={ticket.id} userId={userId} ticket={ticket} onTicketClick={onTicketClick} />
+                                <TicketRow key={ticket.id} userId={userId} ticket={ticket} onTicketClick={onTicketClick} onEditClick={onEditClick} />
                             ))
                     )}
                 </div>
@@ -879,7 +975,7 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string }) => (
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => (
     <div className="space-y-6">
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-text-primary">Requests</h1>
@@ -911,7 +1007,7 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                             return 0;
                         })
                         .map((ticket) => (
-                            <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} />
+                            <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} onEditClick={onEditClick} />
                         ))}
                 </div>
             )}

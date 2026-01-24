@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Ticket, Bell, Settings, LogOut, Plus,
-    CheckCircle2, Clock, MessageSquare, UsersRound, Coffee, UserCircle, Shield, Fuel, LogIn, LogOut as LogOutIcon, Menu, X
+    CheckCircle2, Clock, MessageSquare, UsersRound, Coffee, UserCircle, Shield, Fuel, LogIn, LogOut as LogOutIcon, Menu, X, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -186,50 +186,54 @@ const SecurityDashboard = () => {
                 >
                     <X className="w-5 h-5 text-text-secondary" />
                 </button>
-                <div className="p-8 pb-4">
-                    <div className="flex flex-col items-center gap-1 mb-8">
-                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-12 w-auto object-contain" />
-                        <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Security Portal</p>
+                <div className="p-5 lg:p-6 pb-1">
+                    <div className="flex flex-col items-center gap-1.5 mb-4">
+                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-10 w-auto object-contain" />
+                        <p className="text-[9px] text-text-tertiary font-black uppercase tracking-[0.2em]">Security Portal</p>
                     </div>
                 </div>
 
                 <nav className="flex-1 px-4 overflow-y-auto">
                     {/* Quick Actions */}
-                    <div className="mb-6">
-                        <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
-                            <span className="w-0.5 h-3 bg-secondary rounded-full"></span>
-                            Quick Actions
+                    <div className="mb-4">
+                        <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest px-4 mb-2 flex items-center gap-1.5">
+                            <span className="w-0.5 h-2.5 bg-secondary rounded-full"></span>
+                            Actions Guide
                         </p>
-                        <div className="grid grid-cols-2 gap-2 px-2">
+                        <div className="grid grid-cols-2 gap-2 px-3">
                             <button
                                 onClick={() => setActiveTab('requests')}
-                                className="flex flex-col items-center justify-center gap-1 p-2 bg-white text-text-primary rounded-xl hover:bg-muted transition-all border border-border group"
+                                className="flex items-center gap-2 p-2 bg-white text-text-primary rounded-lg hover:bg-muted transition-all border border-border group"
+                                title="New Request"
                             >
-                                <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                    <Plus className="w-4 h-4 font-black" />
+                                <div className="w-6 h-6 bg-primary/20 rounded-md flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                    <Plus className="w-3.5 h-3.5 font-black" />
                                 </div>
-                                <span className="text-[10px] font-black uppercase tracking-tight text-center">New Request</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tight">Report</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('checkinout')}
-                                className="flex flex-col items-start gap-1 p-2 bg-muted border border-border rounded-xl hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left"
+                                className="flex items-center gap-2 p-2 bg-muted border border-border rounded-lg hover:bg-emerald-50 focus:bg-emerald-50 transition-all"
+                                title="Check In/Out"
                             >
-                                <LogIn className="w-4 h-4 text-emerald-600" />
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-wider">Check In/Out</span>
+                                <LogIn className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Gate</span>
                             </button>
                             <button
                                 onClick={() => alert('URGENT: Emergency SOS Signal Broadcasted to all Staff.')}
-                                className="flex flex-col items-start gap-1 p-2 bg-muted border border-border rounded-xl hover:bg-rose-50/50 hover:border-rose-200 transition-all text-left"
+                                className="flex items-center gap-2 p-2 bg-muted border border-border rounded-lg hover:bg-rose-50 transition-all font-bold"
+                                title="Emergency SOS"
                             >
-                                <Shield className="w-4 h-4 text-rose-600" />
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-wider">Emergency</span>
+                                <Shield className="w-3.5 h-3.5 text-rose-600" />
+                                <span className="text-[9px] font-black text-rose-600 uppercase tracking-wider">SOS</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('visitors')}
-                                className="flex flex-col items-start gap-1 p-2 bg-muted border border-border rounded-xl hover:bg-indigo-50/50 hover:border-indigo-200 transition-all text-left"
+                                className="flex items-center gap-2 p-2 bg-muted border border-border rounded-lg hover:bg-indigo-50 transition-all"
+                                title="View Visitors"
                             >
-                                <UsersRound className="w-4 h-4 text-indigo-600" />
-                                <span className="text-[10px] font-black text-text-secondary uppercase tracking-wider">View Visitors</span>
+                                <UsersRound className="w-3.5 h-3.5 text-indigo-600" />
+                                <span className="text-[9px] font-black text-text-secondary uppercase tracking-wider">VMS</span>
                             </button>
                         </div>
                     </div>
@@ -335,28 +339,28 @@ const SecurityDashboard = () => {
                     </div>
                 </nav>
 
-                <div className="p-6 border-t border-border mt-auto">
+                <div className="pt-3 border-t border-border px-4 pb-3">
                     {/* User Profile Section */}
-                    <div className="flex items-center gap-3 px-2 mb-6">
-                        <div className="w-10 h-10 bg-brand-orange/10 rounded-full flex items-center justify-center text-brand-orange font-bold text-sm shadow-lg shadow-orange-500/10">
+                    <div className="flex items-center gap-2 px-1 mb-3">
+                        <div className="w-8 h-8 bg-brand-orange/10 rounded-full flex items-center justify-center text-brand-orange font-bold text-xs shadow-lg shadow-orange-500/5">
                             {user?.email?.[0].toUpperCase() || 'S'}
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <p className="font-bold text-sm text-foreground truncate">
+                            <p className="font-bold text-xs text-foreground truncate">
                                 {user?.user_metadata?.full_name || 'Security Officer'}
                             </p>
-                            <p className="text-[10px] text-muted-foreground truncate font-medium">
+                            <p className="text-[9px] text-muted-foreground truncate font-medium">
                                 {user?.email}
                             </p>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                         <button
                             onClick={() => setShowSignOutModal(true)}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 transition-all font-bold text-sm"
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 transition-all font-bold text-[11px] uppercase tracking-wider"
                         >
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className="w-3.5 h-3.5" />
                             <span>Sign Out</span>
                         </button>
                     </div>
@@ -529,7 +533,5 @@ const OverviewTab = ({ stats }: { stats: any }) => (
         </div>
     </div>
 );
-
-import { AlertCircle } from 'lucide-react';
 
 export default SecurityDashboard;

@@ -117,11 +117,7 @@ export default function TicketCreateModal({
         setError(null);
 
         try {
-            let photoUrl = null;
-            if (photoFile) {
-                // Photo upload logic would go here
-            }
-
+            // 1. Create the ticket first
             const response = await fetch('/api/tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -130,7 +126,6 @@ export default function TicketCreateModal({
                     propertyId: finalPropId,
                     organizationId: finalOrgId,
                     isInternal,
-                    photoUrl,
                 }),
             });
 
@@ -138,6 +133,22 @@ export default function TicketCreateModal({
 
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to create ticket');
+            }
+
+            // 2. Upload photo if exists - as "before" photo
+            if (photoFile && data.ticket?.id) {
+                const formData = new FormData();
+                formData.append('file', photoFile);
+                formData.append('type', 'before');
+
+                const photoResponse = await fetch(`/api/tickets/${data.ticket.id}/photos`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!photoResponse.ok) {
+                    console.error('Photo upload failed, but ticket was created');
+                }
             }
 
             setClassification(data.classification);
@@ -292,14 +303,6 @@ export default function TicketCreateModal({
                                                 className="hidden"
                                                 onChange={handlePhotoSelect}
                                             />
-                                        </label>
-
-                                        {/* Internal Toggle */}
-                                        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
-                                            <div className={`w-10 h-5 rounded-full transition-colors flex-shrink-0 ${isInternal ? 'bg-primary' : 'bg-slate-300'}`}>
-                                                <div className={`w-4 h-4 bg-white rounded-full m-0.5 shadow transition-transform ${isInternal ? 'translate-x-5' : 'translate-x-0'}`} />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-700">Internal</span>
                                         </label>
                                     </div>
 
