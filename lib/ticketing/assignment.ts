@@ -56,7 +56,21 @@ export async function processIntelligentAssignment(
         .select('user_id, skill_code')
         .in('user_id', typedResolverStats.map((rs: any) => rs.user_id));
 
-    // 3. Map MSTs to pools
+    // 2.5 Fetch user roles from property_memberships to identify staff
+    const { data: userRoles } = await supabase
+        .from('property_memberships')
+        .select('user_id, role')
+        .eq('property_id', propertyId)
+        .eq('is_active', true)
+        .in('user_id', typedResolverStats.map((rs: any) => rs.user_id));
+
+    // Create a map of user_id -> role for quick lookup
+    const userRoleMap: Record<string, string> = {};
+    (userRoles || []).forEach((ur: any) => {
+        userRoleMap[ur.user_id] = ur.role;
+    });
+
+    // 3. Map MSTs to pools (excluding staff with technical skill from assignment)
     const mstPools: Record<string, ResolverStat[]> = {
         technical: [],
         plumbing: [],
@@ -67,10 +81,18 @@ export async function processIntelligentAssignment(
 
     typedResolverStats.forEach((rs: ResolverStat) => {
         const userId = rs.user_id;
+        const userRole = userRoleMap[userId];
         const primarySkill = rs.skill_group?.code;
         const extraSkills = mstSkills?.filter((s: any) => s.user_id === userId).map((s: any) => s.skill_code) || [];
 
         const allSkills = new Set([primarySkill, ...extraSkills].filter(Boolean));
+
+        // Skip staff with technical skill - they can only view, not be assigned
+        const isStaffTechnical = userRole === 'staff' && allSkills.has('technical');
+        if (isStaffTechnical) {
+            console.log(`Skipping staff technical user ${userId} from assignment pools`);
+            return; // Don't add to any pools
+        }
 
         allSkills.forEach(skill => {
             if (mstPools[skill]) {
@@ -78,7 +100,7 @@ export async function processIntelligentAssignment(
             }
         });
 
-        // Everyone is in general
+        // Everyone (except staff technical) is in general
         mstPools.general.push(rs);
     });
 

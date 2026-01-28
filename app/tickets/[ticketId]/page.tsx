@@ -154,7 +154,7 @@ export default function TicketDetailPage() {
                     .eq('user_id', t.raised_by)
                     .eq('property_id', t.property_id)
                     .maybeSingle();
-                
+
                 if (creatorMembership?.role) {
                     // Format role for display (e.g., 'property_admin' -> 'Property Admin')
                     const formattedRole = creatorMembership.role

@@ -35,6 +35,23 @@ const securityHeaders = {
 }
 
 export async function middleware(request: NextRequest) {
+    const pathname = request.nextUrl.pathname
+
+    // Define public routes that don't require authentication
+    const publicRoutes = [
+        '/login',
+        '/signup',
+        '/join',
+        '/api',        // API routes handle their own auth
+        '/kiosk',
+        '/onboarding', // Has its own client-side auth check
+        '/_next',
+        '/favicon.ico',
+    ]
+
+    // Check if current path is public
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route)) || pathname === '/'
+
     // Create response and add security headers
     let response = NextResponse.next({
         request: {
@@ -80,8 +97,25 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // Refresh session if exists (prevents stale tokens)
-    await supabase.auth.getUser()
+    // Get user session
+    const { data: { user }, error } = await supabase.auth.getUser()
+
+    // For protected routes, redirect to login if not authenticated
+    if (!isPublicRoute && !user) {
+        const loginUrl = new URL('/login', request.url)
+        loginUrl.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(loginUrl)
+    }
+
+    // If user is authenticated and tries to access login page, redirect to their dashboard
+    if (user && (pathname === '/login' || pathname === '/signup')) {
+        // Don't redirect if there's a mode parameter (e.g., password reset)
+        const mode = request.nextUrl.searchParams.get('mode')
+        if (!mode) {
+            // We can't determine the exact redirect here without DB calls
+            // The login page will handle proper redirect based on user role
+        }
+    }
 
     return response
 }

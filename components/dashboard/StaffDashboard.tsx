@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Bell, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, RefreshCw, Cog, X,
-    AlertOctagon, BarChart3, FileText, Camera, Menu, Pencil, Loader2
+    AlertOctagon, BarChart3, FileText, Camera, Menu, Pencil, Loader2, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -14,6 +14,7 @@ import { useParams, useRouter } from 'next/navigation';
 import SignOutModal from '@/components/ui/SignOutModal';
 import Image from 'next/image';
 import DieselStaffDashboard from '@/components/diesel/DieselStaffDashboard';
+import ElectricityStaffDashboard from '@/components/electricity/ElectricityStaffDashboard';
 import VMSAdminDashboard from '@/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/components/tickets/TenantTicketingDashboard';
 import { useTheme } from '@/context/ThemeContext';
@@ -23,7 +24,7 @@ import { checkInResolver } from '@/utils/resolver';
 import NavbarShiftStatus from '@/components/mst/NavbarShiftStatus';
 
 // Types
-type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'settings' | 'profile';
+type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile';
 
 interface Property {
     id: string;
@@ -328,6 +329,7 @@ const StaffDashboard = () => {
                                         { label: 'Projects', tab: 'projects' },
                                         { label: 'Visitors', tab: 'visitors' },
                                         { label: 'Diesel Logger', tab: 'diesel' },
+                                        { label: 'Electricity Logger', tab: 'electricity' },
                                         { label: 'Settings', tab: 'settings' },
                                         { label: 'Profile', tab: 'profile' },
                                         { label: 'New Request', tab: 'create_request' }
@@ -444,6 +446,16 @@ const StaffDashboard = () => {
                             >
                                 <Fuel className="w-4 h-4" />
                                 Diesel Logger
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('electricity')}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'electricity'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Zap className="w-4 h-4" />
+                                Electricity Logger
                             </button>
                         </div>
                     </div>
@@ -599,10 +611,12 @@ const StaffDashboard = () => {
                                     isLoading={isFetching}
                                     propertyName={property?.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
+                                    onEditClick={handleEditClick}
                                 />
                             )}
                             {activeTab === 'visitors' && <VMSAdminDashboard propertyId={propertyId} />}
                             {activeTab === 'diesel' && <DieselStaffDashboard />}
+                            {activeTab === 'electricity' && <ElectricityStaffDashboard />}
                             {activeTab === 'settings' && <SettingsView />}
                             {activeTab === 'profile' && (
                                 <div className="flex justify-center items-start py-8">

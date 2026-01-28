@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { compressImage } from '@/utils/image-compression';
 import { useTheme } from '@/context/ThemeContext';
+import { playTickleSound } from '@/utils/sounds';
 
 interface Ticket {
     id: string;
@@ -123,6 +124,9 @@ export default function TenantTicketingDashboard({
             const data = await response.json();
 
             if (response.ok) {
+                // Play tickle sound on success
+                playTickleSound();
+
                 // Show server classification result (not fake)
                 setClassification(data.classification);
                 setShowSuccess(true);

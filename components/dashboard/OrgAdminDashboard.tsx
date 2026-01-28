@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
     LayoutDashboard, Building2, Users, UserPlus, Ticket, Settings, UserCircle,
     Search, Plus, Filter, Bell, LogOut, ChevronRight, MapPin, Edit, Trash2, X, Check, UsersRound,
-    Coffee, IndianRupee, FileDown, ChevronDown, Fuel, Menu, Upload, FileBarChart
+    Coffee, IndianRupee, FileDown, ChevronDown, Fuel, Menu, Upload, FileBarChart, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
@@ -16,12 +16,13 @@ import SignOutModal from '@/components/ui/SignOutModal';
 import AdminSPOCDashboard from '../tickets/AdminSPOCDashboard';
 import SettingsView from './SettingsView';
 import DieselAnalyticsDashboard from '../diesel/DieselAnalyticsDashboard';
+import ElectricityStaffDashboard from '../electricity/ElectricityStaffDashboard';
 import InviteMemberModal from './InviteMemberModal';
 import Image from 'next/image';
 import { ImportReportsView } from '@/components/snags';
 
 // Types
-type Tab = 'overview' | 'properties' | 'requests' | 'reports' | 'visitors' | 'settings' | 'profile' | 'revenue' | 'users' | 'diesel';
+type Tab = 'overview' | 'properties' | 'requests' | 'reports' | 'visitors' | 'settings' | 'profile' | 'revenue' | 'users' | 'diesel' | 'electricity';
 
 interface Property {
     id: string;
@@ -535,6 +536,16 @@ const OrgAdminDashboard = () => {
                                 <Fuel className="w-4 h-4" />
                                 Diesel Analytics
                             </button>
+                            <button
+                                onClick={() => handleTabChange('electricity')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'electricity'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Zap className="w-4 h-4" />
+                                Electricity Analytics
+                            </button>
                         </div>
                     </div>
 
@@ -765,6 +776,12 @@ const OrgAdminDashboard = () => {
                             <DieselAnalyticsDashboard
                                 propertyId={selectedPropertyId === 'all' ? undefined : selectedPropertyId}
                                 orgId={org?.id}
+                            />
+                        )}
+
+                        {activeTab === 'electricity' && (
+                            <ElectricityStaffDashboard
+                                propertyId={selectedPropertyId === 'all' ? undefined : selectedPropertyId}
                             />
                         )}
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Paperclip, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
+import { playTickleSound } from '@/utils/sounds';
 
 interface TicketCreateModalProps {
     isOpen: boolean;
@@ -150,6 +151,9 @@ export default function TicketCreateModal({
                     console.error('Photo upload failed, but ticket was created');
                 }
             }
+
+            // Play tickle sound on success
+            playTickleSound();
 
             setClassification(data.classification);
             setSuccess(true);

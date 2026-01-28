@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GripVertical, Plus, Check, AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
 import SnagUploader from './SnagUploader';
 import SnagPreviewTable from './SnagPreviewTable';
+import { playTickleSound } from '@/utils/sounds';
 
 interface Ticket {
     id: string;
@@ -133,6 +134,9 @@ export default function SnagIntakeDashboard({ propertyId, organizationId }: Snag
 
             setTickets(importedTickets);
             setView('dashboard');
+
+            // Play tickle sound on success
+            playTickleSound();
 
             if (data.assignmentSummary) {
                 setSuccessMessage(`Imported ${importedTickets.length} snags. Auto-assigned ${data.assignmentSummary.assigned} to matching technicians.`);

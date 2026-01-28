@@ -25,6 +25,8 @@ const features = [
 function AuthContent() {
     const searchParams = useSearchParams();
     const initialMode = searchParams.get('mode');
+    const urlError = searchParams.get('error');
+    const redirectPath = searchParams.get('redirect');
 
     const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot' | 'reset-success' | 'update-password'>(
         initialMode === 'signup' ? 'signup' :
@@ -47,6 +49,21 @@ function AuthContent() {
 
     // Memoize supabase client to prevent re-creation on every render
     const supabase = React.useMemo(() => createClient(), []);
+
+    // Handle URL error parameters (from middleware redirects or callback errors)
+    useEffect(() => {
+        if (urlError) {
+            const errorMessages: Record<string, string> = {
+                'auth_failed': 'Authentication failed. Please try again.',
+                'no_access': 'Your account is not assigned to any organization or property. Please contact your administrator.',
+                'session_expired': 'Your session has expired. Please sign in again.',
+                'unauthorized': 'You are not authorized to access that page.',
+            };
+            setError(errorMessages[urlError] || 'An error occurred. Please try again.');
+            // Clear the error from URL to prevent showing it again on refresh
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, [urlError]);
 
     // Handle password reset token from URL (Supabase may use hash fragment OR code param)
     useEffect(() => {
@@ -239,7 +256,22 @@ function AuthContent() {
             }
         } catch (err: any) {
             console.error('Auth action error:', err);
-            setError(err.message || 'Something went wrong. Please try again.');
+            // Provide user-friendly error messages for common auth failures
+            const errorMessage = err.message?.toLowerCase() || '';
+
+            if (errorMessage.includes('invalid login credentials')) {
+                setError('Invalid email or password. Please check your credentials and try again.');
+            } else if (errorMessage.includes('email not confirmed')) {
+                setError('Please verify your email address before signing in. Check your inbox for a verification link.');
+            } else if (errorMessage.includes('user not found')) {
+                setError('No account found with this email. Please sign up first.');
+            } else if (errorMessage.includes('too many requests')) {
+                setError('Too many login attempts. Please wait a few minutes before trying again.');
+            } else if (errorMessage.includes('network')) {
+                setError('Network error. Please check your internet connection and try again.');
+            } else {
+                setError(err.message || 'Something went wrong. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
