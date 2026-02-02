@@ -601,6 +601,9 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS work_started_at timestamptz;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS floor_number integer;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS rating integer;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS secondary_category_code text;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS risk_flag text;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS llm_reasoning text;
 
 -- Resolver Stats Table (for load balancer scoring)
 CREATE TABLE IF NOT EXISTS resolver_stats (

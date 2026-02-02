@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, User, MapPin, Send, CheckCircle, Circle, Camera, AlertTriangle, Pause, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import EnhancedClassificationBadge from './EnhancedClassificationBadge';
 
 interface TicketDetailProps {
     ticketId: string;
@@ -130,6 +131,11 @@ export default function TicketDetail({ ticketId, onBack, isAdmin = false }: Tick
                         {category?.name && (
                             <span className="px-3 py-1 bg-[#21262d] rounded-full text-sm">{category.name}</span>
                         )}
+                        {/* Enhanced classification indicator (subtle) */}
+                        <EnhancedClassificationBadge
+                            enhanced={ticket.enhanced_classification as boolean}
+                            zone={ticket.classification_zone as string}
+                        />
                         <span className={`px-3 py-1 rounded-full text-sm ${ticket.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
                             ticket.priority === 'high' ? 'bg-orange-500/20 text-orange-400' :
                                 'bg-blue-500/20 text-blue-400'

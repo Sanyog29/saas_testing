@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
-import { classifyTicket } from '@/backend/lib/ticketing';
+import { resolveClassification, logClassification } from '@/backend/lib/ticketing';
 
 // Extract floor number from description
 function extractFloorNumber(description: string): number | null {
@@ -51,7 +51,7 @@ function extractLocation(description: string): string | null {
     const lowerDesc = description.toLowerCase();
     for (const [loc, keywords] of Object.entries(locations)) {
         for (const keyword of keywords) {
-            // Use word boundaries to avoid matching keywords inside other words (e.g., 'loo' in 'floor')
+            // Use word boundaries to avoid matching keywords inside other words
             const regex = new RegExp(`\\b${keyword}\\b`, 'i');
             if (regex.test(lowerDesc)) return loc;
         }
@@ -159,11 +159,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 1. Deterministic Classification using centralized engine
-        const classification = classifyTicket(title || description);
-        const { issue_code, skill_group, confidence } = classification;
+        // 1. Hybrid Classification using enhanced resolver
+        const resolution = await resolveClassification(title || description);
+        const { issue_code, skill_group, confidence, enhancedClassification, zone, decisionSource } = resolution;
         const isVague = confidence === 'low';
-        // Classification completed
 
         // 2. Resolve Database IDs (Category & Skill Group)
         let categoryId = null;
@@ -172,8 +171,6 @@ export async function POST(request: NextRequest) {
         let slaHours = 24;
 
         if (issue_code) {
-
-
             // GLOBAL lookup - no property_id filter
             const { data: catData, error: catError } = await supabase
                 .from('issue_categories')
@@ -191,17 +188,14 @@ export async function POST(request: NextRequest) {
                 skillGroupId = catData.skill_group_id;
                 priority = catData.priority || 'medium';
                 slaHours = catData.sla_hours || 24;
-
             } else {
-                console.warn('[TICKET API] ⚠️ Issue code not found in issue_categories:', issue_code);
+                console.warn('[TICKET API] \u26a0\ufe0f Issue code not found in issue_categories:', issue_code);
             }
         }
 
         // Fallback: If no skill group found from category, use classification skill_group directly
         if (!skillGroupId) {
-
-
-            // GLOBAL lookup - no property_id filter
+            // GLOBAL lookup
             const { data: defaultSkill, error: skillError } = await supabase
                 .from('skill_groups')
                 .select('id, code, is_manual_assign')
@@ -215,18 +209,12 @@ export async function POST(request: NextRequest) {
 
             if (defaultSkill) {
                 skillGroupId = defaultSkill.id;
-
             } else {
-                console.error('[TICKET API] ❌ NO SKILL GROUP FOUND for code:', skill_group);
+                console.error('[TICKET API] \u274c NO SKILL GROUP FOUND for code:', skill_group);
             }
         }
 
-
-
         // 3. CREATE TICKET
-        // Note: Assignment is now handled by the PostgreSQL trigger 'trigger_auto_assign_ticket'
-        // which utilizes the 'find_best_resolver' function for load-balanced, shift-aware assignment.
-
         const ticketNumber = `TKT-${Date.now()}`;
 
         const { data: ticket, error: insertError } = await supabase
@@ -237,36 +225,38 @@ export async function POST(request: NextRequest) {
                 organization_id: orgId,
                 title: title || description.slice(0, 100),
                 description,
-                category: issue_code || 'general',
                 category_id: categoryId,
                 skill_group_id: skillGroupId,
-                priority: priority,
-                status: 'open', // Trigger will update to 'assigned' if resolver found
+                priority: resolution.priority?.toLowerCase() || priority,
+                status: 'open',
                 raised_by: user.id,
                 is_internal: internal,
                 is_vague: isVague,
                 sla_hours: slaHours,
-                work_paused: false,
                 floor_number: extractFloorNumber(title || description) ?? undefined,
                 location: extractLocation(title || description) ?? undefined,
-                // New tracking fields
+                // Tracking fields
                 issue_code: issue_code,
                 skill_group_code: skill_group,
-                confidence: confidence
+                confidence: confidence,
+                // AI-Assisted Enrichment
+                secondary_category_code: resolution.secondary_category_code,
+                risk_flag: resolution.risk_flag,
+                llm_reasoning: resolution.llm_reasoning,
+                classification_source: decisionSource,
+                confidence_score: resolution.llmResult ? 90 : 100
             })
             .select('*')
             .single();
 
         if (insertError) {
-            console.error('Error creating ticket:', insertError);
+            console.error('[TICKET API] Insert Error:', insertError);
             return NextResponse.json({
-                error: 'Failed to create ticket',
-                details: insertError.message
+                error: `Failed to create ticket: ${insertError.message}`
             }, { status: 500 });
         }
 
-        // Re-fetch the ticket to get the trigger-updated status (assigned/waitlist)
-        // The PostgreSQL trigger 'trigger_auto_assign_ticket' may have updated the status
+        // Re-fetch the ticket for trigger updates
         const { data: updatedTicket } = await supabase
             .from('tickets')
             .select('*')
@@ -274,6 +264,11 @@ export async function POST(request: NextRequest) {
             .single();
 
         const finalTicket = updatedTicket || ticket;
+
+        // Log classification decision asynchronously
+        logClassification(finalTicket.id, resolution).catch(err => {
+            console.error('[Ticket API] Classification logging error:', err);
+        });
 
         return NextResponse.json({
             success: true,
@@ -283,7 +278,9 @@ export async function POST(request: NextRequest) {
                 skill_group,
                 confidence,
                 isAutoClassified: !explicitDepartment,
-                // Include the actual status for frontend display
+                enhancedClassification,
+                zone,
+                decisionSource,
                 status: finalTicket.status,
                 assigned_to: finalTicket.assigned_to,
             },

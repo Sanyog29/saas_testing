@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Fuel, Plus, Minus, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Fuel, Plus, Minus, AlertTriangle, TrendingUp, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Generator {
@@ -27,6 +27,7 @@ interface DieselLoggerCardProps {
     previousClosing?: number;
     averageConsumption?: number;
     onReadingChange: (generatorId: string, reading: DieselReading) => void;
+    onDelete?: (generatorId: string) => void;
     isSubmitting?: boolean;
     isDark?: boolean;
 }
@@ -40,6 +41,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
     previousClosing,
     averageConsumption,
     onReadingChange,
+    onDelete,
     isSubmitting = false,
     isDark = false
 }) => {
@@ -115,7 +117,21 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                             {generator.make || 'Generator'} · {generator.capacity_kva || '—'} KVA
                         </p>
                     </div>
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2">
+                            {onDelete && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(generator.id);
+                                    }}
+                                    className={`${isDark ? 'text-slate-600 hover:text-rose-500 bg-rose-500/5' : 'text-slate-400 hover:text-rose-500 bg-rose-50'} p-2 rounded-lg transition-all border border-transparent hover:border-rose-500/20`}
+                                    title="Delete Generator"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                         {averageConsumption && (
                             <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                 <TrendingUp className="w-3 h-3" />
@@ -139,7 +155,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                     readOnly
                                     className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'} font-bold rounded-lg p-2.5 pl-3 focus:outline-none cursor-not-allowed border`}
                                 />
-                                <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>H</span>
+                                <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>KVAH</span>
                             </div>
                         </label>
 
@@ -196,7 +212,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                 className={`w-full ${isDark ? 'bg-[#0d1117] border-primary/50 focus:border-primary text-white' : 'bg-white border-primary/30 focus:border-primary text-slate-900'} border-2 focus:ring-4 ${isDark ? 'focus:ring-primary/10' : 'focus:ring-primary/10'} text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
                                 placeholder={`>${openingHours}`}
                             />
-                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>Hours</span>
+                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>KVAH</span>
                         </div>
                         {isFocused && (
                             <p className={`text-xs ${isDark ? 'text-primary' : 'text-primary'} animate-pulse font-medium`}>Typing...</p>

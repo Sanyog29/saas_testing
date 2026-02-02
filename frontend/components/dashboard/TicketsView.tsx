@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, MessageSquare, User, Building2, Clock, CheckCircle2,
-    XCircle, RefreshCw, Filter, Send, ChevronRight, Camera, Plus, Pencil, X, Loader2
+    XCircle, RefreshCw, Filter, Send, ChevronRight, Camera, Plus, Pencil, X, Loader2, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -236,6 +236,13 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => router.push(`/property/${propertyId}/flow-map`)}
+                        className="flex items-center gap-2 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-[var(--radius-md)] border border-secondary/20 hover:bg-secondary/20 transition-smooth"
+                        title="View Operational Flow Map"
+                    >
+                        <Activity className="w-4 h-4" /> Live Flow Map
+                    </button>
                     {onNewRequest && (
                         <button
                             onClick={onNewRequest}

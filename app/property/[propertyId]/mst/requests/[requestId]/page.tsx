@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
-import { ArrowLeft, MapPin, Clock, AlertTriangle, User, CheckCircle2, Ticket } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, AlertTriangle, User, CheckCircle2, Ticket, Activity } from 'lucide-react';
 
 function formatTimeAgo(dateString: string) {
     const date = new Date(dateString);
@@ -112,8 +112,8 @@ export default function RequestDetailsPage() {
                     <h1 className="text-lg font-bold flex items-center gap-2">
                         {ticket.ticket_number || 'Ticket Details'}
                         <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider border ${ticket.status === 'open' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                ticket.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            ticket.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                             }`}>
                             {ticket.status?.replace('_', ' ')}
                         </span>
@@ -179,6 +179,13 @@ export default function RequestDetailsPage() {
                     {/* Actions */}
                     <div className="bg-[#161b22] border border-[#21262d] rounded-xl p-6">
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Actions</h3>
+                        <button
+                            onClick={() => router.push(`/property/${propertyId}/flow-map`)}
+                            className="w-full flex items-center justify-center gap-2 bg-[#21262d] hover:bg-[#30363d] text-secondary border border-secondary/20 py-2.5 rounded-lg text-sm font-bold transition-colors mb-3"
+                        >
+                            <Activity className="w-4 h-4" />
+                            Live Flow Map
+                        </button>
                         <button className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
                             <CheckCircle2 className="w-4 h-4" />
                             Accept Request

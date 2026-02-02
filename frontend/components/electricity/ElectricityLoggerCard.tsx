@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Plus, Minus, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Zap, Plus, Minus, AlertTriangle, TrendingUp, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ElectricityMeter {
@@ -27,6 +27,7 @@ interface ElectricityLoggerCardProps {
     previousClosing?: number;
     averageConsumption?: number;
     onReadingChange: (meterId: string, reading: ElectricityReading) => void;
+    onDelete?: (meterId: string) => void;
     isSubmitting?: boolean;
     isDark?: boolean;
 }
@@ -40,6 +41,7 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
     previousClosing,
     averageConsumption,
     onReadingChange,
+    onDelete,
     isSubmitting = false,
     isDark = false
 }) => {
@@ -60,7 +62,7 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
     const getStatusColor = () => {
         if (meter.status === 'inactive') return isDark ? 'bg-[#21262d] text-slate-400' : 'bg-slate-200 text-slate-500';
         if (meter.status === 'faulty') return 'bg-rose-100 text-rose-600';
-        return 'bg-amber-500/10 text-amber-500';
+        return 'bg-primary/10 text-primary';
     };
 
     const getMeterTypeLabel = () => {
@@ -76,7 +78,7 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
     const getStripColor = () => {
         if (!hasValidReading) return isDark ? 'bg-[#21262d]' : 'bg-slate-200';
         if (isHighConsumption) return 'bg-amber-400';
-        return isDark ? 'bg-amber-500' : 'bg-amber-500';
+        return isDark ? 'bg-primary' : 'bg-primary';
     };
 
     // Notify parent of changes
@@ -125,11 +127,25 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
                             {getMeterTypeLabel()} · {meter.meter_number || 'No meter #'} {meter.max_load_kw && `· ${meter.max_load_kw} kW`}
                         </p>
                     </div>
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2">
+                            {onDelete && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(meter.id);
+                                    }}
+                                    className={`${isDark ? 'text-slate-600 hover:text-rose-500 bg-rose-500/5' : 'text-slate-400 hover:text-rose-500 bg-rose-50'} p-2 rounded-lg transition-all border border-transparent hover:border-rose-500/20`}
+                                    title="Delete Meter"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                         {averageConsumption && (
                             <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                 <TrendingUp className="w-3 h-3" />
-                                <span>Avg: {averageConsumption} kWh/day</span>
+                                <span>Avg: {averageConsumption} KVAH/day</span>
                             </div>
                         )}
                     </div>
@@ -147,17 +163,17 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
                                 readOnly
                                 className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'} font-bold rounded-lg p-2.5 pl-3 focus:outline-none cursor-not-allowed border`}
                             />
-                            <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>kWh</span>
+                            <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>KVAH</span>
                         </div>
                     </label>
 
                     {/* Row 2: Closing Reading (Main Action) */}
                     <label className="flex flex-col gap-2">
                         <div className="flex justify-between items-end">
-                            <span className={`text-xs font-bold uppercase tracking-wide ${isHighConsumption ? 'text-amber-600' : (isDark ? 'text-amber-500' : 'text-amber-500')}`}>
+                            <span className={`text-xs font-bold uppercase tracking-wide ${isHighConsumption ? 'text-amber-600' : (isDark ? 'text-primary' : 'text-primary')}`}>
                                 Closing Reading
                             </span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${hasValidReading ? 'bg-green-100 text-green-700' : (isDark ? 'bg-[#0d1117] text-amber-500' : 'bg-amber-500/10 text-amber-500')
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${hasValidReading ? 'bg-green-100 text-green-700' : (isDark ? 'bg-[#0d1117] text-primary' : 'bg-primary/10 text-primary')
                                 }`}>
                                 {hasValidReading ? '✓ VALID' : 'REQUIRED'}
                             </span>
@@ -169,13 +185,13 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
                                 onChange={(e) => setClosingReading(parseFloat(e.target.value) || 0)}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
-                                className={`w-full ${isDark ? 'bg-[#0d1117] border-amber-500/50 focus:border-amber-500 text-white' : 'bg-white border-amber-500/30 focus:border-amber-500 text-slate-900'} border-2 focus:ring-4 ${isDark ? 'focus:ring-amber-500/10' : 'focus:ring-amber-500/10'} text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
+                                className={`w-full ${isDark ? 'bg-[#0d1117] border-primary/50 focus:border-primary text-white' : 'bg-white border-primary/30 focus:border-primary text-slate-900'} border-2 focus:ring-4 ${isDark ? 'focus:ring-primary/10' : 'focus:ring-primary/10'} text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
                                 placeholder={`>${openingReading}`}
                             />
-                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>kWh</span>
+                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>KVAH</span>
                         </div>
                         {isFocused && (
-                            <p className={`text-xs ${isDark ? 'text-amber-500' : 'text-amber-500'} animate-pulse font-medium`}>Typing...</p>
+                            <p className={`text-xs ${isDark ? 'text-primary' : 'text-primary'} animate-pulse font-medium`}>Typing...</p>
                         )}
                         {isHighConsumption && hasValidReading && (
                             <div className={`flex items-center gap-1.5 text-xs text-amber-600 font-semibold ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'} p-2 rounded border border-amber-100`}>
@@ -201,7 +217,7 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
                                 type="number"
                                 value={peakLoad}
                                 onChange={(e) => setPeakLoad(Math.max(0, parseInt(e.target.value) || 0))}
-                                className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'} focus:ring-2 ${isDark ? 'focus:ring-amber-500/20' : 'focus:ring-amber-500/20'} text-slate-900 font-bold rounded-lg py-2.5 px-8 text-center transition-all shadow-sm border`}
+                                className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-primary' : 'bg-white border-slate-200 focus:border-primary'} focus:ring-2 ${isDark ? 'focus:ring-primary/20' : 'focus:ring-primary/20'} text-slate-900 font-bold rounded-lg py-2.5 px-8 text-center transition-all shadow-sm border`}
                                 placeholder="0"
                             />
                             <button
@@ -218,15 +234,15 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
 
                     {/* Calculation Result Box */}
                     <div className={`rounded-lg p-3 border flex justify-between items-center ${hasValidReading
-                        ? (isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-500/5 border-amber-500/20')
+                        ? (isDark ? 'bg-primary/5 border-primary/20' : 'bg-primary/5 border-primary/20')
                         : (isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-slate-50 border-slate-100')
                         }`}>
                         <div className="flex flex-col">
                             <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Units Consumed</span>
                             <div className="flex items-center gap-1">
-                                <Zap className={`w-4 h-4 ${hasValidReading ? (isDark ? 'text-amber-500' : 'text-amber-500') : 'text-slate-300'}`} />
-                                <span className={`text-lg font-black ${hasValidReading ? (isDark ? 'text-amber-500' : 'text-amber-500') : 'text-slate-300'}`}>
-                                    {hasValidReading ? `${unitsConsumed} kWh` : '—'}
+                                <Zap className={`w-4 h-4 ${hasValidReading ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`} />
+                                <span className={`text-lg font-black ${hasValidReading ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`}>
+                                    {hasValidReading ? `${unitsConsumed} KVAH` : '—'}
                                 </span>
                             </div>
                         </div>
@@ -249,7 +265,7 @@ const ElectricityLoggerCard: React.FC<ElectricityLoggerCardProps> = ({
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Add notes (optional)..."
-                        className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-200 text-slate-600 focus:border-amber-500/50'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-amber-500/20' : 'focus:ring-amber-500/20'} border`}
+                        className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-white focus:border-primary/50' : 'bg-slate-50 border-slate-200 text-slate-600 focus:border-primary/50'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${isDark ? 'focus:ring-primary/20' : 'focus:ring-primary/20'} border`}
                     />
                 </div>
             </div>

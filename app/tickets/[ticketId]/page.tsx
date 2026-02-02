@@ -4,9 +4,34 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
 import {
-    ArrowLeft, Clock, Calendar, MapPin, User, CheckCircle2,
-    AlertCircle, Camera, Paperclip, Send, PauseCircle, PlayCircle,
-    Forward, XCircle, ShieldAlert, History
+    ArrowLeft,
+    Clock,
+    Calendar,
+    MapPin,
+    User,
+    CheckCircle2,
+    AlertCircle,
+    Camera,
+    Paperclip,
+    Send,
+    PauseCircle,
+    PlayCircle,
+    Forward,
+    XCircle,
+    ShieldAlert,
+    History,
+    Activity,
+    ChevronRight,
+    MessageSquare,
+    Tag,
+    Navigation2,
+    Building2,
+    Plus,
+    MoreHorizontal,
+    Share2,
+    AlertTriangle,
+    Sparkles,
+    Brain,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { compressImage } from '@/frontend/utils/image-compression';
@@ -600,39 +625,67 @@ export default function TicketDetailPage() {
                         <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                                 {(ticket as any).property?.name && (
-                                    <span className={`text-[10px] font-black ${isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-600 bg-emerald-50 border-emerald-100'} px-2 py-0.5 rounded border uppercase tracking-widest`}>
+                                    <span className={`text-[10px] font-black ${isDark ? 'text-primary bg-primary/10 border-primary/20' : 'text-primary bg-primary/10 border-primary-light/20'} px-2 py-0.5 rounded border uppercase tracking-widest`}>
                                         {(ticket as any).property.name}
                                     </span>
                                 )}
                                 <span className={`font-mono text-[10px] font-black ${isDark ? 'text-slate-500 bg-[#21262d] border-[#30363d]' : 'text-slate-500 bg-slate-100 border-slate-200'} px-2 py-0.5 rounded border`}>{ticket.ticket_number}</span>
                                 {((ticket as any).category && typeof (ticket as any).category === 'string') ? (
-                                    <span className={`px-2 py-0.5 ${isDark ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'} border rounded text-[9px] font-black uppercase tracking-widest`}>
+                                    <span className={`px-2 py-0.5 ${isDark ? 'bg-info/10 border-info/20 text-info' : 'bg-info/10 border-info/20 text-info'} border rounded text-[9px] font-black uppercase tracking-widest`}>
                                         {((ticket as any).category as string).replace(/_/g, ' ')}
                                     </span>
                                 ) : ticket.category?.name && (
-                                    <span className={`px-2 py-0.5 ${isDark ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'} border rounded text-[9px] font-black uppercase tracking-widest`}>
+                                    <span className={`px-2 py-0.5 ${isDark ? 'bg-info/10 border-info/20 text-info' : 'bg-info/10 border-info/20 text-info'} border rounded text-[9px] font-black uppercase tracking-widest`}>
                                         {ticket.category.name}
                                     </span>
                                 )}
-                                <span className={`px-2 py-0.5 rounded border text-[9px] font-black uppercase tracking-widest ${ticket.priority === 'urgent' ? (isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-100 text-rose-600') :
-                                    ticket.priority === 'high' ? (isDark ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600') :
-                                        (isDark ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-sky-50 border-sky-100 text-sky-600')
+                                <span className={`px-2 py-0.5 rounded border text-[9px] font-black uppercase tracking-widest ${ticket.priority === 'urgent' ? (isDark ? 'bg-error/10 border-error/20 text-error' : 'bg-error/5 border-error/20 text-error') :
+                                    ticket.priority === 'high' ? (isDark ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-warning/5 border-warning/20 text-warning') :
+                                        (isDark ? 'bg-info/10 border-info/20 text-info' : 'bg-info/5 border-info/20 text-info')
                                     }`}>
                                     {ticket.priority} Priority
                                 </span>
+
+                                {(ticket as any).classification_source === 'llm' && (
+                                    <span className={`flex items-center gap-1 px-2 py-0.5 ${isDark ? 'bg-primary/20 border-primary/30 text-primary-light' : 'bg-primary/10 border-primary/20 text-primary'} border rounded text-[9px] font-black uppercase tracking-widest shadow-sm animate-pulse`}>
+                                        <Sparkles className="w-2.5 h-2.5" />
+                                        AI-Assisted
+                                    </span>
+                                )}
+
+                                {(ticket as any).secondary_category_code && (
+                                    <span className={`px-2 py-0.5 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'} border rounded text-[9px] font-black uppercase tracking-widest`}>
+                                        + {(ticket as any).secondary_category_code.replace(/_/g, ' ')}
+                                    </span>
+                                )}
                             </div>
-                            <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-tight`}>{ticket.title}</h1>
+
+                            {(ticket as any).risk_flag && (
+                                <div className={`mt-2 flex items-center gap-2 px-3 py-2 ${isDark ? 'bg-error/20 border-error/30 text-error' : 'bg-error/5 border-error/20 text-error'} border rounded-xl text-xs font-bold animate-bounce-slow`}>
+                                    <AlertTriangle className="w-4 h-4" />
+                                    <span className="uppercase tracking-wide">Critical Risk Detected: {(ticket as any).risk_flag}</span>
+                                </div>
+                            )}
+
+                            <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-tight ${(ticket as any).risk_flag ? 'mt-3' : ''}`}>{ticket.title}</h1>
+
+                            {(ticket as any).llm_reasoning && (
+                                <p className={`mt-2 text-[11px] font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'} italic flex items-start gap-2`}>
+                                    <Brain className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary" />
+                                    "{(ticket as any).llm_reasoning}"
+                                </p>
+                            )}
                         </div>
                         <div className="text-right hidden sm:block">
-                            <div className={`text-[10px] font-black uppercase tracking-widest mb-1.5 px-3 py-1 rounded-full border inline-block ${ticket.status === 'closed' || ticket.status === 'resolved' ? (isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600') :
-                                ticket.status === 'in_progress' ? (isDark ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-sky-50 border-sky-100 text-sky-600') :
-                                    ticket.status === 'assigned' ? (isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-600') :
+                            <div className={`text-[10px] font-black uppercase tracking-widest mb-1.5 px-3 py-1 rounded-full border inline-block ${ticket.status === 'closed' || ticket.status === 'resolved' ? (isDark ? 'bg-success/10 border-success/20 text-success' : 'bg-success/5 border-success/20 text-success') :
+                                ticket.status === 'in_progress' ? (isDark ? 'bg-info/10 border-info/20 text-info' : 'bg-info/5 border-info/20 text-info') :
+                                    ticket.status === 'assigned' ? (isDark ? 'bg-primary/10 border-primary/20 text-primary-light' : 'bg-primary/5 border-primary/20 text-primary') :
                                         (isDark ? 'bg-[#21262d] border-[#30363d] text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500')
                                 }`}>
                                 {ticket.status === 'closed' || ticket.status === 'resolved' ? 'COMPLETE' : ticket.status.replace('_', ' ')}
                             </div>
                             {ticket.sla_deadline && ticket.status !== 'closed' && (
-                                <div className={`flex items-center justify-end gap-1 text-xs font-bold ${ticket.sla_breached ? 'text-rose-400' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
+                                <div className={`flex items-center justify-end gap-1 text-xs font-bold ${ticket.sla_breached ? 'text-error' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
                                     <Clock className="w-3 h-3" />
                                     {ticket.sla_paused ? 'SLA Paused' :
                                         ticket.sla_breached ? 'Breached' :
@@ -649,7 +702,7 @@ export default function TicketDetailPage() {
                         {userRole === 'staff' && (ticket.status === 'open' || ticket.status === 'waitlist') && !ticket.assigned_to && (
                             <button
                                 onClick={() => handleClaim()}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20"
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"
                             >
                                 <User className="w-4 h-4" /> Claim Request
                             </button>
@@ -667,7 +720,7 @@ export default function TicketDetailPage() {
                         {isAssignedToMe && ticket.status === 'in_progress' && (
                             <button
                                 onClick={() => handleStatusChange('closed')}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg"
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-dark transition-all shadow-lg"
                             >
                                 <CheckCircle2 className="w-4 h-4" /> Complete Task
                             </button>
@@ -692,11 +745,17 @@ export default function TicketDetailPage() {
                                 {ticket.status !== 'closed' && (
                                     <button
                                         onClick={() => handleStatusChange('closed')}
-                                        className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                                        className="flex items-center gap-2 px-4 py-2 bg-error/10 border border-error/20 text-error rounded-xl text-xs font-black uppercase tracking-widest hover:bg-error/20 transition-all"
                                     >
                                         <XCircle className="w-4 h-4" /> Force Close
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => router.push(`/property/${ticket.property_id}/flow-map`)}
+                                    className={`flex items-center gap-2 px-4 py-2 ${isDark ? 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20' : 'bg-primary/5 border-primary/20 text-primary hover:bg-primary/10'} border rounded-xl text-xs font-black uppercase tracking-widest transition-all`}
+                                >
+                                    <Activity className="w-4 h-4" /> Flow Map
+                                </button>
                             </>
                         )}
                     </div>
@@ -711,7 +770,7 @@ export default function TicketDetailPage() {
                         {/* Request Description */}
                         <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} p-6 rounded-3xl border shadow-sm`}>
                             <h3 className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'} mb-4 flex items-center gap-2`}>
-                                <Paperclip className="w-4 h-4 text-emerald-500" />
+                                <Paperclip className="w-4 h-4 text-primary" />
                                 Description
                             </h3>
                             <p className={`${isDark ? 'text-slate-300' : 'text-slate-600'} text-sm leading-relaxed whitespace-pre-wrap`}>
@@ -723,18 +782,18 @@ export default function TicketDetailPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Requestor Card */}
                             <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} p-5 rounded-2xl border shadow-sm relative overflow-hidden group`}>
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-500/10 transition-all" />
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-info/5 rounded-full -mr-12 -mt-12 group-hover:bg-info/10 transition-all" />
                                 <h3 className={`text-[10px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10`}>
                                     <User className="w-3 h-3" /> Who Raised
                                 </h3>
                                 <div className="flex items-center gap-3 relative z-10">
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                                    <div className="w-10 h-10 bg-info rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
                                         {ticket.creator?.full_name?.[0] || 'U'}
                                     </div>
                                     <div>
                                         <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>{ticket.creator?.full_name || 'Unknown User'}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
-                                            <span className={`px-1.5 py-0.5 ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'} text-[9px] font-black uppercase tracking-wider rounded`}>
+                                            <span className={`px-1.5 py-0.5 ${isDark ? 'bg-info/10 text-info' : 'bg-info/5 text-info'} text-[9px] font-black uppercase tracking-wider rounded`}>
                                                 {creatorRole}
                                             </span>
                                             <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-medium whitespace-nowrap`}>Raised {new Date(ticket.created_at).toLocaleDateString()}</span>
@@ -762,19 +821,19 @@ export default function TicketDetailPage() {
 
                             {/* Resolver Card */}
                             <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} p-5 rounded-2xl border shadow-sm relative overflow-hidden group`}>
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 group-hover:bg-emerald-500/10 transition-all" />
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12 group-hover:bg-primary/10 transition-all" />
                                 <h3 className={`text-[10px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10`}>
                                     <ShieldAlert className="w-3 h-3" /> Who Is Servicing
                                 </h3>
                                 {ticket.assignee ? (
                                     <div className="flex items-center gap-3 relative z-10">
-                                        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
                                             {ticket.assignee.full_name[0]}
                                         </div>
                                         <div>
                                             <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'} text-sm leading-tight`}>{ticket.assignee.full_name}</p>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                                <span className={`px-1.5 py-0.5 ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'} text-[9px] font-black uppercase tracking-wider rounded`}>
+                                                <span className={`px-1.5 py-0.5 ${isDark ? 'bg-primary/10 text-primary-light' : 'bg-primary/5 text-primary'} text-[9px] font-black uppercase tracking-wider rounded`}>
                                                     {assigneeRole}
                                                 </span>
                                                 <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'} font-medium uppercase tracking-tighter`}>Assigned {new Date(ticket.assigned_at!).toLocaleDateString()}</span>
@@ -790,7 +849,7 @@ export default function TicketDetailPage() {
                                     <div className={`mt-4 pt-4 border-t ${isDark ? 'border-[#30363d]' : 'border-slate-50'} relative z-10`}>
                                         <div className="flex items-center justify-between">
                                             <span className={`text-[9px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest`}>Resolver ID</span>
-                                            <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-600 bg-emerald-50 border-emerald-200'}`}>RSLV-{ticket.assigned_to?.slice(0, 4).toUpperCase()}</span>
+                                            <span className={`text-[10px] font-bold ${isDark ? 'text-primary bg-primary/10 border-primary/20' : 'text-primary bg-primary/10 border-primary-light'}`}>RSLV-{ticket.assigned_to?.slice(0, 4).toUpperCase()}</span>
                                         </div>
                                     </div>
                                 )}
@@ -800,7 +859,7 @@ export default function TicketDetailPage() {
                         {/* 2. Before / After Photos */}
                         <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} p-6 rounded-3xl border shadow-sm`}>
                             <h3 className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'} mb-6 flex items-center gap-2`}>
-                                <Camera className="w-4 h-4 text-emerald-500" />
+                                <Camera className="w-4 h-4 text-primary" />
                                 Site Documentation
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
@@ -816,7 +875,7 @@ export default function TicketDetailPage() {
                                         </div>
                                     ) : (
                                         <label className={`flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed ${isDark ? 'border-[#30363d] bg-[#0d1117] hover:bg-[#161b22]' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'} cursor-pointer transition-all group`}>
-                                            <Camera className={`w-8 h-8 ${isDark ? 'text-slate-700' : 'text-slate-300'} group-hover:text-emerald-500 mb-2`} />
+                                            <Camera className={`w-8 h-8 ${isDark ? 'text-slate-700' : 'text-slate-300'} group-hover:text-primary mb-2`} />
                                             <span className={`text-[10px] font-black ${isDark ? 'text-slate-600' : 'text-slate-400'} uppercase tracking-widest`}>Add Attachment</span>
                                             <input type="file" accept="image/*" className="hidden" disabled={!canWork && !canManage && userRole !== 'tenant'} onChange={(e) => handleFileUpload(e, 'before')} />
                                         </label>
@@ -846,69 +905,52 @@ export default function TicketDetailPage() {
 
                         {/* 3. Activity Timeline (Progress) */}
                         <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100'} p-6 rounded-3xl border shadow-sm`}>
-                            <h3 className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'} mb-6 flex items-center gap-2`}>
-                                <History className="w-4 h-4 text-emerald-500" />
-                                Request Progress
+                            <h3 className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'} mb-8 flex items-center gap-2`}>
+                                <History className="w-4 h-4 text-primary" />
+                                Sequence of Events
                             </h3>
-                            <div className="relative">
-                                <div className={`absolute left-[15px] top-2 bottom-2 w-0.5 ${isDark ? 'bg-[#21262d]' : 'bg-slate-100'}`} />
-
-                                <div className="space-y-8 relative">
-                                    {/* Requested Node */}
-                                    <div className="flex items-start gap-4">
-                                        <div className={`relative z-10 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-emerald-500/20 shadow-lg`}>
-                                            <CheckCircle2 className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Requested</p>
-                                            <p className="text-[10px] text-slate-500 font-medium">Raised on {new Date(ticket.created_at).toLocaleString()}</p>
-                                        </div>
+                            <div className="space-y-8 relative before:absolute before:inset-0 before:ml-4 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-primary before:via-slate-500/20 before:to-transparent">
+                                {/* 1. Ticket Created */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-0 mt-0.5 z-10 w-8 h-8 rounded-full bg-success flex items-center justify-center text-white ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-success/20 shadow-lg`}>
+                                        <CheckCircle2 className="w-4 h-4" />
                                     </div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{new Date(ticket.created_at).toLocaleString()}</p>
+                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Request Logged Successfully</p>
+                                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>System generated unique ID: {ticket.ticket_number}</p>
+                                </div>
 
-                                    {/* Assigned Node */}
-                                    <div className="flex items-start gap-4">
-                                        <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${ticket.assigned_at ? 'bg-emerald-500 text-white shadow-emerald-500/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
-                                            {ticket.assigned_at ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-bold ${ticket.assigned_at ? 'text-white' : 'text-slate-600'}`}>Assigned</p>
-                                            {ticket.assigned_at ? (
-                                                <p className="text-[10px] text-slate-500 font-medium">Assigned to {ticket.assignee?.full_name} on {new Date(ticket.assigned_at).toLocaleString()}</p>
-                                            ) : (
-                                                <p className="text-[10px] text-slate-600 font-medium italic">Waiting for assignment...</p>
-                                            )}
-                                        </div>
+                                {/* 2. Assigned */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-0 mt-0.5 z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${ticket.assigned_at ? 'bg-success text-white shadow-success/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
+                                        {ticket.assigned_at ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
                                     </div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'PENDING'}</p>
+                                    <p className={`text-sm font-bold ${ticket.assigned_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Resolver Dispatched</p>
+                                    {ticket.assignee && (
+                                        <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Assigned to {ticket.assignee.full_name}</p>
+                                    )}
+                                </div>
 
-                                    {/* Work Started Node */}
-                                    <div className="flex items-start gap-4">
-                                        <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${ticket.work_started_at ? 'bg-emerald-500 text-white shadow-emerald-500/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
-                                            {ticket.work_started_at ? <CheckCircle2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-bold ${ticket.work_started_at ? 'text-white' : 'text-slate-600'}`}>Work Started</p>
-                                            {ticket.work_started_at ? (
-                                                <p className="text-[10px] text-slate-500 font-medium">Commenced on {new Date(ticket.work_started_at).toLocaleString()}</p>
-                                            ) : (
-                                                <p className="text-[10px] text-slate-600 font-medium italic uppercase tracking-tighter">Awaiting technician arrival...</p>
-                                            )}
-                                        </div>
+                                {/* 3. Work Started */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-0 mt-0.5 z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${ticket.work_started_at ? 'bg-success text-white shadow-success/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
+                                        {ticket.work_started_at ? <CheckCircle2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
                                     </div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{ticket.work_started_at ? new Date(ticket.work_started_at).toLocaleString() : 'AWAITING START'}</p>
+                                    <p className={`text-sm font-bold ${ticket.work_started_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>On-Site Execution</p>
+                                    {ticket.work_started_at && (
+                                        <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Resolver is currently working on the issue</p>
+                                    )}
+                                </div>
 
-                                    {/* Completed Node */}
-                                    <div className="flex items-start gap-4">
-                                        <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? 'bg-emerald-500 text-white shadow-emerald-500/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
-                                            {(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-bold ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? (isDark ? 'text-white' : 'text-slate-900') : 'text-slate-600'}`}>Completed</p>
-                                            {ticket.resolved_at ? (
-                                                <p className="text-[10px] text-slate-500 font-medium italic">Resolved and closed on {new Date(ticket.resolved_at!).toLocaleString()}</p>
-                                            ) : (
-                                                <p className="text-[10px] text-slate-600 font-medium italic uppercase tracking-tighter">Final closure pending</p>
-                                            )}
-                                        </div>
+                                {/* 4. Resolved */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-0 mt-0.5 z-10 w-8 h-8 rounded-full flex items-center justify-center ring-4 ${isDark ? 'ring-[#161b22]' : 'ring-white'} shadow-lg ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? 'bg-success text-white shadow-success/20' : (isDark ? 'bg-[#21262d] text-slate-600' : 'bg-slate-100 text-slate-400')}`}>
+                                        {(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                                     </div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? new Date(ticket.resolved_at || ticket.created_at).toLocaleString() : 'RESOLUTION TARGET'}</p>
+                                    <p className={`text-sm font-bold ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Signal Terminated</p>
                                 </div>
                             </div>
 
@@ -918,8 +960,10 @@ export default function TicketDetailPage() {
                                     {activities.slice(0, 5).map((act) => (
                                         <div key={act.id} className="flex justify-between items-start gap-4 opacity-75">
                                             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{act.user?.full_name || 'System'}:</span> {act.action.replace(/_/g, ' ')}
-                                                {act.new_value && <span className="text-emerald-400 font-bold ml-1">→ {act.new_value}</span>}
+                                                <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
+                                                    <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{act.user?.full_name || 'System'}:</span> {act.action.replace(/_/g, ' ')}
+                                                    {act.new_value && <span className="text-success font-bold ml-1">→ {act.new_value}</span>}
+                                                </p>
                                             </p>
                                             <span className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'} font-bold uppercase whitespace-nowrap`}>{new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
@@ -948,17 +992,17 @@ export default function TicketDetailPage() {
                                     const isMe = comment.user_id === userId;
                                     return (
                                         <div key={comment.id} className={`w-full flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                            <div className={`max-w-[85%] rounded-[20px] px-4 py-3 text-sm shadow-sm transition-all ${isMe ?
-                                                'bg-indigo-600 text-white rounded-tr-none' :
+                                            <div className={`relative max-w-[85%] px-4 py-3 rounded-2xl shadow-sm ${isMe ?
+                                                `bg-primary text-white rounded-tr-none` :
                                                 comment.is_internal ?
-                                                    (isDark ? 'bg-amber-500/10 text-amber-200 border border-amber-500/20 rounded-tl-none' : 'bg-amber-50 text-amber-700 border border-amber-100 rounded-tl-none') :
-                                                    (isDark ? 'bg-[#21262d] text-slate-200 border border-[#30363d] rounded-tl-none' : 'bg-slate-100 text-slate-700 border border-slate-200 rounded-tl-none')
+                                                    (isDark ? 'bg-warning/10 text-warning border border-warning/20 rounded-tl-none' : 'bg-warning/5 text-warning-dark border border-warning/10 rounded-tl-none') :
+                                                    (isDark ? 'bg-[#21262d] text-slate-200 rounded-tl-none' : 'bg-slate-100 text-slate-800 rounded-tl-none')
                                                 }`}>
-                                                {comment.is_internal && (
-                                                    <div className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-indigo-200' : (isDark ? 'text-amber-400' : 'text-amber-600')} mb-1 flex items-center gap-1`}>
-                                                        <ShieldAlert className="w-2.5 h-2.5" /> INTERNAL NOTE
-                                                    </div>
-                                                )}
+                                                <div className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-primary-light' : (isDark ? 'text-warning' : 'text-warning-dark')} mb-1 flex items-center gap-1`}>
+                                                    {comment.is_internal && <ShieldAlert className="w-2.5 h-2.5" />}
+                                                    {comment.user?.full_name || 'System'} • {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {comment.is_internal && <span className="ml-1 opacity-60">(Internal)</span>}
+                                                </div>
                                                 <p className="leading-relaxed font-medium">{comment.comment}</p>
                                             </div>
                                             <div className={`flex items-center gap-2 mt-1.5 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -977,14 +1021,17 @@ export default function TicketDetailPage() {
                             <div className={`p-4 ${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-slate-50 border-slate-100'} border-t rounded-b-3xl`}>
                                 {canManage && (
                                     <div className="flex items-center gap-2 mb-3">
-                                        <input
-                                            type="checkbox"
-                                            id="internal"
-                                            checked={isInternalComment}
-                                            onChange={(e) => setIsInternalComment(e.target.checked)}
-                                            className={`rounded ${isDark ? 'border-[#30363d] bg-[#161b22]' : 'border-slate-300 bg-white'} text-indigo-500 focus:ring-indigo-500`}
-                                        />
-                                        <label htmlFor="internal" className={`text-[10px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest cursor-pointer select-none`}>Internal Access Only</label>
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                checked={isInternalComment}
+                                                onChange={(e) => setIsInternalComment(e.target.checked)}
+                                                className={`rounded ${isDark ? 'border-[#30363d] bg-[#161b22]' : 'border-slate-300 bg-white'} text-primary focus:ring-primary`}
+                                            />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isInternalComment ? 'text-warning' : (isDark ? 'text-slate-500' : 'text-slate-400')} group-hover:text-primary transition-colors`}>
+                                                Internal Note
+                                            </span>
+                                        </label>
                                     </div>
                                 )}
                                 <div className="flex gap-2">
@@ -993,15 +1040,15 @@ export default function TicketDetailPage() {
                                         value={commentText}
                                         onChange={(e) => setCommentText(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                                        placeholder="Transmit message..."
-                                        className={`flex-1 ${isDark ? 'bg-[#161b22] border-[#30363d] text-white' : 'bg-white border-slate-200 text-slate-900'} border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-all`}
+                                        placeholder="Transmit signal to thread..."
+                                        className={`flex-1 ${isDark ? 'bg-[#161b22] border-[#30363d] text-white' : 'bg-white border-slate-200 text-slate-900'} px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-primary transition-all`}
                                     />
                                     <button
                                         onClick={handlePostComment}
                                         disabled={!commentText.trim()}
-                                        className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50"
+                                        className={`p-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all disabled:opacity-50 shadow-lg shadow-primary/20`}
                                     >
-                                        <Send className="w-4 h-4" />
+                                        <Send className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
@@ -1031,20 +1078,17 @@ export default function TicketDetailPage() {
                                 <p className={`${isDark ? 'text-slate-500' : 'text-slate-400'} text-sm mb-8 italic`}>Redirect signal to another available technician.</p>
 
                                 <div className="space-y-3 mb-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {resolvers.map((r) => (
-                                        <button
+                                    {resolvers.map((r: any) => (
+                                        <div
                                             key={r.id}
-                                            onClick={() => setSelectedResolver(r.user_id)}
-                                            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedResolver === r.user_id ? 'bg-emerald-500/10 border-emerald-500 text-white' : (isDark ? 'bg-[#0d1117] border-[#21262d] text-slate-400 hover:border-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300')}`}
+                                            onClick={() => setSelectedResolver(r.id)}
+                                            className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${selectedResolver === r.id ? 'bg-primary/10 border-primary text-white' : (isDark ? 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:border-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 ${isDark ? 'bg-[#21262d] text-slate-300' : 'bg-slate-200 text-slate-600'} rounded-lg flex items-center justify-center font-bold text-xs`}>
-                                                    {r.user?.full_name?.[0]}
-                                                </div>
-                                                <span className="font-bold text-sm italic">{r.user?.full_name}</span>
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-bold">{r.full_name}</span>
+                                                {selectedResolver === r.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
                                             </div>
-                                            {selectedResolver === r.user_id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                                        </button>
+                                        </div>
                                     ))}
                                     {resolvers.length === 0 && <p className={`text-center py-4 text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'} italic`}>No available technicians detected in vicinity.</p>}
                                 </div>
@@ -1054,7 +1098,7 @@ export default function TicketDetailPage() {
                                     <button
                                         onClick={handleReassign}
                                         disabled={!selectedResolver}
-                                        className={`flex-1 py-4 ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'} rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 shadow-xl`}
+                                        className={`flex-1 py-4 ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-primary text-white hover:bg-primary-dark shadow-primary/20'} rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 shadow-xl`}
                                     >
                                         Execute Transfer
                                     </button>

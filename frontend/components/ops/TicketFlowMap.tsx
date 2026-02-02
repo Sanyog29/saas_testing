@@ -1,0 +1,535 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    RefreshCw, Filter, Calendar, Users,
+    Search, ChevronRight, Activity, Clock,
+    CheckCircle2, AlertCircle, ArrowLeft, Zap
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/frontend/utils/supabase/client';
+import {
+    DndContext,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+    useDroppable,
+} from '@dnd-kit/core';
+import TicketNode from './TicketNode';
+import MstGroup from './MstGroup';
+import TicketDetailPanel from './TicketDetailPanel';
+import MstHistoryDrawer from './MstHistoryDrawer';
+
+interface FlowData {
+    waitlist: any[];
+    mstGroups: any[];
+    stats: {
+        totalActive: number;
+        waitlistCount: number;
+        onlineMsts: number;
+        checkedInMsts: number;
+        resolvedToday: number;
+    };
+}
+
+interface TicketFlowMapProps {
+    organizationId?: string;
+    propertyId?: string;
+}
+
+const TEAM_CONFIG = [
+    { id: 'technical', label: 'Technical', color: 'border-info' },
+    { id: 'plumbing', label: 'Plumbing', color: 'border-success' },
+    { id: 'housekeeping', label: 'Housekeeping', color: 'border-error' },
+];
+
+/**
+ * Waitlist Lane Component (Droppable)
+ */
+function WaitlistLane({ tickets, onTicketClick }: { tickets: any[], onTicketClick: (id: string) => void }) {
+    const { isOver, setNodeRef } = useDroppable({
+        id: 'waitlist',
+        data: { type: 'waitlist' }
+    });
+
+    return (
+        <div ref={setNodeRef} className={`w-full flex flex-col relative z-10 transition-colors ${isOver ? 'bg-warning/5' : ''}`}>
+            <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-warning" />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-warning/80">Waitlist Lane</h3>
+                    <span className="text-[10px] font-bold text-slate-400 ml-2">
+                        W:{tickets.length} (Incoming Feed)
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="flex flex-wrap gap-2">
+                    {tickets.map((ticket) => (
+                        <TicketNode
+                            key={ticket.id}
+                            id={ticket.id}
+                            ticketNumber={ticket.ticket_number || ticket.ticket_id || ticket.id}
+                            status={ticket.status}
+                            title={ticket.title}
+                            description={ticket.description}
+                            onClick={() => onTicketClick(ticket.id)}
+                        />
+                    ))}
+                </div>
+                {tickets.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-slate-200 rounded-2xl opacity-50 bg-white/50">
+                        <CheckCircle2 className="w-8 h-8 mb-2 text-success" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Clear Feed</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export default function TicketFlowMap({
+    organizationId,
+    propertyId,
+}: TicketFlowMapProps) {
+    const router = useRouter();
+    const [flowData, setFlowData] = useState<FlowData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [pendingAssignments, setPendingAssignments] = useState<Record<string, string | null>>({});
+    const [isSaving, setIsSaving] = useState(false);
+
+    // UI State
+    const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+    const [selectedMst, setSelectedMst] = useState<any | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showDevTools, setShowDevTools] = useState(false); // FOR DEMO ONLY
+
+    // DND Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        })
+    );
+
+    const fetchFlowData = useCallback(async () => {
+        try {
+            const params = new URLSearchParams();
+            if (organizationId) params.set('organization_id', organizationId);
+            if (propertyId) params.set('property_id', propertyId);
+            params.set('date', selectedDate);
+
+            const response = await fetch(`/api/tickets/flow?${params}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (data.code === 'MIGRATION_REQUIRED') {
+                    setError('MIGRATION_REQUIRED');
+                    return;
+                }
+                throw new Error(data.error || 'Failed to fetch flow data');
+            }
+
+            setFlowData(data);
+            setError(null);
+        } catch (err) {
+            console.error('[TicketFlowMapV2] Fetch error:', err);
+            setError(err instanceof Error ? err.message : 'Unknown error');
+        } finally {
+            setLoading(false);
+        }
+    }, [organizationId, propertyId, selectedDate]);
+
+    useEffect(() => {
+        fetchFlowData();
+    }, [fetchFlowData]);
+
+    // Realtime subscription
+    useEffect(() => {
+        const supabase = createClient();
+        const channel = supabase
+            .channel('ticket-flow-v2')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchFlowData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchFlowData())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [fetchFlowData]);
+
+    const handleTicketClick = (ticketId: string) => {
+        const ticket = [...(flowData?.waitlist || []), ...(flowData?.mstGroups.flatMap(g => g.tickets) || [])]
+            .find(t => t.id === ticketId);
+        setSelectedTicket(ticket);
+        setIsDetailOpen(true);
+    };
+
+    const handleMstClick = (mstId: string) => {
+        const group = flowData?.mstGroups.find(g => g.mst.id === mstId);
+        setSelectedMst(group?.mst);
+        setIsHistoryOpen(true);
+    };
+
+    const derivedFlowData = useMemo(() => {
+        if (!flowData) return null;
+
+        const allTickets = [...flowData.waitlist, ...flowData.mstGroups.flatMap(g => g.tickets)];
+        let updatedWaitlist = [...flowData.waitlist];
+        const updatedMstGroups = flowData.mstGroups.map(g => ({ ...g, tickets: [...g.tickets] }));
+
+        Object.entries(pendingAssignments).forEach(([ticketId, newMstId]) => {
+            const ticket = allTickets.find((t: any) => t.id === ticketId);
+            if (!ticket) return;
+
+            // Remove from current location
+            updatedWaitlist = updatedWaitlist.filter((t: any) => t.id !== ticketId);
+            updatedMstGroups.forEach(g => {
+                g.tickets = g.tickets.filter((t: any) => t.id !== ticketId);
+            });
+
+            // Add to new location
+            if (newMstId === null) {
+                updatedWaitlist.push({ ...ticket, status: 'waitlist' });
+            } else {
+                const group = updatedMstGroups.find(g => g.mst.id === newMstId);
+                if (group) {
+                    group.tickets.push({ ...ticket, status: 'assigned' });
+                }
+            }
+        });
+
+        // Filter out from waitlist if moved to MST
+        const finalWaitlist = updatedWaitlist.filter(t => !pendingAssignments[t.id] || pendingAssignments[t.id] === null);
+
+        return {
+            ...flowData,
+            waitlist: finalWaitlist,
+            mstGroups: updatedMstGroups
+        };
+    }, [flowData, pendingAssignments]);
+
+    const filteredMstGroups = useMemo(() => {
+        if (!derivedFlowData?.mstGroups) return [];
+        return derivedFlowData.mstGroups.filter(g =>
+            g.mst.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            g.tickets.some((t: any) => t.id.includes(searchQuery) || t.title.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+    }, [derivedFlowData?.mstGroups, searchQuery]);
+
+    const totalCounts = useMemo(() => {
+        if (!derivedFlowData) return { A: 0, W: 0, C: 0 };
+        const allTickets = [...derivedFlowData.waitlist, ...derivedFlowData.mstGroups.flatMap(g => g.tickets)];
+        return {
+            A: allTickets.filter(t => ['assigned', 'in_progress'].includes(t.status.toLowerCase())).length,
+            W: allTickets.filter(t => t.status.toLowerCase() === 'waitlist').length,
+            C: allTickets.filter(t => ['completed', 'resolved', 'closed'].includes(t.status.toLowerCase())).length
+        };
+    }, [derivedFlowData]);
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over) return;
+
+        const ticketId = active.id as string;
+        const overId = over.id as string;
+        const overData = over.data.current;
+
+        let newMstId: string | null = null;
+        if (overId.startsWith('mst-')) {
+            newMstId = overData?.mstId;
+        } else if (overId === 'waitlist') {
+            newMstId = null;
+        } else {
+            return;
+        }
+
+        // Only update if it's different from current
+        const currentMstId = flowData?.mstGroups.find(g => g.tickets.some((t: any) => t.id === ticketId))?.mst.id || null;
+
+        if (newMstId === currentMstId) {
+            const newPending = { ...pendingAssignments };
+            delete newPending[ticketId];
+            setPendingAssignments(newPending);
+        } else {
+            setPendingAssignments(prev => ({
+                ...prev,
+                [ticketId]: newMstId
+            }));
+        }
+    };
+
+    const handleBatchSave = async () => {
+        if (Object.keys(pendingAssignments).length === 0) return;
+        setIsSaving(true);
+
+        try {
+            const response = await fetch('/api/tickets/batch-assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignments: Object.entries(pendingAssignments).map(([ticketId, mstId]) => ({
+                        ticket_id: ticketId,
+                        assigned_to: mstId
+                    }))
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to save assignments');
+
+            setPendingAssignments({});
+            fetchFlowData();
+        } catch (err) {
+            console.error('[TicketFlowMap] Save error:', err);
+            setError('Failed to save assignments. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const triggerSimulation = async (type: 'sla' | 'diesel') => {
+        try {
+            const endpoint = type === 'sla' ? '/api/cron/check-sla' : '/api/cron/check-diesel';
+            await fetch(endpoint);
+            // Optionally show toast or just let the notification system handle it
+        } catch (e) {
+            console.error('Simulation failed', e);
+        }
+    };
+
+    if (loading && !flowData) {
+        return (
+            <div className="flex items-center justify-center h-full bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+                    <p className="text-text-tertiary text-sm font-medium">Loading Operational Map...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-background text-text-primary overflow-hidden">
+            {/* Top Toolbar */}
+            <header className="px-6 py-4 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between z-20">
+                <div className="flex items-center gap-6">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-secondary hover:bg-slate-50 transition-all group"
+                    >
+                        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        <span>Back</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-display font-bold tracking-tight">Ticket Flow Map</h2>
+                    </div>
+
+                    <div className="hidden lg:flex items-center gap-4 border-l border-border pl-6">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Summary:</span>
+                            <span className="text-sm font-black text-text-secondary">
+                                {totalCounts.A}A {totalCounts.W}W {totalCounts.C}C
+                            </span>
+                        </div>
+                        <div className="h-6 w-px bg-border" />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">On Shift</span>
+                            <span className="text-sm font-black text-success">{flowData?.stats.checkedInMsts || 0}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Online</span>
+                            <span className="text-sm font-black text-info">{flowData?.stats.onlineMsts || 0}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {/* Batch Save Action */}
+                    <AnimatePresence>
+                        {Object.keys(pendingAssignments).length > 0 && (
+                            <motion.button
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 20 }}
+                                onClick={handleBatchSave}
+                                disabled={isSaving}
+                                className={`flex items-center gap-2 px-6 py-2 bg-success text-white rounded-lg font-black uppercase tracking-widest shadow-xl hover:brightness-110 active:scale-95 transition-all ${isSaving ? 'opacity-70 cursor-wait' : ''}`}
+                            >
+                                {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                <span>Save Changes ({Object.keys(pendingAssignments).length})</span>
+                            </motion.button>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="relative hidden md:block">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 pr-4 py-2 bg-surface border border-border rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-3 py-2 transition-all hover:border-primary/50">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="bg-transparent text-sm font-bold outline-none cursor-pointer text-text-primary h-auto"
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => { setLoading(true); fetchFlowData(); }}
+                        disabled={loading}
+                        className={`p-2.5 bg-primary text-text-inverse rounded-lg hover:brightness-110 shadow-lg transition-all ${loading ? 'opacity-80 cursor-wait' : ''}`}
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
+            </header>
+
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                <main className="flex-1 overflow-x-auto overflow-y-hidden p-0 flex min-w-max bg-white relative">
+                    {/* Upstream Waitlist Feed */}
+                    <div className="w-80 flex flex-col bg-slate-50/50 border-r border-slate-200/60 z-20 relative overflow-hidden">
+                        {/* Feed Flow Visual */}
+                        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-r from-transparent to-warning/5 pointer-events-none" />
+                        <div className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full flex items-center justify-center z-30 shadow-sm">
+                            <ChevronRight className="w-4 h-4 text-warning" />
+                        </div>
+
+                        <div className="p-6 relative z-10 h-full flex flex-col">
+                            <WaitlistLane tickets={derivedFlowData?.waitlist || []} onTicketClick={handleTicketClick} />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-1">
+                        {TEAM_CONFIG.map((team) => {
+                            const mstsInTeam = filteredMstGroups.filter(g => {
+                                if (team.id === 'housekeeping') {
+                                    return g.mst.team === 'housekeeping' || g.mst.team === 'soft_services';
+                                }
+                                return g.mst.team === team.id || (team.id === 'technical' && !g.mst.team);
+                            });
+
+                            const teamTickets = mstsInTeam.flatMap(g => g.tickets);
+                            const teamCounts = {
+                                A: teamTickets.filter(t => ['assigned', 'in_progress'].includes(t.status.toLowerCase())).length,
+                                W: teamTickets.filter(t => t.status.toLowerCase() === 'waitlist').length,
+                                C: teamTickets.filter(t => ['completed', 'resolved', 'closed'].includes(t.status.toLowerCase())).length
+                            };
+
+                            const teamColorClass = team.id === 'technical' ? 'text-info' :
+                                team.id === 'plumbing' ? 'text-success' : 'text-error';
+
+                            return (
+                                <div key={team.id} className="w-[400px] flex flex-col border-r border-slate-100 last:border-r-0 relative group/dept">
+                                    {/* Department Vertical Rail Backdrop */}
+                                    <div className="absolute inset-0 bg-slate-50/30 opacity-100 transition-opacity pointer-events-none" />
+
+                                    <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+                                        <div className="flex flex-col">
+                                            <h3 className={`text-xs font-black uppercase tracking-widest ${teamColorClass}`}>
+                                                {team.label}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Users className="w-3 h-3 text-slate-400" />
+                                                <span className="text-[10px] font-bold text-slate-500">
+                                                    {mstsInTeam.length} Active
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[10px] font-black">
+                                            <span className="text-warning bg-warning/5 px-2 py-0.5 rounded border border-warning/10">{teamCounts.A}A</span>
+                                            <span className="text-error bg-error/5 px-2 py-0.5 rounded border border-error/10">{teamCounts.W}W</span>
+                                            <span className="text-success bg-success/5 px-2 py-0.5 rounded border border-success/10">{teamCounts.C}C</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                        <div className="flex flex-col">
+                                            {mstsInTeam.map((group) => (
+                                                <MstGroup
+                                                    key={group.mst.id}
+                                                    mst={group.mst}
+                                                    tickets={group.tickets}
+                                                    onTicketClick={handleTicketClick}
+                                                    onMstClick={handleMstClick}
+                                                />
+                                            ))}
+
+                                            {mstsInTeam.length === 0 && (
+                                                <div className="p-10 text-center flex flex-col items-center justify-center opacity-30">
+                                                    <AlertCircle className="w-6 h-6 mb-2" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest">No Personnel</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </main>
+            </DndContext>
+
+            <TicketDetailPanel
+                isOpen={isDetailOpen}
+                onClose={() => setIsDetailOpen(false)}
+                ticket={selectedTicket}
+            />
+
+            <MstHistoryDrawer
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                mst={selectedMst}
+                tickets={derivedFlowData?.mstGroups.find(g => g.mst.id === selectedMst?.id)?.tickets || []}
+            />
+
+            {/* DEV TOOLS (Simulations) */}
+            <div className={`fixed bottom-4 right-4 z-[9999] transition-all bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden ${showDevTools ? 'w-64' : 'w-10 h-10 rounded-full'}`}>
+                {showDevTools ? (
+                    <div className="p-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Simulation Tools</span>
+                            <button onClick={() => setShowDevTools(false)} className="text-slate-400 hover:text-red-500"><Zap className="w-3 h-3" /></button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => triggerSimulation('sla')} className="px-3 py-2 bg-red-50 text-red-600 rounded text-xs font-bold hover:bg-red-100 transition-colors text-left flex items-center gap-2">
+                                <Activity className="w-3 h-3" /> Simulate SLA Breach
+                            </button>
+                            <button onClick={() => triggerSimulation('diesel')} className="px-3 py-2 bg-blue-50 text-blue-600 rounded text-xs font-bold hover:bg-blue-100 transition-colors text-left flex items-center gap-2">
+                                <AlertCircle className="w-3 h-3" /> Check Diesel Logs
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button onClick={() => setShowDevTools(true)} className="w-full h-full flex items-center justify-center bg-slate-900 text-white hover:scale-110 transition-transform">
+                        <Zap className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #484f58; }
+            `}</style>
+        </div>
+    );
+}

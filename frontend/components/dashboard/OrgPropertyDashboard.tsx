@@ -312,18 +312,19 @@ const OrgPropertyDashboard: React.FC<Props> = ({ organization, onBack }) => {
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Active</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tickets</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Operations</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {isLoading ? (
                             <tr>
-                                <td colSpan={5} className="px-8 py-12 text-center text-slate-400">
+                                <td colSpan={6} className="px-8 py-12 text-center text-slate-400">
                                     Loading properties...
                                 </td>
                             </tr>
                         ) : properties.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-8 py-12 text-center">
+                                <td colSpan={6} className="px-8 py-12 text-center">
                                     <p className="text-slate-400 mb-4">No properties found</p>
                                     <button
                                         onClick={() => setShowCreateModal(true)}
@@ -370,6 +371,16 @@ const OrgPropertyDashboard: React.FC<Props> = ({ organization, onBack }) => {
                                             }`}>
                                             {property.status === 'active' ? 'Active' : 'Inactive'}
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <button
+                                            onClick={() => window.location.href = `/property/${property.id}/flow-map`}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors text-[10px] font-black uppercase tracking-wider border border-slate-200"
+                                            title="View Operational Flow Map"
+                                        >
+                                            <Activity className="w-3 h-3" />
+                                            Flow Map
+                                        </button>
                                     </td>
                                 </tr>
                             ))

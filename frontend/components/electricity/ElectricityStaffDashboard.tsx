@@ -227,6 +227,31 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
         fetchData();
     };
 
+    // Delete meter
+    const handleDeleteMeter = async (meterId: string) => {
+        if (!window.confirm('Are you sure you want to delete this meter? This action cannot be undone.')) return;
+
+        console.log('[ElectricityDashboard] Deleting meter:', meterId);
+        try {
+            const res = await fetch(`/api/properties/${propertyId}/electricity-meters?id=${meterId}`, {
+                method: 'DELETE',
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to delete meter');
+            }
+
+            console.log('[ElectricityDashboard] Meter deleted successfully');
+            setSuccessMessage('Meter deleted successfully');
+            setTimeout(() => setSuccessMessage(null), 3000);
+            fetchData();
+        } catch (err: any) {
+            console.error('[ElectricityDashboard] Delete error:', err.message);
+            setError(err.message || 'Failed to delete meter');
+        }
+    };
+
     // Export to CSV
     const handleExport = async () => {
         const today = new Date().toISOString().split('T')[0];
@@ -243,7 +268,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
     if (!propertyId) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Zap className="w-16 h-16 text-amber-500/20 mb-4" />
+                <Zap className="w-16 h-16 text-primary/20 mb-4" />
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Select a Property</h3>
                 <p className="text-slate-500 text-center max-w-md">
                     Please select a specific property from the dropdown above to view and manage electricity meters.
@@ -256,7 +281,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <div className="flex flex-col items-center gap-4">
-                    <div className={`w-12 h-12 border-4 ${isDark ? 'border-amber-500/20 border-t-amber-500' : 'border-slate-200 border-t-amber-500'} rounded-full animate-spin`} />
+                    <div className={`w-12 h-12 border-4 ${isDark ? 'border-primary/20 border-t-primary' : 'border-slate-200 border-t-primary'} rounded-full animate-spin`} />
                     <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold`}>Loading electricity logger...</p>
                 </div>
             </div>
@@ -272,7 +297,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                         {/* Left: Property Context Lock */}
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 bg-surface-elevated border-border px-3 py-1.5 rounded-full border select-none">
-                                <Lock className="w-4 h-4 text-amber-500" />
+                                <Lock className="w-4 h-4 text-primary" />
                                 <span className="text-sm font-bold text-text-primary tracking-tight">
                                     {property?.name || 'Property'}
                                 </span>
@@ -281,7 +306,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
 
                         {/* Right: Meta Info */}
                         <div className="flex items-center gap-4 sm:gap-6">
-                            <div className={`hidden sm:flex items-center gap-2 ${isDark ? 'text-amber-500' : 'text-amber-500'} text-sm font-medium animate-pulse`}>
+                            <div className={`hidden sm:flex items-center gap-2 ${isDark ? 'text-primary' : 'text-primary'} text-sm font-medium animate-pulse`}>
                                 <CheckCircle className="w-4 h-4" />
                                 <span>Auto-saved</span>
                             </div>
@@ -298,8 +323,8 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                 {/* Feature Header */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <div className={`flex items-center gap-2 mb-2 ${isDark ? 'text-amber-500' : 'text-amber-500'} font-bold tracking-wider text-xs uppercase`}>
-                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-amber-500' : 'bg-amber-500'}`} />
+                        <div className={`flex items-center gap-2 mb-2 ${isDark ? 'text-primary' : 'text-primary'} font-bold tracking-wider text-xs uppercase`}>
+                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-primary' : 'bg-primary'}`} />
                             Live Logging
                         </div>
                         <h1 className={`text-3xl md:text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -338,7 +363,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-green-50 border-green-200 text-green-700'} mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border`}
+                        className={`${isDark ? 'bg-primary/10 border-primary/20 text-primary-light' : 'bg-green-50 border-green-200 text-green-700'} mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border`}
                     >
                         <CheckCircle className="w-5 h-5" />
                         {successMessage}
@@ -348,12 +373,12 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                 {/* Meters Grid */}
                 {meters.length === 0 ? (
                     <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'bg-white border-slate-100 shadow-sm'} rounded-3xl p-12 text-center border`}>
-                        <Zap className={`w-16 h-16 ${isDark ? 'text-amber-500/20' : 'text-amber-500/20'} mx-auto mb-4`} />
+                        <Zap className={`w-16 h-16 ${isDark ? 'text-primary/20' : 'text-primary/20'} mx-auto mb-4`} />
                         <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'} mb-2`}>No Meters Configured</h3>
                         <p className={`${isDark ? 'text-slate-500' : 'text-slate-500'} mb-6`}>Add your first electricity meter to start logging.</p>
                         <button
                             onClick={() => setShowConfigModal(true)}
-                            className={`px-6 py-3 ${isDark ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/40' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'} text-white font-bold rounded-xl transition-colors shadow-lg`}
+                            className={`px-6 py-3 ${isDark ? 'bg-primary hover:bg-primary-dark shadow-primary/40' : 'bg-primary hover:bg-primary-dark shadow-primary/20'} text-white font-bold rounded-xl transition-colors shadow-lg`}
                         >
                             + Add Meter
                         </button>
@@ -367,6 +392,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                                 previousClosing={previousClosings[meter.id]}
                                 averageConsumption={averages[meter.id]}
                                 onReadingChange={handleReadingChange}
+                                onDelete={handleDeleteMeter}
                                 isSubmitting={isSubmitting}
                                 isDark={isDark}
                             />
@@ -390,13 +416,13 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                             <div className={`h-8 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'} hidden sm:block`} />
                             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
                                 <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Today Total</span>
-                                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption} kWh</span>
+                                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption} KVAH</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-4">
                             {warningsCount > 0 && (
-                                <div className={`hidden lg:flex items-center gap-2 text-xs font-medium ${isDark ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-rose-600 bg-rose-50 border-rose-100'} px-3 py-1.5 rounded-full border`}>
+                                <div className={`hidden lg:flex items-center gap-2 text-xs font-medium ${isDark ? 'text-primary bg-primary/10 border-primary/20' : 'text-rose-600 bg-rose-50 border-rose-100'} px-3 py-1.5 rounded-full border`}>
                                     <AlertTriangle className="w-4 h-4" />
                                     {warningsCount} Warning{warningsCount > 1 ? 's' : ''} pending review
                                 </div>
@@ -404,7 +430,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                             <button
                                 onClick={handleSubmitAll}
                                 disabled={isSubmitting || validReadingsCount === 0}
-                                className={`${isDark ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/40' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'} text-white text-base font-bold py-3 px-8 rounded-lg shadow-lg active:scale-95 transition-all flex items-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`${isDark ? 'bg-primary hover:bg-primary-dark shadow-primary/40' : 'bg-primary hover:bg-primary-dark shadow-primary/20'} text-white text-base font-bold py-3 px-8 rounded-lg shadow-lg active:scale-95 transition-all flex items-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 <CheckCircle className={`w-5 h-5 ${!isSubmitting ? 'group-hover:animate-bounce' : ''}`} />
                                 {isSubmitting ? 'Submitting...' : 'SUBMIT ALL'}

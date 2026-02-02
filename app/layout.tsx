@@ -5,6 +5,7 @@ import { AuthProvider } from "@/frontend/context/AuthContext";
 import { GlobalProvider } from "@/frontend/context/GlobalContext";
 import { ThemeProvider } from "@/frontend/context/ThemeContext";
 import { SessionProvider, CookieConsentToast } from "@/frontend/components/analytics";
+import NotificationSystem from "@/frontend/components/ops/NotificationSystem";
 
 const poppins = Poppins({
     subsets: ["latin"],
@@ -46,6 +47,7 @@ export default function RootLayout({
                         <GlobalProvider>
                             <SessionProvider>
                                 {children}
+                                <NotificationSystem />
                                 <CookieConsentToast />
                             </SessionProvider>
                         </GlobalProvider>

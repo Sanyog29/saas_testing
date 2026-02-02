@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter
+    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -447,6 +447,13 @@ const MstDashboard = () => {
                                 Requests
                             </button>
                             <button
+                                onClick={() => router.push(`/property/${propertyId}/flow-map`)}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-sm font-bold text-text-secondary hover:bg-muted hover:text-text-primary"
+                            >
+                                <Activity className="w-4 h-4" />
+                                Flow Map
+                            </button>
+                            <button
                                 onClick={() => handleTabChange('tasks')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-sm font-bold ${activeTab === 'tasks'
                                     ? 'bg-primary text-text-inverse shadow-sm'
@@ -599,6 +606,7 @@ const MstDashboard = () => {
                                     propertyName={property?.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
                                     onEditClick={handleEditClick}
+                                    propertyId={propertyId}
                                 />
                             )}
                             {activeTab === 'create_request' && property && user && (
@@ -987,7 +995,7 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => {
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, propertyId }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, propertyId?: string }) => {
     const [filter, setFilter] = useState<'all' | 'completed' | 'tasks' | 'waitlist'>('all');
 
     const getFilteredTickets = () => {
@@ -1039,6 +1047,14 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                         </select>
                     </div>
                     {propertyName && <span className="hidden md:inline-flex text-[10px] text-text-tertiary font-black uppercase tracking-widest bg-surface-elevated px-3 py-2 rounded-xl border border-border">{propertyName}</span>}
+                    {propertyId && (
+                        <button
+                            onClick={() => window.location.href = `/property/${propertyId}/flow-map`}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl border border-primary/20 hover:bg-primary/20 transition-all"
+                        >
+                            <Activity className="w-4 h-4" /> Live Flow Map
+                        </button>
+                    )}
                 </div>
             </div>
 

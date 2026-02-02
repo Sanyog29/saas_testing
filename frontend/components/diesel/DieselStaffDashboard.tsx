@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, History, Settings, CheckCircle, AlertTriangle, Download, ArrowLeft, Fuel } from 'lucide-react';
+import { Lock, History, Settings, CheckCircle, AlertTriangle, Download, ArrowLeft, Fuel, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -210,6 +210,31 @@ const DieselStaffDashboard: React.FC<{ isDark?: boolean }> = ({ isDark = false }
         fetchData();
     };
 
+    // Delete generator
+    const handleDeleteGenerator = async (generatorId: string) => {
+        if (!window.confirm('Are you sure you want to delete this generator? This action cannot be undone.')) return;
+
+        console.log('[DieselDashboard] Deleting generator:', generatorId);
+        try {
+            const res = await fetch(`/api/properties/${propertyId}/generators?id=${generatorId}`, {
+                method: 'DELETE',
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to delete generator');
+            }
+
+            console.log('[DieselDashboard] Generator deleted successfully');
+            setSuccessMessage('Generator deleted successfully');
+            setTimeout(() => setSuccessMessage(null), 3000);
+            fetchData();
+        } catch (err: any) {
+            console.error('[DieselDashboard] Delete error:', err.message);
+            setError(err.message || 'Failed to delete generator');
+        }
+    };
+
     // Export to Excel
     const handleExport = async () => {
         const today = new Date().toISOString().split('T')[0];
@@ -350,6 +375,7 @@ const DieselStaffDashboard: React.FC<{ isDark?: boolean }> = ({ isDark = false }
                                 previousClosing={previousClosings[gen.id]}
                                 averageConsumption={averages[gen.id]}
                                 onReadingChange={handleReadingChange}
+                                onDelete={handleDeleteGenerator}
                                 isSubmitting={isSubmitting}
                                 isDark={isDark}
                             />
@@ -376,9 +402,9 @@ const DieselStaffDashboard: React.FC<{ isDark?: boolean }> = ({ isDark = false }
                                 <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption} L</span>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 pl-4">
-                                <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Total Run</span>
+                                <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Total Units</span>
                                 <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>
-                                    {Math.floor(totalRunTime)}h {Math.round((totalRunTime % 1) * 60)}m
+                                    {totalRunTime.toFixed(1)} KVAH
                                 </span>
                             </div>
                         </div>

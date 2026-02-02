@@ -278,7 +278,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
         return (
             <div className="flex items-center justify-center h-96">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-slate-200 border-t-amber-500 rounded-full animate-spin" />
+                    <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
                     <p className="text-slate-500 font-bold">Loading analytics...</p>
                 </div>
             </div>
@@ -289,7 +289,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
     if (!propertyId && !orgId) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Zap className="w-16 h-16 text-amber-500/20 mb-4" />
+                <Zap className="w-16 h-16 text-primary/20 mb-4" />
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Select a Property</h3>
                 <p className="text-slate-500 text-center max-w-md">
                     Please select a specific property from the dropdown above to view electricity analytics.
@@ -313,7 +313,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                             <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-2">/ {property.name}</span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-amber-500 font-medium">
+                    <div className="flex items-center gap-2 text-primary font-medium">
                         <Calendar className="w-4 h-4" />
                         {currentMonth}
                     </div>
@@ -332,11 +332,11 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                 {/* Today */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Zap className="w-16 h-16 text-amber-500" />
+                        <Zap className="w-16 h-16 text-primary" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-amber-500/10 rounded-md text-amber-500">
+                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
                                 <Calendar className="w-4 h-4" />
                             </span>
                             <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">Today&apos;s Consumption</p>
@@ -357,11 +357,11 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                 {/* This Month */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <BarChart3 className="w-16 h-16 text-amber-500" />
+                        <BarChart3 className="w-16 h-16 text-primary" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-amber-500/10 rounded-md text-amber-500">
+                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
                                 <Calendar className="w-4 h-4" />
                             </span>
                             <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">This Month</p>
@@ -376,11 +376,11 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                 {/* Daily Average */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <TrendingUp className="w-16 h-16 text-amber-500" />
+                        <TrendingUp className="w-16 h-16 text-primary" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-amber-500/10 rounded-md text-amber-500">
+                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
                                 <BarChart3 className="w-4 h-4" />
                             </span>
                             <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">Daily Average</p>
@@ -388,8 +388,8 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                         <div>
                             <p className="text-slate-900 text-4xl font-bold leading-tight tracking-tight">{metrics.average} kWh</p>
                             <div className="flex items-center gap-1 mt-1">
-                                <TrendingUp className="w-4 h-4 text-amber-500" />
-                                <p className="text-amber-500 text-sm font-bold">{metrics.monthChange >= 0 ? '+' : ''}{metrics.monthChange}%</p>
+                                <TrendingUp className="w-4 h-4 text-primary" />
+                                <p className="text-primary text-sm font-bold">{metrics.monthChange >= 0 ? '+' : ''}{metrics.monthChange}%</p>
                                 <p className="text-slate-500 text-sm">vs last month</p>
                             </div>
                         </div>
@@ -413,14 +413,14 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                         <div className="flex gap-2">
                             <span
                                 onClick={() => setPeriod('7D')}
-                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '7D' ? 'text-amber-500 bg-amber-500/10' : 'text-slate-500 hover:bg-slate-50'
+                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '7D' ? 'text-primary bg-primary/10' : 'text-slate-500 hover:bg-slate-50'
                                     }`}
                             >
                                 7D
                             </span>
                             <span
                                 onClick={() => setPeriod('30D')}
-                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '30D' ? 'text-amber-500 bg-amber-500/10' : 'text-slate-500 hover:bg-slate-50'
+                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '30D' ? 'text-primary bg-primary/10' : 'text-slate-500 hover:bg-slate-50'
                                     }`}
                             >
                                 30D
@@ -432,7 +432,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                     <div className="relative w-full h-[280px]">
                         {/* Average band */}
                         <div
-                            className="absolute left-0 right-0 bg-amber-50 border-y border-dashed border-amber-200 pointer-events-none"
+                            className="absolute left-0 right-0 bg-primary/5 border-y border-dashed border-primary/20 pointer-events-none"
                             style={{
                                 top: `${chartHeight - (metrics.average / maxValue) * (chartHeight - 40) - 40}px`,
                                 height: '40px'
@@ -444,23 +444,23 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
 
                         <svg className="w-full h-full" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="gradientAmber" x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" style={{ stopColor: '#f59e0b', stopOpacity: 0.2 }} />
-                                    <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0 }} />
+                                <linearGradient id="gradientPrimary" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style={{ stopColor: 'var(--primary)', stopOpacity: 0.2 }} />
+                                    <stop offset="100%" style={{ stopColor: 'var(--primary)', stopOpacity: 0 }} />
                                 </linearGradient>
                             </defs>
                             {/* Area Fill */}
-                            <path d={areaD} fill="url(#gradientAmber)" />
+                            <path d={areaD} fill="url(#gradientPrimary)" />
                             {/* Line Stroke */}
-                            <path d={pathD} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                            <path d={pathD} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" />
                             {/* Data Points */}
                             {points.map((p, i) => (
                                 <g key={i}>
-                                    <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#f59e0b" strokeWidth="2" />
+                                    <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="var(--primary)" strokeWidth="2" />
                                     {i === points.length - 1 && (
                                         <>
-                                            <circle cx={p.x} cy={p.y} r="6" fill="#f59e0b" />
-                                            <circle cx={p.x} cy={p.y} r="12" fill="#f59e0b" opacity="0.2">
+                                            <circle cx={p.x} cy={p.y} r="6" fill="var(--primary)" />
+                                            <circle cx={p.y} cy={p.y} r="12" fill="var(--primary)" opacity="0.2">
                                                 <animate attributeName="r" from="6" to="16" dur="1.5s" repeatCount="indefinite" />
                                                 <animate attributeName="opacity" from="0.4" to="0" dur="1.5s" repeatCount="indefinite" />
                                             </circle>
@@ -484,7 +484,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                         {trendData.map((d, i) => (
                             <span
                                 key={i}
-                                className={i === trendData.length - 1 ? 'text-amber-500 font-bold' : ''}
+                                className={i === trendData.length - 1 ? 'text-primary font-bold' : ''}
                             >
                                 {d.date}
                             </span>
@@ -500,7 +500,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                             <h3 className="text-base font-bold text-slate-900">
                                 {propertyId ? 'Meter Breakdown' : 'Property Breakdown'}
                             </h3>
-                            <button className="text-xs font-bold text-amber-500 hover:underline">View Details</button>
+                            <button className="text-xs font-bold text-primary hover:underline">View Details</button>
                         </div>
 
                         {breakdown.map((meter, i) => (
@@ -523,7 +523,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                                         initial={{ width: 0 }}
                                         animate={{ width: `${meter.percentage}%` }}
                                         transition={{ duration: 0.5 }}
-                                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-amber-500/50'}`}
+                                        className={`h-full rounded-full ${i === 0 ? 'bg-primary' : 'bg-primary/50'}`}
                                     />
                                 </div>
                                 <div className="flex justify-between text-[11px] text-slate-500">
@@ -573,14 +573,14 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
             <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-slate-200 px-6 py-4">
                 <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
-                        <Zap className="w-4 h-4 text-amber-500" />
+                        <Zap className="w-4 h-4 text-primary" />
                         <span>Electricity Analytics</span>
                     </div>
                     <div className="flex w-full md:w-auto gap-3">
                         {propertyId && (
                             <button
                                 onClick={() => setShowLogModal(true)}
-                                className="flex-1 md:flex-none h-11 px-6 rounded-lg bg-amber-500 text-white font-bold text-sm hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                                className="flex-1 md:flex-none h-11 px-6 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                             >
                                 <Plus className="w-4 h-4" />
                                 Log Entry
@@ -618,8 +618,8 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                             {/* Modal Header */}
                             <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-                                        <Zap className="w-5 h-5 text-amber-500" />
+                                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                        <Zap className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900">Log Daily Reading</h2>

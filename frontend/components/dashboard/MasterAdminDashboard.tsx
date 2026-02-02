@@ -6,7 +6,7 @@ import {
     LayoutGrid, Settings, Trash2, RefreshCcw,
     CheckCircle2, AlertCircle, Search, Plus, ExternalLink, XCircle, Filter,
     Key, Eye, EyeOff, Globe, Copy, X, Ticket, Link as LinkIcon, LogOut,
-    UserCircle, FileDown
+    UserCircle, FileDown, Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -21,8 +21,9 @@ import SignOutModal from '@/frontend/components/ui/SignOutModal';
 import { useTheme } from '@/frontend/context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 import TicketCreateModal from '@/frontend/components/tickets/TicketCreateModal';
+import AIInsightsDashboard from './AIInsightsDashboard';
 
-type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'modules' | 'settings';
+type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'ai-insights' | 'modules' | 'settings';
 
 interface Organization {
     id: string;
@@ -95,7 +96,7 @@ const MasterAdminDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['overview', 'organizations', 'tickets', 'users', 'visitors', 'invite-links', 'modules', 'settings'].includes(tab)) {
+        if (tab && ['overview', 'organizations', 'tickets', 'users', 'visitors', 'invite-links', 'ai-insights', 'modules', 'settings'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -249,6 +250,7 @@ const MasterAdminDashboard = () => {
         { id: 'users', label: 'User Directory', icon: Users },
         { id: 'visitors', label: 'Visitors', icon: UserCircle },
         { id: 'invite-links', label: 'Invite Links', icon: LinkIcon },
+        { id: 'ai-insights', label: 'AI Intelligence', icon: Brain },
         { id: 'modules', label: 'Module Control', icon: LayoutGrid },
         { id: 'settings', label: 'System', icon: Settings },
     ];
@@ -416,6 +418,9 @@ const MasterAdminDashboard = () => {
                         )}
                         {activeTab === 'invite-links' && (
                             <InviteLinkGenerator organizations={organizations} />
+                        )}
+                        {activeTab === 'ai-insights' && (
+                            <AIInsightsDashboard isDark={theme === 'dark'} />
                         )}
                         {activeTab === 'modules' && (
                             <ModuleConfig

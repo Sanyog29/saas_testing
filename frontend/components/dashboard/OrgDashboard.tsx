@@ -5,19 +5,20 @@ import {
     BarChart3, Users, Building2, LayoutDashboard,
     Settings, Search, Plus, Zap, AlertTriangle,
     History, ShieldCheck, Mail, LogOut, Command,
-    ClipboardList, Package, Map, PieChart, ExternalLink, IndianRupee, Store, UsersRound
+    ClipboardList, Package, Map, PieChart, ExternalLink, IndianRupee, Store, UsersRound, Activity
 } from 'lucide-react';
 import PropertyManagement from './PropertyManagement';
 import UserManagement from './UserManagement';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
 import { useAuth } from '@/frontend/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import SignOutModal from '@/frontend/components/ui/SignOutModal';
 import VMSOrgSummary from '@/frontend/components/vms/VMSOrgSummary';
 import { useTheme } from '@/frontend/context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 
-type SubTab = 'dashboard' | 'properties' | 'requests' | 'alerts' | 'users' | 'analytics' | 'vendors' | 'visitors';
+type SubTab = 'dashboard' | 'properties' | 'requests' | 'alerts' | 'users' | 'analytics' | 'vendors' | 'visitors' | 'flow-map';
 
 interface Property {
     id: string;
@@ -27,6 +28,7 @@ interface Property {
 }
 
 const OrgDashboard = ({ orgId }: { orgId: string }) => {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<SubTab>('dashboard');
     const [isSidebarOpen] = useState(true);
     const [properties, setProperties] = useState<Property[]>([]);
@@ -39,6 +41,14 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
     useEffect(() => {
         fetchProperties();
     }, [orgId]);
+
+    useEffect(() => {
+        if (activeTab === 'flow-map') {
+            router.push(`/${orgId}/flow-map`);
+            // Reset tab after navigation to avoid loop when coming back
+            setTimeout(() => setActiveTab('dashboard'), 500);
+        }
+    }, [activeTab, orgId, router]);
 
     const fetchProperties = async () => {
         setIsLoading(true);
@@ -65,6 +75,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
         {
             section: 'MANAGEMENT HUB', items: [
                 { id: 'properties', label: 'Entity Manager', icon: Building2 },
+                { id: 'flow-map', label: 'Entity Flow', icon: Activity },
                 { id: 'users', label: 'User Management', icon: Users },
                 { id: 'visitors', label: 'Visitors', icon: UsersRound },
                 { id: 'vendors', label: 'Cafeteria Revenue', icon: Store },
@@ -222,7 +233,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
                             exit={{ opacity: 0, scale: 1.01 }}
                             transition={{ duration: 0.2 }}
                         >
-                            {activeTab === 'dashboard' && <GlobalMetrics properties={properties} />}
+                            {activeTab === 'dashboard' && <GlobalMetrics properties={properties} orgId={orgId} router={router} />}
                             {activeTab === 'properties' && (
                                 <PropertyManagement
                                     orgId={orgId}
@@ -245,7 +256,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
 };
 
 // Global Metrics for Org Admin
-const GlobalMetrics = ({ properties }: { properties: Property[] }) => (
+const GlobalMetrics = ({ properties, orgId, router }: { properties: Property[], orgId: string, router: any }) => (
     <div className="space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
@@ -302,7 +313,10 @@ const GlobalMetrics = ({ properties }: { properties: Property[] }) => (
                 </div>
                 <h3 className="text-2xl font-black text-white mb-2 italic">Entity Rollover</h3>
                 <p className="text-zinc-500 text-sm font-medium mb-8 max-w-[280px]">Automated reports generated for all {properties.length} active properties in this cycle.</p>
-                <button className="px-8 py-3 bg-white text-black font-black text-xs rounded-xl uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/5 active:scale-95">
+                <button
+                    onClick={() => router.push(`/${orgId}/flow-map`)}
+                    className="px-8 py-3 bg-white text-black font-black text-xs rounded-xl uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/5 active:scale-95"
+                >
                     View Entity Map
                 </button>
             </div>
