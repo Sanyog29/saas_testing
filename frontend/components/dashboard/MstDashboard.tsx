@@ -375,7 +375,7 @@ const MstDashboard = () => {
             {/* Sidebar */}
             <aside className={`
                 w-64 bg-sidebar flex flex-col h-screen z-50 transition-all duration-300
-                fixed lg:sticky top-0
+                fixed top-0
                 ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
             `}>
                 {/* Mobile Close Button */}
@@ -606,7 +606,7 @@ const MstDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 lg:ml-0 flex flex-col bg-background">
+            <div className="flex-1 lg:ml-64 flex flex-col bg-background">
                 {/* Top Header */}
                 <header className="h-14 bg-white border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
                     <div className="flex items-center gap-4">
@@ -637,7 +637,8 @@ const MstDashboard = () => {
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 p-6">
+                {/* Page Content */}
+                <main className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:ml-64 bg-slate-50/50">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -895,46 +896,39 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                 </div>
 
                 {/* Work Orders Overview */}
-                <div className="bg-surface-elevated border border-border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-text-primary">Work Orders Overview</h3>
-                        <button className="text-text-tertiary hover:text-text-primary">
-                            <ChevronRight className="w-4 h-4 rotate-[-45deg]" />
-                        </button>
+                {/* WORK ORDERS OVERVIEW (Horizontal, wraps if needed) */}
+                <div className="flex flex-wrap gap-4 mt-6">
+                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                        <p className="text-3xl font-black text-text-primary">{total}</p>
+                        <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Total</p>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-text-primary">{total}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Total</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-info">{active}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Active</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-success">{completed}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Completed</p>
-                        </div>
+                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                        <p className="text-3xl font-black text-info">{active}</p>
+                        <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Active</p>
+                    </div>
+                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                        <p className="text-3xl font-black text-success">{completed}</p>
+                        <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Completed</p>
                     </div>
                 </div>
             </div>
 
             {/* Property Requests */}
-            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                <div className="mb-4">
+            {/* Property Requests - Independent Cards */}
+            <div className="space-y-4">
+                <div className="mb-2">
                     <h2 className="text-base font-bold text-text-primary">Property Requests</h2>
                     <p className="text-xs text-text-tertiary">All requests for this property</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {isLoading ? (
-                        <div className="flex flex-col gap-2 py-4 col-span-full">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="h-16 bg-surface-elevated border border-border rounded-lg animate-pulse" />
-                            ))}
-                        </div>
+                        [1, 2, 3].map(i => (
+                            <div key={i} className="h-48 bg-surface-elevated border border-border rounded-2xl animate-pulse" />
+                        ))
                     ) : tickets.length === 0 ? (
-                        <div className="flex items-center justify-center py-12 text-text-tertiary text-sm col-span-full">
-                            No requests found
+                        <div className="col-span-full py-12 flex flex-col items-center justify-center text-text-tertiary border-2 border-dashed border-border rounded-3xl">
+                            <p className="font-bold text-sm">No requests found</p>
                         </div>
                     ) : (
                         [...tickets]
@@ -1046,7 +1040,7 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                     </div>
                     {propertyId && onTabChange && (
                         <button
-                            onClick={() => onTabChange('flow-map')}
+                            onClick={() => window.open(`/property/${propertyId}/flow-map`, '_blank')}
                             className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl border border-primary/20 hover:bg-primary/20 transition-all active:scale-[0.98]"
                         >
                             <Activity className="w-4 h-4" /> <span>Live Flow Map</span>

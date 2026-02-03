@@ -71,7 +71,7 @@ export default function TicketCard({
         <div
             onClick={onClick}
             className="
-                @container w-full bg-white rounded-2xl border border-gray-200 
+                @container w-full h-full bg-white rounded-2xl border border-gray-200 
                 p-[clamp(0.75rem,4cqw,1.25rem)] cursor-pointer transition-all hover:shadow-lg
                 flex flex-col gap-[clamp(0.75rem,3cqw,1.25rem)]
             "
@@ -159,7 +159,7 @@ export default function TicketCard({
             )}
 
             {/* Footer Metadata + CTA */}
-            <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-[clamp(0.75rem,3cqw,1.25rem)] pt-[clamp(0.75rem,3cqw,1.25rem)] border-t border-gray-100">
+            <div className="mt-auto flex flex-col @sm:flex-row @sm:items-center justify-between gap-[clamp(0.75rem,3cqw,1.25rem)] pt-[clamp(0.75rem,3cqw,1.25rem)] border-t border-gray-100 min-w-0">
                 <div className="flex items-center gap-[clamp(0.5rem,2cqw,0.75rem)] text-[clamp(0.6rem,2cqw,0.75rem)] text-text-tertiary">
                     <span className="font-mono bg-gray-50 px-[0.4rem] py-[0.15rem] rounded text-gray-600">{ticketNumber}</span>
                     <span className="text-gray-200">•</span>

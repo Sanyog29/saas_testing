@@ -260,7 +260,7 @@ const MasterAdminDashboard = () => {
     return (
         <div className="min-h-screen bg-background flex font-inter text-foreground">
             {/* Sidebar */}
-            <div className="w-72 bg-sidebar border-r border-border flex flex-col p-8 sticky top-0 h-screen">
+            <div className="w-72 bg-sidebar border-r border-border flex flex-col p-8 fixed top-0 left-0 h-screen z-20">
                 <div className="flex items-center gap-3 mb-12">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
                         <div className="w-5 h-5 border-2 border-primary rounded-sm rotate-45"></div>
@@ -327,7 +327,7 @@ const MasterAdminDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className="flex-1 p-12">
+            <main className="flex-1 p-12 lg:ml-72">
                 <header className="flex justify-between items-center mb-12">
                     <div>
                         <h2 className="text-3xl font-black text-text-primary tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>

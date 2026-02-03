@@ -427,7 +427,7 @@ const TenantDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col bg-[#fafafa]">
+            <main className="flex-1 flex flex-col bg-[#fafafa] lg:ml-72">
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-8 pb-12">
                     <AnimatePresence mode="wait">
                         <motion.div

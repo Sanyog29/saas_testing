@@ -240,7 +240,7 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3">
                     <button
-                        onClick={() => router.push(`/property/${propertyId}/flow-map`)}
+                        onClick={() => window.open(`/property/${propertyId}/flow-map`, '_blank')}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-secondary/10 text-secondary text-[10px] sm:text-xs font-bold rounded-[var(--radius-md)] border border-secondary/20 hover:bg-secondary/20 transition-all active:scale-[0.98]"
                         title="View Operational Flow Map"
                     >

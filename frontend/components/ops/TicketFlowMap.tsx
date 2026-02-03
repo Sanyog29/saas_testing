@@ -512,9 +512,9 @@ export default function TicketFlowMap({
             </header>
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <main className="flex-1 overflow-x-auto overflow-y-auto p-0 flex flex-col md:flex-row min-w-0 bg-white relative">
+                <main className="flex-1 overflow-x-auto overflow-y-hidden p-0 flex min-h-0 bg-white relative">
                     {/* Upstream Waitlist Feed */}
-                    <div className="w-full md:w-80 flex flex-col bg-slate-50/50 border-b md:border-b-0 md:border-r border-slate-200/60 z-20 relative overflow-hidden flex-shrink-0">
+                    <div className="w-80 flex-shrink-0 flex flex-col bg-slate-50/50 border-r border-slate-200/60 z-20 relative overflow-hidden h-full">
                         {/* Feed Flow Visual */}
                         <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-r from-transparent to-warning/5 pointer-events-none" />
                         <div className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full flex items-center justify-center z-30 shadow-sm">
@@ -530,73 +530,76 @@ export default function TicketFlowMap({
                         </div>
                     </div>
 
-                    <div className="flex flex-1 flex-col md:flex-row min-w-0 overflow-x-auto custom-scrollbar">
-                        {TEAM_CONFIG.map((team) => {
-                            const mstsInTeam = filteredMstGroups.filter(g => {
-                                if (team.id === 'housekeeping') {
-                                    return g.mst.team === 'housekeeping' || g.mst.team === 'soft_services';
-                                }
-                                return g.mst.team === team.id || (team.id === 'technical' && !g.mst.team);
-                            });
+                    <div className="flex flex-1 min-w-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
+                        <div className="flex h-full min-w-max">
+                            {TEAM_CONFIG.map((team) => {
+                                const mstsInTeam = filteredMstGroups.filter(g => {
+                                    if (team.id === 'housekeeping') {
+                                        return g.mst.team === 'housekeeping' || g.mst.team === 'soft_services';
+                                    }
+                                    return g.mst.team === team.id || (team.id === 'technical' && !g.mst.team);
+                                });
 
-                            const teamTickets = mstsInTeam.flatMap(g => g.tickets);
-                            const teamCounts = {
-                                A: teamTickets.filter(t => ['assigned', 'in_progress'].includes(t.status.toLowerCase())).length,
-                                W: teamTickets.filter(t => t.status.toLowerCase() === 'waitlist').length,
-                                C: teamTickets.filter(t => ['completed', 'resolved', 'closed'].includes(t.status.toLowerCase())).length
-                            };
+                                const teamTickets = mstsInTeam.flatMap(g => g.tickets);
+                                const teamCounts = {
+                                    A: teamTickets.filter(t => ['assigned', 'in_progress'].includes(t.status.toLowerCase())).length,
+                                    W: teamTickets.filter(t => t.status.toLowerCase() === 'waitlist').length,
+                                    C: teamTickets.filter(t => ['completed', 'resolved', 'closed'].includes(t.status.toLowerCase())).length
+                                };
 
-                            const teamColorClass = team.id === 'technical' ? 'text-info' :
-                                team.id === 'plumbing' ? 'text-success' : 'text-error';
+                                const teamColorClass = team.id === 'technical' ? 'text-info' :
+                                    team.id === 'plumbing' ? 'text-success' : 'text-error';
 
-                            return (
-                                <div key={team.id} className="w-full md:w-[400px] flex flex-col border-b md:border-b-0 md:border-r border-slate-100 last:border-r-0 relative group/dept flex-shrink-0">
-                                    {/* Department Vertical Rail Backdrop */}
-                                    <div className="absolute inset-0 bg-slate-50/30 opacity-100 transition-opacity pointer-events-none" />
+                                return (
+                                    <div key={team.id} className="w-[400px] flex flex-col border-r border-slate-100 last:border-r-0 relative group/dept flex-shrink-0 h-full">
+                                        {/* Department Vertical Rail Backdrop */}
+                                        <div className="absolute inset-0 bg-slate-50/30 opacity-100 transition-opacity pointer-events-none" />
 
-                                    <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-white sticky top-0 z-10">
-                                        <div className="flex flex-col">
-                                            <h3 className={`text-xs font-black uppercase tracking-widest ${teamColorClass}`}>
-                                                {team.label}
-                                            </h3>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Users className="w-3 h-3 text-slate-400" />
-                                                <span className="text-[10px] font-bold text-slate-500">
-                                                    {mstsInTeam.length} Active
-                                                </span>
+                                        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-white sticky top-0 z-10 w-full">
+                                            <div className="flex flex-col">
+                                                <h3 className={`text-xs font-black uppercase tracking-widest ${teamColorClass}`}>
+                                                    {team.label}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Users className="w-3 h-3 text-slate-400" />
+                                                    <span className="text-[10px] font-bold text-slate-500">
+                                                        {mstsInTeam.length} Active
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-[10px] font-black">
+                                                <span className="text-warning bg-warning/5 px-2 py-0.5 rounded border border-warning/10">{teamCounts.A}A</span>
+                                                <span className="text-error bg-error/5 px-2 py-0.5 rounded border border-error/10">{teamCounts.W}W</span>
+                                                <span className="text-success bg-success/5 px-2 py-0.5 rounded border border-success/10">{teamCounts.C}C</span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 text-[10px] font-black">
-                                            <span className="text-warning bg-warning/5 px-2 py-0.5 rounded border border-warning/10">{teamCounts.A}A</span>
-                                            <span className="text-error bg-error/5 px-2 py-0.5 rounded border border-error/10">{teamCounts.W}W</span>
-                                            <span className="text-success bg-success/5 px-2 py-0.5 rounded border border-success/10">{teamCounts.C}C</span>
+
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
+                                            <div className="flex flex-col px-1">
+                                                {mstsInTeam.map((group) => (
+                                                    <MstGroup
+                                                        key={group.mst.id}
+                                                        mst={group.mst}
+                                                        tickets={group.tickets}
+                                                        savingTicketIds={savingTicketIds}
+                                                        onTicketClick={handleTicketClick}
+                                                        onMstClick={handleMstClick}
+                                                    />
+                                                ))}
+
+                                                {mstsInTeam.length === 0 && (
+                                                    <div className="p-10 text-center flex flex-col items-center justify-center opacity-30 mt-10">
+                                                        <AlertCircle className="w-8 h-8 mb-2" />
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest">No Personnel</p>
+                                                        <p className="text-[10px] text-slate-400 mt-1">Status: Offline</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                        <div className="flex flex-col">
-                                            {mstsInTeam.map((group) => (
-                                                <MstGroup
-                                                    key={group.mst.id}
-                                                    mst={group.mst}
-                                                    tickets={group.tickets}
-                                                    savingTicketIds={savingTicketIds}
-                                                    onTicketClick={handleTicketClick}
-                                                    onMstClick={handleMstClick}
-                                                />
-                                            ))}
-
-                                            {mstsInTeam.length === 0 && (
-                                                <div className="p-10 text-center flex flex-col items-center justify-center opacity-30">
-                                                    <AlertCircle className="w-6 h-6 mb-2" />
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest">No Personnel</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 </main>
             </DndContext>
