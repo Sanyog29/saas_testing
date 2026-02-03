@@ -44,6 +44,16 @@ CREATE POLICY "vendor_revenue_select_own" ON public.vendor_daily_revenue FOR SEL
     )
 );
 
+-- Allow vendors to update their own daily revenue
+DROP POLICY IF EXISTS "vendor_revenue_update_own" ON public.vendor_daily_revenue;
+CREATE POLICY "vendor_revenue_update_own" ON public.vendor_daily_revenue FOR UPDATE USING (
+    EXISTS (
+        SELECT 1 FROM public.vendors v 
+        WHERE v.id = vendor_id 
+        AND v.user_id = auth.uid()
+    )
+);
+
 -- 4. Fix Commission Cycles policies (Dashboard)
 
 DROP POLICY IF EXISTS "commission_cycles_select_own" ON public.commission_cycles;

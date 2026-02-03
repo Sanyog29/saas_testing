@@ -11,10 +11,6 @@ export async function GET(request: NextRequest) {
         const organizationId = searchParams.get('organizationId');
         const skillGroupId = searchParams.get('skillGroupId');
 
-        if (!propertyId && !organizationId) {
-            return NextResponse.json({ error: 'Either propertyId or organizationId is required' }, { status: 400 });
-        }
-
         // Base query for resolvers
         let resolverQuery = supabase
             .from('resolver_stats')

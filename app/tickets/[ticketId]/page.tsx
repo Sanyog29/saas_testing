@@ -959,12 +959,12 @@ export default function TicketDetailPage() {
                                 <div className="space-y-4">
                                     {activities.slice(0, 5).map((act) => (
                                         <div key={act.id} className="flex justify-between items-start gap-4 opacity-75">
-                                            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                                 <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
                                                     <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{act.user?.full_name || 'System'}:</span> {act.action.replace(/_/g, ' ')}
                                                     {act.new_value && <span className="text-success font-bold ml-1">→ {act.new_value}</span>}
                                                 </p>
-                                            </p>
+                                            </div>
                                             <span className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'} font-bold uppercase whitespace-nowrap`}>{new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                     ))}

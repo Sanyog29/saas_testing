@@ -17,6 +17,7 @@ interface MstGroupProps {
         is_available?: boolean;
     };
     tickets: any[];
+    savingTicketIds: Set<string>;
     onTicketClick: (ticketId: string) => void;
     onMstClick: (mstId: string) => void;
 }
@@ -29,6 +30,7 @@ interface MstGroupProps {
 export default function MstGroup({
     mst,
     tickets,
+    savingTicketIds,
     onTicketClick,
     onMstClick,
 }: MstGroupProps) {
@@ -73,12 +75,13 @@ export default function MstGroup({
                 className="flex items-center gap-3 mb-3 cursor-pointer group"
                 onClick={() => onMstClick(mst.id)}
             >
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                     {mst.user_photo_url || mst.avatar_url ? (
                         <img
-                            src={mst.user_photo_url || mst.avatar_url}
+                            src={`${mst.user_photo_url || mst.avatar_url}${((mst.user_photo_url || mst.avatar_url) as string)?.includes('supabase') ? '?width=80&height=80&resize=cover' : ''}`}
                             alt={mst.full_name}
-                            className={`w-10 h-10 rounded-full border transition-colors ${!isOnShift ? 'border-border/50' : 'border-border group-hover:border-primary'
+                            loading="lazy"
+                            className={`w-10 h-10 rounded-full border transition-colors object-cover ${!isOnShift ? 'border-border/50' : 'border-border group-hover:border-primary'
                                 }`}
                         />
                     ) : (
@@ -130,7 +133,7 @@ export default function MstGroup({
             </div>
 
             {/* Tickets Flow Zones */}
-            <div className="flex items-start gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:flex items-start gap-4 mt-4">
                 {/* Zone A: Assigned */}
                 <div className={`flex-1 min-h-[44px] p-2 rounded-lg bg-slate-50/50 border border-slate-100 flex flex-wrap gap-2 relative ${groupedTickets.A.length === 0 ? 'opacity-30' : ''}`}>
                     <span className="absolute -top-2 left-2 px-1 text-[8px] font-black bg-white border border-slate-200 text-slate-400 uppercase tracking-tighter">Assigned</span>
@@ -143,13 +146,14 @@ export default function MstGroup({
                             title={ticket.title}
                             description={ticket.description}
                             assignedToName={mst.full_name}
+                            isSaving={savingTicketIds.has(ticket.id)}
                             onClick={() => onTicketClick(ticket.id)}
                         />
                     ))}
                 </div>
 
                 {/* Zone W: Waitlist */}
-                <div className={`w-[90px] min-h-[44px] p-2 rounded-lg bg-rose-50/30 border border-rose-100 flex flex-col gap-2 items-center relative ${groupedTickets.W.length === 0 ? 'opacity-20' : ''}`}>
+                <div className={`w-full sm:w-[90px] min-h-[44px] p-2 rounded-lg bg-rose-50/30 border border-rose-100 flex flex-row sm:flex-col flex-wrap sm:flex-nowrap gap-2 items-center relative ${groupedTickets.W.length === 0 ? 'opacity-20' : ''}`}>
                     <span className="absolute -top-2 left-2 px-1 text-[8px] font-black bg-white border border-rose-200 text-rose-400 uppercase tracking-tighter">Waitlist</span>
                     {groupedTickets.W.map(ticket => (
                         <TicketNode
@@ -160,13 +164,14 @@ export default function MstGroup({
                             title={ticket.title}
                             description={ticket.description}
                             assignedToName={mst.full_name}
+                            isSaving={savingTicketIds.has(ticket.id)}
                             onClick={() => onTicketClick(ticket.id)}
                         />
                     ))}
                 </div>
 
                 {/* Zone C: Completed */}
-                <div className={`w-[90px] min-h-[44px] p-2 rounded-lg bg-green-50/30 border border-green-100 flex flex-col gap-2 items-center relative ${groupedTickets.C.length === 0 ? 'opacity-20' : ''}`}>
+                <div className={`w-full sm:w-[90px] min-h-[44px] p-2 rounded-lg bg-green-50/30 border border-green-100 flex flex-row sm:flex-col flex-wrap sm:flex-nowrap gap-2 items-center relative ${groupedTickets.C.length === 0 ? 'opacity-20' : ''}`}>
                     <span className="absolute -top-2 left-2 px-1 text-[8px] font-black bg-white border border-green-200 text-green-400 uppercase tracking-tighter">Done</span>
                     {groupedTickets.C.map(ticket => (
                         <TicketNode
@@ -177,6 +182,7 @@ export default function MstGroup({
                             title={ticket.title}
                             description={ticket.description}
                             assignedToName={mst.full_name}
+                            isSaving={savingTicketIds.has(ticket.id)}
                             onClick={() => onTicketClick(ticket.id)}
                         />
                     ))}

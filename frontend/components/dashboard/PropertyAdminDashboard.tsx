@@ -4,11 +4,12 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
     LayoutDashboard, Users, Ticket, Settings, UserCircle, UsersRound,
     Search, Plus, Filter, LogOut, ChevronRight, MapPin, Building2,
-    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown, Fuel, Store, Activity, Upload, FileBarChart, Menu, X, Zap
+    Calendar, CheckCircle2, AlertCircle, Clock, Coffee, IndianRupee, FileDown, Fuel, Store, Activity, Upload, FileBarChart, Menu, X, Zap, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
 import { useAuth } from '@/frontend/context/AuthContext';
+import { useDataCache } from '@/frontend/context/DataCacheContext';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import UserDirectory from './UserDirectory';
 import SignOutModal from '@/frontend/components/ui/SignOutModal';
@@ -16,6 +17,7 @@ import DieselAnalyticsDashboard from '@/frontend/components/diesel/DieselAnalyti
 import ElectricityStaffDashboard from '@/frontend/components/electricity/ElectricityStaffDashboard';
 import ElectricityAnalyticsDashboard from '@/frontend/components/electricity/ElectricityAnalyticsDashboard';
 import Image from 'next/image';
+import Skeleton from '@/frontend/components/ui/Skeleton';
 import VendorExportModal from '@/frontend/components/vendor/VendorExportModal';
 import VMSAdminDashboard from '@/frontend/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicketingDashboard';
@@ -57,18 +59,21 @@ const PropertyAdminDashboard = () => {
 
     // State
     const [activeTab, setActiveTab] = useState<Tab>('overview');
-    const [property, setProperty] = useState<Property | null>(null);
+    const supabase = useMemo(() => createClient(), []);
+    const { getCachedData, setCachedData } = useDataCache();
+    const cacheKey = `property-${propertyId}`;
+    const searchParams = useSearchParams();
+
+    // State initialized from cache if available
+    const [property, setProperty] = useState<Property | null>(() => getCachedData(cacheKey));
     const [tickets, setTickets] = useState<TicketData[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!property);
     const [errorMsg, setErrorMsg] = useState('');
     const [showSignOutModal, setShowSignOutModal] = useState(false);
     const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [statsVersion, setStatsVersion] = useState(0);
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const searchParams = useSearchParams();
-
-    const supabase = useMemo(() => createClient(), []);
 
     // Ref to prevent duplicate fetches
     const hasFetchedProperty = useRef(false);
@@ -76,7 +81,7 @@ const PropertyAdminDashboard = () => {
     useEffect(() => {
         if (propertyId && !hasFetchedProperty.current) {
             hasFetchedProperty.current = true;
-            fetchPropertyDetails();
+            fetchPropertyDetails(true);
         }
     }, [propertyId]);
 
@@ -97,39 +102,87 @@ const PropertyAdminDashboard = () => {
         window.history.pushState({}, '', url.toString());
     };
 
-    const fetchPropertyDetails = async () => {
-        setIsLoading(true);
+    const fetchPropertyDetails = async (isInitial = false) => {
+        const cached = getCachedData(cacheKey);
+
+        // If we have cached data, use it and only fetch if explicitly needed
+        if (cached) {
+            setProperty(cached);
+            if (isInitial) {
+                setIsLoading(false);
+                return;
+            }
+        }
+
+        if (!property) setIsLoading(true);
         setErrorMsg('');
 
-        const { data, error } = await supabase
-            .from('properties')
-            .select('*')
-            .eq('id', propertyId)
-            .maybeSingle();
+        try {
+            const { data, error } = await supabase
+                .from('properties')
+                .select('*')
+                .eq('id', propertyId)
+                .maybeSingle();
 
-        if (error || !data) {
-            setErrorMsg('Property not found.');
-        } else {
-            setProperty(data);
+            if (error || !data) {
+                setErrorMsg('Property not found.');
+            } else {
+                setProperty(data);
+                setCachedData(cacheKey, data);
+            }
+        } catch (err) {
+            setErrorMsg('Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
+    // Loading timeout logic
+    useEffect(() => {
+        let timeout: NodeJS.Timeout;
+        if (isLoading && !property) {
+            timeout = setTimeout(() => {
+                setErrorMsg('Loading is taking longer than usual... Please check your connection or try again.');
+            }, 10000);
+        }
+        return () => clearTimeout(timeout);
+    }, [isLoading, property]);
 
-    if (isLoading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-muted border-t-brand-orange rounded-full animate-spin" />
-                <p className="text-muted-foreground font-bold">Loading property dashboard...</p>
-            </div>
+
+    if (isLoading && !property) return (
+        <div className="min-h-screen bg-white flex">
+            <aside className="w-72 border-r border-border p-6 space-y-6 hidden lg:block">
+                <Skeleton className="w-full h-12" />
+                <div className="space-y-2">
+                    {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="w-full h-10" />)}
+                </div>
+            </aside>
+            <main className="flex-1 p-8 space-y-8">
+                <header className="flex justify-between">
+                    <Skeleton className="w-64 h-12" />
+                    <Skeleton className="w-32 h-12" />
+                </header>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Skeleton className="w-full h-32" />
+                    <Skeleton className="w-full h-32" />
+                    <Skeleton className="w-full h-32" />
+                </div>
+                <Skeleton className="w-full h-96" />
+            </main>
         </div>
     );
 
-    if (!property) return (
-        <div className="p-10 text-center">
-            <h2 className="text-xl font-bold text-red-600">Error Loading Dashboard</h2>
-            <p className="text-muted-foreground mt-2">{errorMsg || 'Property not found.'}</p>
-            <button onClick={() => router.back()} className="mt-4 text-brand-orange font-bold hover:underline">Go Back</button>
+    if (!property && !isLoading) return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-10 text-center">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-black text-slate-900">Unable to Load Dashboard</h2>
+            <p className="text-slate-500 mt-2 max-w-sm">{errorMsg || 'We couldn\'t find the property details you\'re looking for.'}</p>
+            <div className="flex gap-4 mt-8">
+                <button onClick={() => router.back()} className="px-6 py-2.5 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition-all">Go Back</button>
+                <button onClick={() => fetchPropertyDetails()} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-all">Try Again</button>
+            </div>
         </div>
     );
 
@@ -152,7 +205,7 @@ const PropertyAdminDashboard = () => {
             <aside className={`
                 w-72 bg-white border-r border-border flex flex-col h-screen z-50 transition-all duration-300
                 fixed lg:sticky top-0
-                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
             `}>
                 {/* Mobile Close Button */}
                 <button
@@ -279,16 +332,6 @@ const PropertyAdminDashboard = () => {
                                 Diesel Analytics
                             </button>
                             <button
-                                onClick={() => handleTabChange('vendor_revenue')}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'vendor_revenue'
-                                    ? 'bg-primary text-text-inverse shadow-sm'
-                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
-                                    }`}
-                            >
-                                <Coffee className="w-4 h-4" />
-                                Cafeteria Revenue
-                            </button>
-                            <button
                                 onClick={() => handleTabChange('electricity')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'electricity'
                                     ? 'bg-primary text-text-inverse shadow-sm'
@@ -307,6 +350,16 @@ const PropertyAdminDashboard = () => {
                             >
                                 <Zap className="w-4 h-4" />
                                 Electricity Analytics
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('vendor_revenue')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'vendor_revenue'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Coffee className="w-4 h-4" />
+                                Cafeteria Revenue
                             </button>
                         </div>
                     </div>
@@ -374,7 +427,7 @@ const PropertyAdminDashboard = () => {
             }
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-0 flex flex-col min-h-screen bg-white">
+            <main className="flex-1 lg:ml-0 flex flex-col bg-white">
                 {activeTab !== 'overview' && (
                     <header className="h-20 flex justify-between items-center px-4 md:px-8 lg:px-12 mb-4 border-b border-border/10">
                         <div className="flex items-center gap-4">
@@ -387,7 +440,7 @@ const PropertyAdminDashboard = () => {
                             </button>
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight capitalize">{activeTab}</h1>
-                                <p className="text-text-tertiary text-xs md:text-sm font-medium mt-0.5">{property.address || 'Property Management Hub'}</p>
+                                <p className="text-text-tertiary text-xs md:text-sm font-medium mt-0.5">{property?.address || 'Property Management Hub'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-6">
@@ -428,7 +481,13 @@ const PropertyAdminDashboard = () => {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
                     >
-                        {activeTab === 'overview' && <OverviewTab propertyId={propertyId} statsVersion={statsVersion} property={property} onMenuToggle={() => setSidebarOpen(true)} />}
+                        {activeTab === 'overview' && <OverviewTab
+                            propertyId={propertyId}
+                            statsVersion={statsVersion}
+                            property={property}
+                            onMenuToggle={() => setSidebarOpen(true)}
+                            onRefresh={() => setStatsVersion(v => v + 1)}
+                        />}
                         {activeTab === 'users' && <UserDirectory
                             propertyId={propertyId}
                             orgId={property?.organization_id}
@@ -612,18 +671,22 @@ const DieselSphere = ({ percentage }: { percentage: number }) => {
     );
 };
 
-const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, property, onMenuToggle }: { propertyId: string, statsVersion: number, property: { name: string; code: string; address?: string; image_url?: string } | null, onMenuToggle?: () => void }) {
-    const [isLoading, setIsLoading] = useState(true);
+const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, property, onMenuToggle, onRefresh }: { propertyId: string, statsVersion: number, property: { name: string; code: string; address?: string; image_url?: string } | null, onMenuToggle?: () => void, onRefresh: () => void }) {
+    const fetchKey = `${propertyId}-${statsVersion}`;
+    const { getCachedData, setCachedData } = useDataCache();
     const supabase = useMemo(() => createClient(), []);
+
+    const initialCached = useMemo(() => getCachedData(fetchKey), [fetchKey, getCachedData]);
     const hasFetched = useRef(false);
     const lastFetchKey = useRef('');
 
-    // Stats State
-    const [ticketStats, setTicketStats] = useState({ total: 0, open: 0, in_progress: 0, resolved: 0, sla_breached: 0, avg_resolution_hours: 0 });
-    const [dieselStats, setDieselStats] = useState({ total_consumption: 0, change_percentage: 0, tank_capacity: 1000 });
-    const [vmsStats, setVmsStats] = useState({ total_visitors_today: 0, checked_in: 0, checked_out: 0 });
-    const [vendorStats, setVendorStats] = useState({ total_revenue: 0, total_commission: 0, total_vendors: 0 });
-    const [recentTickets, setRecentTickets] = useState<any[]>([]);
+    // Stats State initialized from cache if available
+    const [ticketStats, setTicketStats] = useState(initialCached?.ticketStats || { total: 0, open: 0, in_progress: 0, resolved: 0, sla_breached: 0, avg_resolution_hours: 0 });
+    const [dieselStats, setDieselStats] = useState(initialCached?.dieselStats || { total_consumption: 0, change_percentage: 0, tank_capacity: 1000 });
+    const [vmsStats, setVmsStats] = useState(initialCached?.vmsStats || { total_visitors_today: 0, checked_in: 0, checked_out: 0 });
+    const [vendorStats, setVendorStats] = useState(initialCached?.vendorStats || { total_revenue: 0, total_commission: 0, total_vendors: 0 });
+    const [recentTickets, setRecentTickets] = useState<any[]>(initialCached?.recentTickets || []);
+    const [isLoading, setIsLoading] = useState(!initialCached);
 
     useEffect(() => {
         const fetchKey = `${propertyId}-${statsVersion}`;
@@ -633,7 +696,24 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
             return;
         }
 
-        const fetchPropertyData = async () => {
+        const fetchPropertyData = async (isInitial = false) => {
+            // Check if we already have fresh cached data
+            const cached = getCachedData(fetchKey);
+            if (isInitial && cached) {
+                // If the data is less than 2 minutes old, skip re-fetching
+                if (Date.now() - (cached.timestamp || 0) < 2 * 60 * 1000) {
+                    setTicketStats(cached.ticketStats);
+                    setRecentTickets(cached.recentTickets);
+                    setDieselStats(cached.dieselStats);
+                    setVmsStats(cached.vmsStats);
+                    setVendorStats(cached.vendorStats);
+                    setIsLoading(false);
+                    hasFetched.current = true;
+                    lastFetchKey.current = fetchKey;
+                    return;
+                }
+            }
+
             setIsLoading(true);
             lastFetchKey.current = fetchKey;
             hasFetched.current = true;
@@ -648,16 +728,6 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                     supabase.from('tickets').select('id, title, status, created_at').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(5),
                 ]);
 
-                setTicketStats({
-                    total: totalRes.count || 0,
-                    open: openRes.count || 0,
-                    in_progress: inProgressRes.count || 0,
-                    resolved: resolvedRes.count || 0,
-                    sla_breached: 0,
-                    avg_resolution_hours: 0
-                });
-                setRecentTickets(recentsRes.data || []);
-
                 // --- Diesel, VMS, Vendors (all in parallel) ---
                 const today = new Date().toISOString().split('T')[0];
                 const monthStart = new Date(new Date().setDate(1)).toISOString().split('T')[0];
@@ -670,14 +740,12 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                 ]);
 
                 // Process diesel
-                const totalDiesel = dieselRes.data?.reduce((acc, r) => acc + (r.computed_consumed_litres || 0), 0) || 0;
-                const totalCapacity = genRes.data?.reduce((acc, g) => acc + (g.tank_capacity_litres || 1000), 0) || 1000;
-                setDieselStats({ total_consumption: totalDiesel, change_percentage: 0, tank_capacity: totalCapacity });
+                const totalDiesel = dieselRes.data?.reduce((acc: number, r: any) => acc + (r.computed_consumed_litres || 0), 0) || 0;
+                const totalCapacity = genRes.data?.reduce((acc: number, g: any) => acc + (g.tank_capacity_litres || 1000), 0) || 1000;
 
                 // Process VMS
-                const checkedIn = vmsRes.data?.filter(v => v.status === 'checked_in').length || 0;
-                const checkedOut = vmsRes.data?.filter(v => v.status === 'checked_out').length || 0;
-                setVmsStats({ total_visitors_today: vmsRes.data?.length || 0, checked_in: checkedIn, checked_out: checkedOut });
+                const checkedInCount = vmsRes.data?.filter((v: any) => v.status === 'checked_in').length || 0;
+                const checkedOutCount = vmsRes.data?.filter((v: any) => v.status === 'checked_out').length || 0;
 
                 // Process Vendors
                 let totalRev = 0, totalComm = 0;
@@ -688,7 +756,29 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                         totalComm += (todayEntry.revenue_amount || 0) * ((v.commission_rate || 0) / 100);
                     }
                 });
-                setVendorStats({ total_revenue: totalRev, total_commission: totalComm, total_vendors: vendorRes.data?.length || 0 });
+
+                const result = {
+                    ticketStats: {
+                        total: totalRes.count || 0,
+                        open: openRes.count || 0,
+                        in_progress: inProgressRes.count || 0,
+                        resolved: resolvedRes.count || 0,
+                        sla_breached: 0,
+                        avg_resolution_hours: 0
+                    },
+                    recentTickets: recentsRes.data || [],
+                    dieselStats: { total_consumption: totalDiesel, change_percentage: 0, tank_capacity: totalCapacity },
+                    vmsStats: { total_visitors_today: vmsRes.data?.length || 0, checked_in: checkedInCount, checked_out: checkedOutCount },
+                    vendorStats: { total_revenue: totalRev, total_commission: totalComm, total_vendors: vendorRes.data?.length || 0 },
+                    timestamp: Date.now()
+                };
+
+                setTicketStats(result.ticketStats);
+                setRecentTickets(result.recentTickets);
+                setDieselStats(result.dieselStats);
+                setVmsStats(result.vmsStats);
+                setVendorStats(result.vendorStats);
+                setCachedData(fetchKey, result);
 
             } catch (err) {
                 console.error('Error fetching property overview data:', err);
@@ -697,12 +787,36 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
             }
         };
 
-        if (propertyId) fetchPropertyData();
-    }, [propertyId, statsVersion, supabase]);
+        if (propertyId) fetchPropertyData(true);
+    }, [propertyId, statsVersion, supabase, getCachedData, setCachedData]);
 
     const completionRate = ticketStats.total > 0 ? Math.round((ticketStats.resolved / ticketStats.total) * 100 * 10) / 10 : 0;
 
-    if (isLoading) return <div className="p-10 text-center text-slate-400 font-bold animate-pulse">Synchronizing Property Intelligence...</div>;
+    if (isLoading && ticketStats.total === 0) return (
+        <div className="p-8 space-y-6">
+            <div className="h-48 bg-slate-100 rounded-3xl animate-pulse p-8">
+                <Skeleton className="w-1/3 h-8 mb-4" />
+                <div className="grid grid-cols-3 gap-4">
+                    <Skeleton className="h-20" />
+                    <Skeleton className="h-20" />
+                    <Skeleton className="h-20" />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div className="md:col-span-3 space-y-4">
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-48" />
+                </div>
+                <div className="md:col-span-4">
+                    <Skeleton className="h-[430px]" />
+                </div>
+                <div className="md:col-span-5 space-y-4">
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-48" />
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-background">
@@ -718,6 +832,18 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                             <Menu className="w-6 h-6" />
                         </button>
                         <h1 className="text-2xl md:text-3xl font-black text-white">Unified Dashboard</h1>
+                    </div>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => { onRefresh(); setIsLoading(true); }}
+                            disabled={isLoading}
+                            className={`p-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all shadow-sm relative ${isLoading && !initialCached ? 'animate-pulse' : ''}`}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            {isLoading && !initialCached && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-info rounded-full animate-ping" />
+                            )}
+                        </button>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 mb-5">
@@ -781,7 +907,15 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                             <div className="text-red-600 text-sm font-bold mb-5 truncate">Property: {property?.code || 'N/A'}</div>
                             <div className="bg-yellow-500/50 rounded-[2rem] h-56 mb-5 flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-2xl group relative">
                                 {property?.image_url ? (
-                                    <><img src={property.image_url} alt={property.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" /><div className="absolute inset-0 bg-gradient-to-t from-yellow-400/20 to-transparent" /></>
+                                    <>
+                                        <Image
+                                            src={property.image_url}
+                                            alt={property.name}
+                                            fill
+                                            className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-yellow-400/20 to-transparent" />
+                                    </>
                                 ) : (
                                     <div className="flex flex-col items-center gap-2"><Building2 className="w-20 h-20 text-yellow-600/30" /><span className="text-[10px] font-black text-yellow-700/40 uppercase tracking-widest">Awaiting Visuals</span></div>
                                 )}

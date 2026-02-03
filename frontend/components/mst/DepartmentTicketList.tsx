@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MstTicketView, TicketDepartment, MstLoad } from '@/frontend/types/ticketing';
 import { getSkillGroupColor, getSkillGroupDisplayName, type SkillGroup } from '@/backend/lib/ticketing';
 import { MstLoadDot } from './MstLoadBadge';
+import TicketCard from '@/frontend/components/shared/TicketCard';
+import { Ticket } from '@/frontend/types/ticketing';
 
 // Map legacy department to new skill_group
 const mapDepartmentToSkillGroup = (dept: TicketDepartment): SkillGroup => {
@@ -291,139 +293,29 @@ function TicketSection({
                     <p className="text-sm text-text-tertiary">{emptyMessage}</p>
                 </div>
             ) : (
-                <div className="space-y-2">
-                    <AnimatePresence>
-                        {tickets.map((ticket) => (
-                            <TicketCard
-                                key={ticket.id}
-                                ticket={ticket}
-                                userId={userId}
-                                onClick={() => onTicketClick(ticket.id)}
-                                onAssign={showAssignButton && onSelfAssign ? () => onSelfAssign(ticket.id) : undefined}
-                                isAssigning={assigningTicketId === ticket.id}
-                            />
-                        ))}
-                    </AnimatePresence>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tickets.map((ticket) => (
+                        <TicketCard
+                            key={ticket.id}
+                            id={ticket.id}
+                            title={ticket.title}
+                            priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                            status={
+                                ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
+                                    ticket.status === 'in_progress' ? 'IN_PROGRESS' :
+                                        ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
+                            }
+                            ticketNumber={ticket.ticket_number}
+                            createdAt={ticket.created_at}
+                            assignedTo={ticket.assignee?.full_name}
+                            photoUrl={ticket.photo_before_url}
+                            onClick={() => onTicketClick(ticket.id)}
+                        />
+                    ))}
                 </div>
             )}
         </div>
     );
 }
 
-// Individual Ticket Card
-interface TicketCardProps {
-    ticket: MstTicketView;
-    userId: string;
-    onClick: () => void;
-    onAssign?: () => void;
-    isAssigning?: boolean;
-}
-
-function TicketCard({ ticket, userId, onClick, onAssign, isAssigning }: TicketCardProps) {
-    const isMyTicket = ticket.assigned_to === userId;
-    const isPaused = ticket.work_paused;
-    const departmentColors = getSkillGroupColor(mapDepartmentToSkillGroup(ticket.department));
-
-    return (
-        <motion.div
-            layout
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`
-                bg-card border rounded-xl p-4 transition-all cursor-pointer group
-                ${isMyTicket
-                    ? 'border-primary/30 ring-1 ring-primary/10'
-                    : 'border-border hover:border-primary/20'
-                }
-                ${isPaused ? 'bg-amber-500/5' : ''}
-            `}
-            onClick={onClick}
-        >
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`
-                            text-[10px] px-1.5 py-0.5 rounded font-bold border
-                            ${departmentColors.bg} ${departmentColors.text} ${departmentColors.border}
-                        `}>
-                            {getSkillGroupDisplayName(mapDepartmentToSkillGroup(ticket.department)).toUpperCase()}
-                        </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' || ticket.priority === 'critical'
-                            ? 'bg-error/10 text-error border-error/20'
-                            : 'bg-muted text-text-tertiary border-border'
-                            }`}>
-                            {ticket.priority}
-                        </span>
-                        {isPaused && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 font-bold">
-                                PAUSED
-                            </span>
-                        )}
-                        {isMyTicket && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-bold">
-                                YOUR TASK
-                            </span>
-                        )}
-                    </div>
-                    <h4 className="text-sm font-semibold text-text-primary truncate group-hover:text-primary transition-colors">
-                        {ticket.title}
-                    </h4>
-                    <p className="text-xs text-text-tertiary mt-1 line-clamp-1">
-                        {ticket.description}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-text-tertiary">
-                        <span>#{ticket.ticket_number}</span>
-                        <span>•</span>
-                        <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
-                        {ticket.assignee && !isMyTicket && (
-                            <>
-                                <span>•</span>
-                                <span className="text-text-secondary">{ticket.assignee.full_name}</span>
-                            </>
-                        )}
-                        {ticket.photo_before_url && (
-                            <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1 text-primary">
-                                    <Camera className="w-3 h-3" /> Photo
-                                </span>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                    {onAssign && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onAssign();
-                            }}
-                            disabled={isAssigning}
-                            className={`
-                                px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                                ${isAssigning
-                                    ? 'bg-muted text-text-tertiary cursor-wait'
-                                    : 'bg-primary text-white hover:bg-primary/90 shadow-sm'
-                                }
-                            `}
-                        >
-                            {isAssigning ? (
-                                <span className="flex items-center gap-1">
-                                    <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                </span>
-                            ) : (
-                                <span className="flex items-center gap-1">
-                                    <UserPlus className="w-3 h-3" />
-                                    Assign to Me
-                                </span>
-                            )}
-                        </button>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-text-tertiary group-hover:text-primary transition-colors" />
-                </div>
-            </div>
-        </motion.div>
-    );
-}
+// TicketCard sub-component replaced by shared/TicketCard

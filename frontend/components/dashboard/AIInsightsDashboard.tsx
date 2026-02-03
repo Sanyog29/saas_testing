@@ -49,8 +49,12 @@ export default function AIInsightsDashboard({ isDark = true }: { isDark?: boolea
             try {
                 const res = await fetch('/api/admin/ai-metrics?days=7');
                 const data = await res.json();
-                setStats(data.stats);
-                setDailyUsage(data.daily_usage);
+                if (data && !data.error) {
+                    setStats(data.stats || null);
+                    setDailyUsage(data.daily_usage || []);
+                } else {
+                    console.error('API Error:', data?.error);
+                }
             } catch (err) {
                 console.error('Failed to fetch AI metrics:', err);
             } finally {
@@ -95,7 +99,7 @@ export default function AIInsightsDashboard({ isDark = true }: { isDark?: boolea
                 <MetricCard
                     title="Total AI Invocations"
                     value={stats?.llm_invocations || 0}
-                    subValue={`${((stats?.llm_invocations / (stats?.total_invocations || 1)) * 100).toFixed(1)}% of total tickets`}
+                    subValue={`${(((stats?.llm_invocations || 0) / (stats?.total_invocations || 1)) * 100).toFixed(1)}% of total tickets`}
                     icon={<Cpu className="w-5 h-5" />}
                     color="text-primary"
                     isDark={isDark}
@@ -110,15 +114,15 @@ export default function AIInsightsDashboard({ isDark = true }: { isDark?: boolea
                 />
                 <MetricCard
                     title="Total Tokens Used"
-                    value={(stats?.total_tokens / 1000).toFixed(1) + 'k'}
-                    subValue={`${(stats?.completion_tokens / (stats?.total_tokens || 1) * 100).toFixed(1)}% Completion`}
+                    value={((stats?.total_tokens || 0) / 1000).toFixed(1) + 'k'}
+                    subValue={`${((stats?.completion_tokens || 0) / (stats?.total_tokens || 1) * 100).toFixed(1)}% Completion`}
                     icon={<Zap className="w-5 h-5" />}
                     color="text-warning"
                     isDark={isDark}
                 />
                 <MetricCard
                     title="Estimated Cost"
-                    value={`$${stats?.estimated_cost_usd?.toFixed(4)}`}
+                    value={`$${stats?.estimated_cost_usd?.toFixed(4) || '0.0000'}`}
                     subValue="Llama 3.3 70B Versatile"
                     icon={<DollarSign className="w-5 h-5" />}
                     color="text-success"
@@ -135,7 +139,7 @@ export default function AIInsightsDashboard({ isDark = true }: { isDark?: boolea
                     </div>
 
                     <div className="h-[240px] flex items-end justify-between gap-1 px-2">
-                        {dailyUsage.length === 0 ? (
+                        {(!dailyUsage || dailyUsage.length === 0) ? (
                             <div className="w-full flex items-center justify-center h-full italic text-xs text-slate-500">No data for period</div>
                         ) : dailyUsage.map((day, idx) => (
                             <div key={idx} className="flex-1 flex flex-col items-center gap-2 group cursor-help">

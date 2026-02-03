@@ -93,9 +93,9 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
     ];
 
     return (
-        <div className="flex h-screen bg-background text-foreground font-inter overflow-hidden">
+        <div className="flex min-h-screen bg-background text-foreground font-inter">
             {/* Sidebar */}
-            <aside className={`bg-sidebar border-r border-border flex flex-col transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-80' : 'w-20'}`}>
+            <aside className={`bg-sidebar border-r border-border flex flex-col transition-all duration-300 sticky top-0 h-screen ${isSidebarOpen ? 'w-80' : 'w-20'}`}>
                 <div className="p-8 pb-12">
                     <div className="flex items-center gap-4 mb-10">
                         <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-text-inverse shadow-lg shadow-primary/20">
@@ -194,7 +194,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
             />
 
             {/* Main Panel */}
-            <main className="flex-1 flex flex-col bg-background relative overflow-hidden">
+            <main className="flex-1 flex flex-col bg-background relative">
                 {/* Subtle Ambience */}
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-orange/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -224,7 +224,7 @@ const OrgDashboard = ({ orgId }: { orgId: string }) => {
                 </header>
 
                 {/* Scrollable Content Area */}
-                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                <div className="flex-1 p-12 custom-scrollbar">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}

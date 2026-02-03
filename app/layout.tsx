@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/frontend/context/AuthContext";
 import { GlobalProvider } from "@/frontend/context/GlobalContext";
 import { ThemeProvider } from "@/frontend/context/ThemeContext";
+import { DataCacheProvider } from "@/frontend/context/DataCacheContext";
 import { SessionProvider, CookieConsentToast } from "@/frontend/components/analytics";
 import NotificationSystem from "@/frontend/components/ops/NotificationSystem";
 
@@ -45,11 +46,13 @@ export default function RootLayout({
                 <ThemeProvider>
                     <AuthProvider>
                         <GlobalProvider>
-                            <SessionProvider>
-                                {children}
-                                <NotificationSystem />
-                                <CookieConsentToast />
-                            </SessionProvider>
+                            <DataCacheProvider>
+                                <SessionProvider>
+                                    {children}
+                                    <NotificationSystem />
+                                    <CookieConsentToast />
+                                </SessionProvider>
+                            </DataCacheProvider>
                         </GlobalProvider>
                     </AuthProvider>
                 </ThemeProvider>

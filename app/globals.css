@@ -255,6 +255,35 @@
     font-family: var(--font-body);
     font-feature-settings: "rlig" 1, "calt" 1;
     min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+    height: 100%;
+  }
+
+  /* Universal Layout Containers */
+  .layout-root {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .main-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
     position: relative;
   }
 
@@ -1056,6 +1085,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -1068,7 +1098,8 @@
 /* Custom Scrollbar Utility */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
-  display: block; /* Override global display: none if needed */
+  display: block;
+  /* Override global display: none if needed */
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -1083,4 +1114,60 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(112, 143, 150, 0.5);
+}
+
+/* Optimized Mobile Responsiveness & Loading States */
+@media (max-width: 768px) {
+  .flex-responsive {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+
+  .text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .p-mobile-sm {
+    padding: 0.75rem !important;
+  }
+
+  .gap-mobile-sm {
+    gap: 0.5rem !important;
+  }
+
+  /* Ensure images don't stretch layout */
+  img,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Base Utility for Clean Resizing */
+.max-w-screen-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@layer components {
+  .skeleton-overlay {
+    @apply animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded-xl;
+  }
+}
+
+/* Feature Gating: Hide features that are coming soon or incomplete */
+.feature-incomplete {
+  display: none !important;
 }

@@ -50,8 +50,9 @@ export async function GET(request: NextRequest) {
         if (propertyId) query = query.eq('property_id', propertyId);
         if (organizationId) query = query.eq('organization_id', organizationId);
 
-        // For V2, we show active tickets + those resolved today
-        query = query.or(`status.in.(open,waitlist,assigned,in_progress,paused),resolved_at.gte.${date}T00:00:00`);
+        // For V2, we show all tickets for the property/organization
+        // We previously filtered for active + today's resolved, but user wants "all data"
+        // No status filter = all tickets
 
         const { data: tickets, error: ticketError } = await query;
 

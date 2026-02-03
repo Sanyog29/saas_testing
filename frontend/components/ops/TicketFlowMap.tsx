@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     RefreshCw, Filter, Calendar, Users,
@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
+import { useDataCache } from '@/frontend/context/DataCacheContext';
+import Skeleton from '@/frontend/components/ui/Skeleton';
 import {
     DndContext,
     PointerSensor,
@@ -48,7 +50,15 @@ const TEAM_CONFIG = [
 /**
  * Waitlist Lane Component (Droppable)
  */
-function WaitlistLane({ tickets, onTicketClick }: { tickets: any[], onTicketClick: (id: string) => void }) {
+function WaitlistLane({
+    tickets,
+    onTicketClick,
+    savingTicketIds
+}: {
+    tickets: any[],
+    onTicketClick: (id: string) => void,
+    savingTicketIds: Set<string>
+}) {
     const { isOver, setNodeRef } = useDroppable({
         id: 'waitlist',
         data: { type: 'waitlist' }
@@ -76,6 +86,7 @@ function WaitlistLane({ tickets, onTicketClick }: { tickets: any[], onTicketClic
                             status={ticket.status}
                             title={ticket.title}
                             description={ticket.description}
+                            isSaving={savingTicketIds.has(ticket.id)}
                             onClick={() => onTicketClick(ticket.id)}
                         />
                     ))}
@@ -96,12 +107,31 @@ export default function TicketFlowMap({
     propertyId,
 }: TicketFlowMapProps) {
     const router = useRouter();
-    const [flowData, setFlowData] = useState<FlowData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { getCachedData, setCachedData } = useDataCache();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // Cache key now correctly uses selectedDate after its declaration
+    const cacheKey = useMemo(() => `flow-${organizationId}-${propertyId}-${selectedDate}`, [organizationId, propertyId, selectedDate]);
+
+    // Initialize state from cache if available to prevent flicker
+    const [flowData, setFlowData] = useState<FlowData | null>(() => getCachedData(cacheKey));
+    const [loading, setLoading] = useState(!flowData);
+    const [error, setError] = useState<string | null>(null);
     const [pendingAssignments, setPendingAssignments] = useState<Record<string, string | null>>({});
+    const [savingTicketIds, setSavingTicketIds] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Sync state if cacheKey changes
+    useMemo(() => {
+        const cached = getCachedData(cacheKey);
+        if (cached && flowData?.stats === undefined) { // Check if current data matches key
+            setFlowData(cached);
+            setLoading(false);
+        } else if (!cached && !flowData) {
+            setLoading(true);
+        }
+    }, [cacheKey, getCachedData]);
 
     // UI State
     const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
@@ -120,14 +150,43 @@ export default function TicketFlowMap({
         })
     );
 
-    const fetchFlowData = useCallback(async () => {
+    const fetchFlowData = useCallback(async (isInitial = false) => {
+        // Abort previous request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        // Try to load from cache first if not already initialized
+        if (isInitial && !flowData) {
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                setFlowData(cached);
+                setLoading(false);
+            }
+        }
+
+        let timeoutId: NodeJS.Timeout | null = null;
         try {
             const params = new URLSearchParams();
             if (organizationId) params.set('organization_id', organizationId);
             if (propertyId) params.set('property_id', propertyId);
             params.set('date', selectedDate);
 
-            const response = await fetch(`/api/tickets/flow?${params}`);
+            // Timeout after 10 seconds
+            timeoutId = setTimeout(() => {
+                controller.abort('timeout');
+            }, 10000);
+
+            const response = await fetch(`/api/tickets/flow?${params}`, {
+                signal: controller.signal
+            });
+
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = null;
+
             const data = await response.json();
 
             if (!response.ok) {
@@ -139,17 +198,29 @@ export default function TicketFlowMap({
             }
 
             setFlowData(data);
+            setCachedData(cacheKey, data);
             setError(null);
-        } catch (err) {
+        } catch (err: any) {
+            // Silently ignore manual aborts
+            if (err.name === 'AbortError') {
+                if (controller.signal.reason === 'timeout') {
+                    setError('Request timed out. Please try again.');
+                }
+                return;
+            }
+
             console.error('[TicketFlowMapV2] Fetch error:', err);
             setError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
-            setLoading(false);
+            if (timeoutId) clearTimeout(timeoutId);
+            if (abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
-    }, [organizationId, propertyId, selectedDate]);
+    }, [organizationId, propertyId, selectedDate, cacheKey, getCachedData, setCachedData]);
 
     useEffect(() => {
-        fetchFlowData();
+        fetchFlowData(true);
     }, [fetchFlowData]);
 
     // Realtime subscription
@@ -233,7 +304,7 @@ export default function TicketFlowMap({
         };
     }, [derivedFlowData]);
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over) return;
 
@@ -253,43 +324,58 @@ export default function TicketFlowMap({
         // Only update if it's different from current
         const currentMstId = flowData?.mstGroups.find(g => g.tickets.some((t: any) => t.id === ticketId))?.mst.id || null;
 
-        if (newMstId === currentMstId) {
-            const newPending = { ...pendingAssignments };
-            delete newPending[ticketId];
-            setPendingAssignments(newPending);
-        } else {
+        if (newMstId !== currentMstId) {
+            // Optimistic Update
             setPendingAssignments(prev => ({
                 ...prev,
                 [ticketId]: newMstId
             }));
-        }
-    };
 
-    const handleBatchSave = async () => {
-        if (Object.keys(pendingAssignments).length === 0) return;
-        setIsSaving(true);
+            // Immediate Save
+            try {
+                setSavingTicketIds(prev => new Set(prev).add(ticketId));
+                const response = await fetch('/api/tickets/batch-assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignments: [{
+                            ticket_id: ticketId,
+                            assigned_to: newMstId
+                        }]
+                    })
+                });
 
-        try {
-            const response = await fetch('/api/tickets/batch-assign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assignments: Object.entries(pendingAssignments).map(([ticketId, mstId]) => ({
-                        ticket_id: ticketId,
-                        assigned_to: mstId
-                    }))
-                })
-            });
+                if (!response.ok) throw new Error('Failed to save assignment');
 
-            if (!response.ok) throw new Error('Failed to save assignments');
+                // Clear pending and saving for this ticket
+                setPendingAssignments(prev => {
+                    const next = { ...prev };
+                    delete next[ticketId];
+                    return next;
+                });
+                setSavingTicketIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(ticketId);
+                    return next;
+                });
 
-            setPendingAssignments({});
-            fetchFlowData();
-        } catch (err) {
-            console.error('[TicketFlowMap] Save error:', err);
-            setError('Failed to save assignments. Please try again.');
-        } finally {
-            setIsSaving(false);
+                // Refresh data to be sure
+                fetchFlowData();
+            } catch (err) {
+                console.error('[TicketFlowMap] Auto-save error:', err);
+                setError('Failed to save assignment. Reverting...');
+                // Revert optimistic update and clear saving
+                setPendingAssignments(prev => {
+                    const next = { ...prev };
+                    delete next[ticketId];
+                    return next;
+                });
+                setSavingTicketIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(ticketId);
+                    return next;
+                });
+            }
         }
     };
 
@@ -297,7 +383,6 @@ export default function TicketFlowMap({
         try {
             const endpoint = type === 'sla' ? '/api/cron/check-sla' : '/api/cron/check-diesel';
             await fetch(endpoint);
-            // Optionally show toast or just let the notification system handle it
         } catch (e) {
             console.error('Simulation failed', e);
         }
@@ -305,11 +390,49 @@ export default function TicketFlowMap({
 
     if (loading && !flowData) {
         return (
-            <div className="flex items-center justify-center h-full bg-background">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-                    <p className="text-text-tertiary text-sm font-medium">Loading Operational Map...</p>
+            <div className="flex flex-col h-full bg-background overflow-hidden">
+                <header className="px-6 py-4 border-b border-border bg-surface/50 flex justify-between items-center">
+                    <div className="flex gap-4">
+                        <Skeleton className="w-24 h-8" />
+                        <Skeleton className="w-48 h-8" />
+                    </div>
+                    <div className="flex gap-4">
+                        <Skeleton className="w-32 h-10" />
+                        <Skeleton className="w-10 h-10" />
+                    </div>
+                </header>
+                <div className="flex-1 flex overflow-hidden">
+                    <div className="w-80 border-r border-border p-6 space-y-4">
+                        {[1, 2, 3].map(i => <Skeleton key={i} className="w-full h-24" />)}
+                    </div>
+                    <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="space-y-4">
+                                <Skeleton className="w-full h-12" />
+                                <Skeleton className="w-full h-40" />
+                                <Skeleton className="w-full h-40" />
+                            </div>
+                        ))}
+                    </div>
                 </div>
+            </div>
+        );
+    }
+
+    if (error && !flowData) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-background p-6 text-center">
+                <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mb-4">
+                    <AlertCircle className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Ops! Something went wrong</h3>
+                <p className="text-text-secondary mb-6 max-w-md">{error}</p>
+                <button
+                    onClick={() => { setLoading(true); fetchFlowData(); }}
+                    className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-dark transition-all"
+                >
+                    <RefreshCw className="w-4 h-4" /> Try Again
+                </button>
             </div>
         );
     }
@@ -354,24 +477,7 @@ export default function TicketFlowMap({
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Batch Save Action */}
-                    <AnimatePresence>
-                        {Object.keys(pendingAssignments).length > 0 && (
-                            <motion.button
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                onClick={handleBatchSave}
-                                disabled={isSaving}
-                                className={`flex items-center gap-2 px-6 py-2 bg-success text-white rounded-lg font-black uppercase tracking-widest shadow-xl hover:brightness-110 active:scale-95 transition-all ${isSaving ? 'opacity-70 cursor-wait' : ''}`}
-                            >
-                                {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                <span>Save Changes ({Object.keys(pendingAssignments).length})</span>
-                            </motion.button>
-                        )}
-                    </AnimatePresence>
-
-                    <div className="relative hidden md:block">
+                    <div className="relative hidden xl:block">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
                         <input
                             type="text"
@@ -395,17 +501,20 @@ export default function TicketFlowMap({
                     <button
                         onClick={() => { setLoading(true); fetchFlowData(); }}
                         disabled={loading}
-                        className={`p-2.5 bg-primary text-text-inverse rounded-lg hover:brightness-110 shadow-lg transition-all ${loading ? 'opacity-80 cursor-wait' : ''}`}
+                        className={`p-2.5 bg-primary text-text-inverse rounded-lg hover:brightness-110 shadow-lg transition-all relative ${loading && flowData ? 'animate-pulse' : ''}`}
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        {loading && flowData && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-info rounded-full animate-ping" />
+                        )}
                     </button>
                 </div>
             </header>
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <main className="flex-1 overflow-x-auto overflow-y-hidden p-0 flex min-w-max bg-white relative">
+                <main className="flex-1 overflow-x-auto overflow-y-auto p-0 flex flex-col md:flex-row min-w-0 bg-white relative">
                     {/* Upstream Waitlist Feed */}
-                    <div className="w-80 flex flex-col bg-slate-50/50 border-r border-slate-200/60 z-20 relative overflow-hidden">
+                    <div className="w-full md:w-80 flex flex-col bg-slate-50/50 border-b md:border-b-0 md:border-r border-slate-200/60 z-20 relative overflow-hidden flex-shrink-0">
                         {/* Feed Flow Visual */}
                         <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-r from-transparent to-warning/5 pointer-events-none" />
                         <div className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full flex items-center justify-center z-30 shadow-sm">
@@ -413,11 +522,15 @@ export default function TicketFlowMap({
                         </div>
 
                         <div className="p-6 relative z-10 h-full flex flex-col">
-                            <WaitlistLane tickets={derivedFlowData?.waitlist || []} onTicketClick={handleTicketClick} />
+                            <WaitlistLane
+                                tickets={derivedFlowData?.waitlist || []}
+                                onTicketClick={handleTicketClick}
+                                savingTicketIds={savingTicketIds}
+                            />
                         </div>
                     </div>
 
-                    <div className="flex flex-1">
+                    <div className="flex flex-1 flex-col md:flex-row min-w-0 overflow-x-auto custom-scrollbar">
                         {TEAM_CONFIG.map((team) => {
                             const mstsInTeam = filteredMstGroups.filter(g => {
                                 if (team.id === 'housekeeping') {
@@ -437,7 +550,7 @@ export default function TicketFlowMap({
                                 team.id === 'plumbing' ? 'text-success' : 'text-error';
 
                             return (
-                                <div key={team.id} className="w-[400px] flex flex-col border-r border-slate-100 last:border-r-0 relative group/dept">
+                                <div key={team.id} className="w-full md:w-[400px] flex flex-col border-b md:border-b-0 md:border-r border-slate-100 last:border-r-0 relative group/dept flex-shrink-0">
                                     {/* Department Vertical Rail Backdrop */}
                                     <div className="absolute inset-0 bg-slate-50/30 opacity-100 transition-opacity pointer-events-none" />
 
@@ -467,6 +580,7 @@ export default function TicketFlowMap({
                                                     key={group.mst.id}
                                                     mst={group.mst}
                                                     tickets={group.tickets}
+                                                    savingTicketIds={savingTicketIds}
                                                     onTicketClick={handleTicketClick}
                                                     onMstClick={handleMstClick}
                                                 />

@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 
 interface TicketNodeProps {
     id: string;
@@ -11,6 +12,7 @@ interface TicketNodeProps {
     description?: string;
     assignedToName?: string;
     onClick?: () => void;
+    isSaving?: boolean;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; symbol: string }> = {
@@ -35,8 +37,16 @@ export default function TicketNode({
     description,
     assignedToName,
     onClick,
+    isSaving,
 }: TicketNodeProps) {
     const [isHovered, setIsHovered] = useState(false);
+
+    // DND Kit Draggable
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: id,
+        disabled: isSaving,
+    });
+
     const config = statusConfig[status.toLowerCase()] || statusConfig.waitlist;
     const shortId = ticketNumber.replace('T-', '').slice(-4);
 
@@ -45,15 +55,29 @@ export default function TicketNode({
         ? assignedToName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
         : null;
 
+    const style = transform ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 1000,
+    } : undefined;
+
     return (
-        <div className="relative">
+        <div
+            className="relative"
+            ref={setNodeRef}
+            style={style}
+            {...listeners}
+            {...attributes}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (!isDragging && onClick) onClick();
+            }}
+        >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                animate={{ scale: isDragging ? 1.05 : 1, opacity: isDragging ? 0.8 : 1 }}
                 whileHover={{ scale: 1.1, zIndex: 50 }}
                 onHoverStart={() => setIsHovered(true)}
                 onHoverEnd={() => setIsHovered(false)}
-                onClick={onClick}
                 className="flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden relative shadow-sm"
                 style={{
                     backgroundColor: config.bg,
@@ -65,16 +89,25 @@ export default function TicketNode({
                 }}
             >
                 <div className="flex flex-col items-center justify-center leading-none">
-                    <div className="flex items-center gap-1">
-                        <span className="text-[14px] font-black uppercase tracking-tighter">
-                            {config.symbol}
-                        </span>
-                        {mstInitials && (
-                            <span className="text-[10px] font-black opacity-90 bg-black/10 px-1.5 rounded-sm">
-                                {mstInitials}
+                    {isSaving ? (
+                        <div className="animate-spin mb-1">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1">
+                            <span className="text-[14px] font-black uppercase tracking-tighter">
+                                {config.symbol}
                             </span>
-                        )}
-                    </div>
+                            {mstInitials && (
+                                <span className="text-[10px] font-black opacity-90 bg-black/10 px-1.5 rounded-sm">
+                                    {mstInitials}
+                                </span>
+                            )}
+                        </div>
+                    )}
                     <span className="text-[9px] font-bold opacity-80 mt-0.5">
                         #{shortId}
                     </span>
@@ -85,10 +118,10 @@ export default function TicketNode({
             <AnimatePresence>
                 {isHovered && (title || description) && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-surface-elevated border border-border rounded-xl shadow-2xl z-[100] pointer-events-none"
+                        exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                        className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-3 bg-surface-elevated border border-border rounded-xl shadow-2xl z-[100] pointer-events-none"
                     >
                         {title && (
                             <div className="text-[11px] font-black text-text-primary mb-1 line-clamp-2 leading-tight uppercase tracking-tight">
@@ -110,7 +143,7 @@ export default function TicketNode({
                                 </span>
                             </div>
                         )}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-surface-elevated border-b border-r border-border rotate-45 -mt-1" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-2 h-2 bg-surface-elevated border-t border-l border-border rotate-45 -mb-1" />
                     </motion.div>
                 )}
             </AnimatePresence>

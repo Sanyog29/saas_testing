@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
+import TicketCard from '@/frontend/components/shared/TicketCard';
 
 interface Ticket {
     id: string;
@@ -16,10 +17,12 @@ interface Ticket {
     category: string;
     status: string;
     priority: string;
+    ticket_number: string;
     created_at: string;
     updated_at: string;
     resolved_at: string | null;
     raised_by?: string;
+    assigned_to?: string;
     organization: { id: string; name: string; code: string };
     property: { id: string; name: string; code: string } | null;
     creator: { id: string; full_name: string; email: string };
@@ -218,15 +221,15 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
     return (
         <div className="space-y-6">
             {/* Header with Filters */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-display font-bold text-text-primary">Support Tickets</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <h3 className="text-xl font-display font-bold text-text-primary whitespace-nowrap">Support Tickets</h3>
                     <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-text-tertiary" />
+                        <Filter className="w-4 h-4 text-text-tertiary shrink-0" />
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="h-9 px-3 bg-surface border border-border rounded-[var(--radius-md)] text-xs font-semibold font-body text-text-primary transition-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary hover:border-primary/50"
+                            className="h-9 w-full sm:w-auto px-3 bg-surface border border-border rounded-[var(--radius-md)] text-xs font-semibold font-body text-text-primary transition-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary hover:border-primary/50"
                         >
                             <option value="all">All</option>
                             <option value="resolved,closed">Completed</option>
@@ -235,25 +238,25 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                         </select>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                     <button
                         onClick={() => router.push(`/property/${propertyId}/flow-map`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-[var(--radius-md)] border border-secondary/20 hover:bg-secondary/20 transition-smooth"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-secondary/10 text-secondary text-[10px] sm:text-xs font-bold rounded-[var(--radius-md)] border border-secondary/20 hover:bg-secondary/20 transition-all active:scale-[0.98]"
                         title="View Operational Flow Map"
                     >
-                        <Activity className="w-4 h-4" /> Live Flow Map
+                        <Activity className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Live Flow Map</span>
                     </button>
                     {onNewRequest && (
                         <button
                             onClick={onNewRequest}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-text-inverse text-xs font-bold rounded-[var(--radius-md)] hover:opacity-90 transition-smooth shadow-lg shadow-primary/20"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-primary text-text-inverse text-[10px] sm:text-xs font-bold rounded-[var(--radius-md)] hover:opacity-90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
                         >
-                            <Plus className="w-4 h-4" /> New Request
+                            <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">New Request</span>
                         </button>
                     )}
                     <button
                         onClick={fetchTickets}
-                        className="p-2 hover:bg-surface-elevated rounded-[var(--radius-md)] transition-smooth"
+                        className="p-2 bg-surface-elevated/50 hover:bg-surface-elevated rounded-[var(--radius-md)] transition-smooth shrink-0"
                     >
                         <RefreshCw className="w-4 h-4 text-text-secondary" />
                     </button>
@@ -267,109 +270,26 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                 ) : tickets.length === 0 ? (
                     <div className="p-12 text-center text-text-tertiary font-body">No tickets found</div>
                 ) : (
-                    <div className="divide-y divide-border/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 p-3 sm:p-6">
                         {tickets.map((ticket) => (
-                            <motion.div
+                            <TicketCard
                                 key={ticket.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.2 }}
-                                className="p-6 hover:bg-surface-elevated/30 transition-smooth cursor-pointer"
+                                id={ticket.id}
+                                title={ticket.title}
+                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                status={
+                                    ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
+                                        ticket.status === 'in_progress' ? 'IN_PROGRESS' :
+                                            ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
+                                }
+                                ticketNumber={ticket.ticket_number}
+                                createdAt={ticket.created_at}
+                                assignedTo={ticket.assignee?.full_name}
+                                photoUrl={ticket.photo_before_url}
                                 onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
-                            >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <h4 className="font-display font-semibold text-text-primary">{ticket.title}</h4>
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-[var(--radius-sm)] border font-body ${getPriorityColor(ticket.priority)}`}>
-                                                {ticket.priority}
-                                            </span>
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-[var(--radius-sm)] border font-body ${getStatusColor(ticket.status)}`}>
-                                                {ticket.status === 'closed' || ticket.status === 'resolved' ? 'COMPLETE' : ticket.status.replace('_', ' ')}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-4 mt-3">
-                                            {ticket.photo_before_url && (
-                                                <div className="shrink-0 relative group/thumb">
-                                                    <img src={ticket.photo_before_url} alt="Site" className="w-16 h-16 rounded-lg object-cover border border-border/10" />
-                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-lg transition-smooth">
-                                                        <Camera className="w-4 h-4 text-white" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm text-text-secondary font-body mb-3 line-clamp-2">{ticket.description}</p>
-                                                <div className="flex items-center gap-4 text-xs text-text-tertiary font-body">
-                                                    <div className="flex items-center gap-1">
-                                                        <Building2 className="w-3 h-3" />
-                                                        {ticket.organization?.name || 'N/A'}
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <User className="w-3 h-3" />
-                                                        {ticket.creator?.full_name || 'System'}
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock className="w-3 h-3" />
-                                                        {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}
-                                                    </div>
-                                                    {ticket.photo_before_url && (
-                                                        <div className="flex items-center gap-1 text-primary font-bold ml-auto px-2 py-0.5 rounded-full bg-primary/5 border border-primary/10">
-                                                            <Camera className="w-3 h-3" />
-                                                            SITE PHOTO
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {ticket.status === 'open' && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleUpdateStatus(ticket.id, 'in_progress');
-                                                }}
-                                                className="px-3 py-1.5 bg-info text-text-inverse text-xs font-semibold rounded-[var(--radius-md)] hover:opacity-90 transition-smooth border border-info"
-                                            >
-                                                Start
-                                            </button>
-                                        )}
-                                        {ticket.status === 'in_progress' && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleUpdateStatus(ticket.id, 'resolved');
-                                                }}
-                                                className="px-3 py-1.5 bg-success text-text-inverse text-xs font-semibold rounded-[var(--radius-md)] hover:opacity-90 transition-smooth border border-success"
-                                            >
-                                                Resolve
-                                            </button>
-                                        )}
-                                        <div className="flex flex-col gap-2 items-end">
-                                            {/* Edit Button - Only for user's own tickets */}
-                                            {canEditTicket(ticket) && !['closed', 'resolved'].includes(ticket.status) && (
-                                                <button
-                                                    onClick={(e) => handleEditClick(e, ticket)}
-                                                    className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-smooth"
-                                                    title="Edit Request"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                            {canDelete && (
-                                                <button
-                                                    onClick={(e) => handleDelete(e, ticket.id)}
-                                                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-smooth"
-                                                    title="Delete Ticket"
-                                                >
-                                                    <XCircle className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                            <ChevronRight className="w-5 h-5 text-text-tertiary" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
+                                onEdit={canEditTicket(ticket) && !['closed', 'resolved'].includes(ticket.status) ? (e) => handleEditClick(e, ticket) : undefined}
+                                onDelete={canDelete ? (e) => handleDelete(e, ticket.id) : undefined}
+                            />
                         ))}
                     </div>
                 )}

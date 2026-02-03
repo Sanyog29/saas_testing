@@ -14,14 +14,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if user is master admin (Server-side check)
-        const { data: profile } = await supabase
+        // Check if user is master admin using admin client to bypass RLS
+        const { createAdminClient } = await import('@/frontend/utils/supabase/admin');
+        const adminClient = createAdminClient();
+        const { data: profile } = await adminClient
             .from('users')
-            .select('role')
+            .select('is_master_admin')
             .eq('id', user.id)
             .single();
 
-        if (profile?.role !== 'master_admin') {
+        if (!profile?.is_master_admin) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 

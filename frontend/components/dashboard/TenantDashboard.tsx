@@ -12,12 +12,15 @@ import { useAuth } from '@/frontend/context/AuthContext';
 import { useTheme } from '@/frontend/context/ThemeContext';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import NextImage from 'next/image';
+import { useDataCache } from '@/frontend/context/DataCacheContext';
+import Skeleton from '@/frontend/components/ui/Skeleton';
 import SignOutModal from '@/frontend/components/ui/SignOutModal';
 import DieselStaffDashboard from '@/frontend/components/diesel/DieselStaffDashboard';
 import VMSAdminDashboard from '@/frontend/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicketingDashboard';
 import SettingsView from './SettingsView';
 import Loader from '@/frontend/components/ui/Loader';
+import TicketCard from '@/frontend/components/shared/TicketCard';
 
 // Types
 type Tab = 'overview' | 'requests' | 'create_request' | 'visitors' | 'settings' | 'profile';
@@ -56,6 +59,8 @@ const TenantDashboard = () => {
     const [errorMsg, setErrorMsg] = useState('');
     const [showSignOutModal, setShowSignOutModal] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { getCachedData, setCachedData } = useDataCache();
+    const cacheKeyPrefix = `tenant-${propertyId}`;
     const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
     const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
     const [isFetchingTickets, setIsFetchingTickets] = useState(false);
@@ -96,21 +101,35 @@ const TenantDashboard = () => {
     }, [propertyId]);
 
     const fetchPropertyDetails = async () => {
-        setIsLoading(true);
+        const cached = getCachedData(`${cacheKeyPrefix}-property`);
+        if (cached) {
+            setProperty(cached);
+            setIsLoading(false);
+            // Don't return, still fetch background to update cache
+        } else {
+            setIsLoading(true);
+        }
+
         setErrorMsg('');
 
-        const { data, error } = await supabase
-            .from('properties')
-            .select('*')
-            .eq('id', propertyId)
-            .maybeSingle();
+        try {
+            const { data, error } = await supabase
+                .from('properties')
+                .select('*')
+                .eq('id', propertyId)
+                .maybeSingle();
 
-        if (error || !data) {
-            setErrorMsg('Property not found.');
-        } else {
-            setProperty(data);
+            if (error || !data) {
+                setErrorMsg('Property not found.');
+            } else {
+                setProperty(data);
+                setCachedData(`${cacheKeyPrefix}-property`, data);
+            }
+        } catch (err) {
+            setErrorMsg('Network error.');
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     const fetchTickets = async () => {
@@ -169,6 +188,24 @@ const TenantDashboard = () => {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this request?')) return;
+        try {
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                fetchTickets();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to delete ticket');
+            }
+        } catch (error) {
+            console.error('Delete ticket error:', error);
+        }
+    };
+
     const handleEditClick = (e: React.MouseEvent, ticket: Ticket) => {
         e.stopPropagation();
         setEditingTicket(ticket);
@@ -176,9 +213,29 @@ const TenantDashboard = () => {
         setEditDescription(ticket.description);
     };
 
-    if (isLoading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-            <Loader size="lg" text="Loading your dashboard..." />
+    if (isLoading && !property) return (
+        <div className="min-h-screen bg-background flex">
+            {/* Sidebar Skeleton */}
+            <aside className="w-64 border-r border-border p-6 space-y-6 hidden lg:block bg-white">
+                <Skeleton className="w-full h-12" />
+                <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="w-full h-10" />)}
+                </div>
+            </aside>
+            <main className="flex-1">
+                <header className="h-16 border-b border-border px-6 flex items-center justify-between bg-white">
+                    <Skeleton className="w-32 h-6" />
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                </header>
+                <div className="p-8 space-y-6">
+                    <Skeleton className="w-64 h-10" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <Skeleton className="h-32" />
+                        <Skeleton className="h-32" />
+                        <Skeleton className="h-32" />
+                    </div>
+                </div>
+            </main>
         </div>
     );
 
@@ -191,7 +248,7 @@ const TenantDashboard = () => {
     );
 
     return (
-        <div className="min-h-screen bg-white font-inter text-text-primary">
+        <div className="min-h-screen bg-white font-inter text-text-primary flex">
 
             {/* Mobile Menu Button - Fixed position */}
             <button
@@ -219,11 +276,11 @@ const TenantDashboard = () => {
             <AnimatePresence>
                 {sidebarOpen && (
                     <motion.aside
-                        initial={{ x: '-100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '-100%' }}
+                        initial={{ y: '-100%', opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: '-100%', opacity: 0 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-border flex flex-col z-50 shadow-2xl"
+                        className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-border flex flex-col z-50 shadow-2xl"
                     >
                         {/* Close Button */}
                         <button
@@ -370,8 +427,8 @@ const TenantDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-h-screen bg-[#fafafa]">
-                <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-24 pb-12">
+            <main className="flex-1 flex flex-col bg-[#fafafa]">
+                <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-8 pb-12">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -386,6 +443,7 @@ const TenantDashboard = () => {
                                     onNavigate={handleTabChange}
                                     isLoading={isFetchingTickets}
                                     onEditClick={handleEditClick}
+                                    onDeleteClick={handleDelete}
                                 />
                             )}
                             {activeTab === 'create_request' && property && user && (
@@ -708,86 +766,10 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
 };
 
 // Helper Sub-component for Ticket Row (MST Style)
-const TicketRow = ({ ticket, onTicketClick, isCompleted, onEditClick, currentUserId }: { ticket: Ticket, onTicketClick?: (id: string) => void, isCompleted?: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, currentUserId?: string }) => (
-    <div
-        onClick={() => onTicketClick?.(ticket.id)}
-        className={`bg-white border rounded-2xl p-5 transition-all group cursor-pointer ${isCompleted ? 'opacity-75 grayscale-[0.3] border-slate-200' : 'border-slate-100 hover:border-primary/50 shadow-sm hover:shadow-md'}`}
-    >
-        <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 ${isCompleted ? 'bg-slate-100' : 'bg-primary/10'} rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110`}>
-                    <MessageSquare className={`w-6 h-6 ${isCompleted ? 'text-slate-400' : 'text-primary'}`} />
-                </div>
-                <div>
-                    <h3 className={`text-lg font-bold truncate max-w-[300px] md:max-w-md ${isCompleted ? 'text-slate-500' : 'text-slate-900'} transition-colors group-hover:text-primary`}>{ticket.title}</h3>
-                    <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">#{ticket.ticket_number}</span>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-[10px] font-bold text-slate-500">{new Date(ticket.created_at).toLocaleDateString()}</span>
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center gap-3">
-                <span className={`text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider border ${ticket.priority === 'high' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                    ticket.priority === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                        'bg-blue-50 text-blue-600 border-blue-100'
-                    }`}>
-                    {ticket.priority}
-                </span>
-
-                {/* Edit Button - Only for user's own tickets */}
-                {ticket.raised_by === currentUserId && !isCompleted && onEditClick && (
-                    <button
-                        onClick={(e) => onEditClick(e, ticket)}
-                        className="p-2 px-4 text-primary bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/10 transition-smooth flex items-center gap-2"
-                        title="Edit Request"
-                    >
-                        <Pencil className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Edit</span>
-                    </button>
-                )}
-
-                <button
-                    className={`text-[11px] font-black px-5 py-2 rounded-xl transition-all uppercase tracking-widest ${isCompleted ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white shadow-lg shadow-slate-200 hover:bg-black'}`}
-                >
-                    View
-                </button>
-            </div>
-        </div>
-
-        <div className="flex gap-5">
-            {ticket.photo_before_url && (
-                <div className="relative group/thumb shrink-0">
-                    <img
-                        src={ticket.photo_before_url}
-                        alt="Before"
-                        className="w-20 h-20 rounded-xl object-cover border border-slate-100 group-hover/thumb:border-primary transition-colors"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-xl transition-opacity">
-                        <Camera className="w-5 h-5 text-white" />
-                    </div>
-                </div>
-            )}
-            <div className="flex-1 min-w-0">
-                <p className={`text-sm ${isCompleted ? 'text-slate-400' : 'text-slate-600'} line-clamp-2 leading-relaxed`}>{ticket.description}</p>
-                <div className="mt-4 flex items-center gap-4">
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest ${isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {ticket.status.replace('_', ' ')}
-                    </span>
-                    {ticket.photo_before_url && (
-                        <span className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest">
-                            <Camera className="w-3.5 h-3.5" />
-                            Evidence Logged
-                        </span>
-                    )}
-                </div>
-            </div>
-        </div>
-    </div>
-);
+// Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
 
 // Requests Tab for Tenant
-const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, onEditClick }: { activeTickets: Ticket[], completedTickets: Ticket[], onNavigate: (tab: Tab) => void, isLoading: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void }) => {
+const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, onEditClick, onDeleteClick }: { activeTickets: Ticket[], completedTickets: Ticket[], onNavigate: (tab: Tab) => void, isLoading: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void }) => {
     const { user } = useAuth();
     const router = useRouter();
 
@@ -835,14 +817,20 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                         </button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         {activeTickets.map(ticket => (
-                            <TicketRow
+                            <TicketCard
                                 key={ticket.id}
-                                ticket={ticket}
-                                onTicketClick={(id) => router.push(`/tickets/${id}?from=requests`)}
-                                onEditClick={onEditClick}
-                                currentUserId={user?.id}
+                                id={ticket.id}
+                                title={ticket.title}
+                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                status={ticket.status.toUpperCase() as any || 'OPEN'}
+                                ticketNumber={ticket.ticket_number}
+                                createdAt={ticket.created_at}
+                                photoUrl={ticket.photo_before_url}
+                                onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
+                                onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
                             />
                         ))}
                     </div>
@@ -856,13 +844,19 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recently Resolved ({completedTickets.length})</h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         {completedTickets.map(ticket => (
-                            <TicketRow
+                            <TicketCard
                                 key={ticket.id}
-                                ticket={ticket}
-                                isCompleted
-                                onTicketClick={(id) => router.push(`/tickets/${id}?from=requests`)}
+                                id={ticket.id}
+                                title={ticket.title}
+                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                status="COMPLETED"
+                                ticketNumber={ticket.ticket_number}
+                                createdAt={ticket.created_at}
+                                photoUrl={ticket.photo_before_url}
+                                onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
+                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
                             />
                         ))}
                     </div>

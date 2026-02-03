@@ -9,83 +9,77 @@ import BuildingStory from '@/frontend/components/landing/BuildingStory';
 import Loader from '@/frontend/components/ui/Loader';
 
 export default function Home() {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, membership, isMembershipLoading, signOut } = useAuth();
     const router = useRouter();
     const [isRedirecting, setIsRedirecting] = useState(false);
 
     useEffect(() => {
         const handleAuthRedirect = async () => {
-            if (isLoading || !user) return;
-
-            setIsRedirecting(true);
-            const supabase = createClient();
-
-            try {
-                // Check if master admin
-                const { data: userProfile } = await supabase
-                    .from('users')
-                    .select('is_master_admin')
-                    .eq('id', user.id)
-                    .single();
-
-                if (userProfile?.is_master_admin) {
-                    router.replace('/master');
-                    return;
-                }
-
-                // Check org membership
-                const { data: orgMembership } = await supabase
-                    .from('organization_memberships')
-                    .select('organization_id, role')
-                    .eq('user_id', user.id)
-                    .eq('role', 'org_super_admin')
-                    .eq('is_active', true)
-                    .maybeSingle();
-
-                if (orgMembership) {
-                    router.replace(`/org/${orgMembership.organization_id}/dashboard`);
-                    return;
-                }
-
-                // Check property membership
-                const { data: propMembership } = await supabase
-                    .from('property_memberships')
-                    .select('property_id, role')
-                    .eq('user_id', user.id)
-                    .eq('is_active', true)
-                    .maybeSingle();
-
-                if (propMembership) {
-                    const { property_id, role } = propMembership;
-
-                    if (role === 'property_admin') {
-                        router.replace(`/property/${property_id}/dashboard`);
-                    } else if (role === 'tenant') {
-                        router.replace(`/property/${property_id}/tenant`);
-                    } else if (role === 'security') {
-                        router.replace(`/property/${property_id}/security`);
-                    } else if (role === 'staff') {
-                        router.replace(`/property/${property_id}/staff`);
-                    } else if (role === 'mst') {
-                        router.replace(`/property/${property_id}/mst`);
-                    } else if (role === 'vendor') {
-                        router.replace(`/property/${property_id}/vendor`);
-                    } else {
-                        router.replace(`/property/${property_id}/dashboard`);
-                    }
-                    return;
-                }
-
-                // No membership found - redirect to login
+            // Only proceed if auth and membership are fully loaded
+            if (isLoading || isMembershipLoading) return;
+            if (!user) {
                 setIsRedirecting(false);
-            } catch (error) {
-                console.error('Error during auth redirect:', error);
-                setIsRedirecting(false);
+                return;
             }
+
+            // At this point, user is logged in. 
+            // We check for membership data provided by context.
+            setIsRedirecting(true);
+
+            // 1. Check if user is master admin (we still check this from DB as it's sensitive and not in membership)
+            const supabase = createClient();
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('is_master_admin')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            if (userProfile?.is_master_admin) {
+                router.replace('/master');
+                return;
+            }
+
+            // 2. Check Org Membership from context
+            if (membership?.org_role === 'org_super_admin' && membership?.org_id) {
+                router.replace(`/org/${membership.org_id}/dashboard`);
+                return;
+            }
+
+            // 3. Check Property Memberships from context
+            if (membership?.properties && membership.properties.length > 0) {
+                // Determine the best property/role to redirect to
+                // For now, take the first one
+                const prop = membership.properties[0];
+                const { id: property_id, role } = prop;
+
+                if (role === 'property_admin') {
+                    router.replace(`/property/${property_id}/dashboard`);
+                } else if (role === 'tenant') {
+                    router.replace(`/property/${property_id}/tenant`);
+                } else if (role === 'security') {
+                    router.replace(`/property/${property_id}/security`);
+                } else if (role === 'staff') {
+                    router.replace(`/property/${property_id}/staff`);
+                } else if (role === 'mst') {
+                    router.replace(`/property/${property_id}/mst`);
+                } else if (role === 'vendor') {
+                    router.replace(`/property/${property_id}/vendor`);
+                } else {
+                    router.replace(`/property/${property_id}/dashboard`);
+                }
+                return;
+            }
+
+            // 4. NO MEMBERSHIP FOUND - Purgatory state
+            // If the user has a session but no membership, we MUST sign them out.
+            // This prevents the redirect loop: Middleware -> /login -> / -> Landing (Logged In) -> Login -> Loop
+            console.warn('User logged in but no memberships found. Force signing out to prevent loop.');
+            await signOut();
+            setIsRedirecting(false);
         };
 
         handleAuthRedirect();
-    }, [user, isLoading, router]);
+    }, [user, isLoading, isMembershipLoading, membership, router, signOut]);
 
     // Show loader while checking auth or redirecting
     if (isLoading || isRedirecting) {

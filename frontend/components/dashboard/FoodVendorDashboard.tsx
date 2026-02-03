@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
     IndianRupee, LogOut, CheckCircle2, LayoutDashboard,
     FileDown, Clock, Store, Percent, Wallet, ChevronRight, X, History,
-    UserCircle, Settings, Mail, Phone, Building, Save, Loader2, Camera
+    UserCircle, Settings, Mail, Phone, Building, Save, Loader2, Camera, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -82,7 +82,7 @@ const FoodVendorDashboard = () => {
                 .from('vendors')
                 .select('*, properties(name)')
                 .eq('user_id', user?.id)
-                .single();
+                .maybeSingle();
 
             if (vendorError || !vendorData) {
                 console.error('Error fetching vendor:', vendorError);
@@ -105,23 +105,25 @@ const FoodVendorDashboard = () => {
                 .select('*')
                 .eq('vendor_id', vendorData.id)
                 .eq('status', 'in_progress')
-                .single();
+                .maybeSingle();
 
             if (cycleData) {
                 setCurrentCycle(cycleData);
             }
 
-            // 3. Check today's entry
+            // 3. Just fetch initial view based on whether today exists, 
+            // but don't force lock-out. We'll show the dashboard by default if today exists,
+            // but still allow alternate date entries.
             const todayStr = new Date().toISOString().split('T')[0];
             const { data: entryData } = await supabase
                 .from('vendor_daily_revenue')
                 .select('id')
                 .eq('vendor_id', vendorData.id)
-                .eq('revenue_date', todayStr)
+                .eq('entry_date', todayStr)
                 .maybeSingle();
 
             if (entryData) {
-                setViewState('already_submitted');
+                setViewState('dashboard');
             } else {
                 setViewState('entry');
             }
@@ -131,7 +133,7 @@ const FoodVendorDashboard = () => {
                 .from('vendor_daily_revenue')
                 .select('*')
                 .eq('vendor_id', vendorData.id)
-                .order('revenue_date', { ascending: false })
+                .order('entry_date', { ascending: false })
                 .limit(30);
 
             if (historyData) {
@@ -144,7 +146,7 @@ const FoodVendorDashboard = () => {
 
                     const filteredRevenue = historyData
                         .filter(entry => {
-                            const d = new Date(entry.revenue_date);
+                            const d = new Date(entry.entry_date || entry.revenue_date);
                             return d >= start && d <= end;
                         })
                         .reduce((sum, entry) => sum + entry.revenue_amount, 0);
@@ -190,17 +192,26 @@ const FoodVendorDashboard = () => {
                 }),
             });
 
-            const data = await response.json();
+            let data;
+            const text = await response.text();
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.error('Failed to parse response:', text);
+                data = { error: 'Invalid response from server' };
+            }
 
             if (!response.ok) {
                 if (data.alreadySubmitted) {
-                    setViewState('already_submitted');
+                    alert(`Revenue for ${new Date(entryDate).toLocaleDateString()} has already been recorded.`);
                     return;
                 }
-                throw new Error(data.error);
+                throw new Error(data.error || 'Submission failed');
             }
 
+            // After success, go to success screen which allows navigating back or to dashboard
             setViewState('already_submitted');
+            setRevenue(''); // Reset revenue for next entry
             // Refresh cycle data
             initializeDashboard();
         } catch (err) {
@@ -335,10 +346,12 @@ const FoodVendorDashboard = () => {
                         className="max-w-md w-full"
                     >
                         <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2 leading-tight">
-                            Please enter revenue for <br />
-                            <span className="text-indigo-600">{todayDate}</span>
+                            Record Revenue for <br />
+                            <span className="text-indigo-600">
+                                {new Date(entryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
                         </h1>
-                        <p className="text-slate-500 font-medium mb-12">Total daily collection from all sales.</p>
+                        <p className="text-slate-500 font-medium mb-12">Select any date to record historical or daily revenue.</p>
 
                         <div className="relative mb-8 space-y-4">
                             <div className="flex items-center justify-center gap-4 mb-4">
@@ -378,10 +391,22 @@ const FoodVendorDashboard = () => {
                 </main>
                 <footer className="p-8 flex justify-center gap-8 border-t border-slate-50">
                     <button
-                        onClick={() => setViewState('dashboard')}
+                        onClick={() => {
+                            setViewState('dashboard');
+                            setActiveTab('portal');
+                        }}
                         className="text-slate-400 font-bold text-sm flex items-center gap-2 hover:text-indigo-600 transition-colors"
                     >
                         <LayoutDashboard className="w-4 h-4" /> View Dashboard
+                    </button>
+                    <button
+                        onClick={() => {
+                            setViewState('dashboard');
+                            setActiveTab('history');
+                        }}
+                        className="text-slate-400 font-bold text-sm flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                    >
+                        <History className="w-4 h-4" /> View History
                     </button>
                     <button
                         onClick={() => setShowSignOutModal(true)}
@@ -421,19 +446,19 @@ const FoodVendorDashboard = () => {
                         <div className="space-y-4">
                             <button
                                 onClick={() => {
-                                    setViewState('dashboard');
-                                    setActiveTab('history');
+                                    setViewState('entry');
+                                    setRevenue('');
                                 }}
                                 className="w-full bg-white text-indigo-600 py-5 rounded-2xl font-black text-lg hover:bg-indigo-50 transition-all shadow-lg"
                             >
-                                View History
+                                Record Another Day
                             </button>
                             <button
                                 onClick={() => {
                                     setViewState('dashboard');
                                     setActiveTab('portal');
                                 }}
-                                className="w-full bg-white text-indigo-600 py-5 rounded-2xl font-black text-lg hover:bg-indigo-50 transition-all shadow-lg"
+                                className="w-full bg-indigo-700/50 text-white py-5 rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all border border-indigo-500/30"
                             >
                                 View Dashboard
                             </button>
@@ -527,7 +552,7 @@ const FoodVendorDashboard = () => {
                 </div>
             </aside>
 
-            <main className="flex-1 ml-72 p-12">
+            <main className="flex-1 ml-0 lg:ml-72 p-12">
                 <header className="mb-12 flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-900">
@@ -544,13 +569,22 @@ const FoodVendorDashboard = () => {
                         </p>
                     </div>
                     {activeTab === 'history' && (
-                        <button
-                            onClick={() => setShowExportModal(true)}
-                            className="px-6 py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-black flex items-center gap-2 hover:bg-slate-50 transition-all text-sm"
-                        >
-                            <FileDown className="w-4 h-4" />
-                            Export History
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setViewState('entry')}
+                                className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 text-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Record Missing Date
+                            </button>
+                            <button
+                                onClick={() => setShowExportModal(true)}
+                                className="px-6 py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-black flex items-center gap-2 hover:bg-slate-50 transition-all text-sm"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                Export History
+                            </button>
+                        </div>
                     )}
                     {activeTab === 'portal' && (
                         <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
@@ -654,6 +688,13 @@ const FoodVendorDashboard = () => {
 
                             <div className="flex items-center gap-4">
                                 <button
+                                    onClick={() => setViewState('entry')}
+                                    className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Record Revenue
+                                </button>
+                                <button
                                     onClick={() => setShowPaymentModal(true)}
                                     className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                                 >
@@ -698,7 +739,7 @@ const FoodVendorDashboard = () => {
                                             history.map((entry) => (
                                                 <tr key={entry.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-8 py-5 font-bold text-slate-900">
-                                                        {new Date(entry.revenue_date).toLocaleDateString('en-IN', {
+                                                        {new Date(entry.entry_date || entry.revenue_date).toLocaleDateString('en-IN', {
                                                             day: 'numeric',
                                                             month: 'short',
                                                             year: 'numeric'

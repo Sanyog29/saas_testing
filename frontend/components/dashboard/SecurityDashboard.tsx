@@ -195,7 +195,7 @@ const SecurityDashboard = () => {
             <aside className={`
                 w-72 bg-white border-r border-border flex flex-col h-screen z-50 transition-all duration-300
                 fixed lg:sticky top-0
-                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
             `}>
                 {/* Mobile Close Button */}
                 <button
@@ -386,7 +386,7 @@ const SecurityDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-0 flex flex-col min-h-screen bg-white">
+            <main className="flex-1 lg:ml-0 flex flex-col bg-white">
                 {/* Top Header */}
                 <header className="h-16 bg-white border-b border-border flex items-center justify-between px-4 md:px-8 lg:px-12 sticky top-0 z-30">
                     <div className="flex items-center gap-4">
@@ -414,7 +414,7 @@ const SecurityDashboard = () => {
                     </div>
                 </header>
 
-                <div className="p-4 md:p-8 lg:p-12 pt-6">
+                <div className="flex-1 p-4 md:p-8 lg:p-12 pt-6">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}

@@ -86,8 +86,9 @@ export async function middleware(request: NextRequest) {
                         request.cookies.set(name, value)
                         response.cookies.set(name, value, {
                             ...options,
-                            // Secure cookie settings for production
-                            httpOnly: true,
+                            // Set httpOnly to false so that the client-side Supabase SDK 
+                            // can synchronize and handle refreshes correctly.
+                            httpOnly: false,
                             secure: process.env.NODE_ENV === 'production',
                             sameSite: 'lax',
                         })

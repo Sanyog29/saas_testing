@@ -395,7 +395,7 @@ const OrgAdminDashboard = () => {
             <aside className={`
                 w-72 bg-white border-r border-border flex flex-col h-screen z-50 transition-all duration-300
                 fixed lg:sticky top-0
-                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
             `}>
                 {/* Mobile Close Button */}
                 <button
@@ -627,7 +627,7 @@ const OrgAdminDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className={`flex-1 lg:ml-0 overflow-y-auto min-h-screen bg-white transition-all duration-300 ${activeTab === 'overview' ? '' : 'pt-16 lg:pt-0 p-4 md:p-8 lg:p-12'}`}>
+            <main className={`flex-1 lg:ml-0 bg-white transition-all duration-300 ${activeTab === 'overview' ? '' : 'pt-16 lg:pt-0 p-4 md:p-8 lg:p-12'}`}>
                 {/* Only show header for non-overview tabs */}
                 {activeTab !== 'overview' && (
                     <header className="fixed top-0 left-0 right-0 lg:static h-16 bg-white border-b border-border/10 flex justify-between items-center px-4 md:px-8 lg:px-0 mb-10 z-30">

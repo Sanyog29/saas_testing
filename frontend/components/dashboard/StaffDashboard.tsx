@@ -22,9 +22,11 @@ import SettingsView from './SettingsView';
 import { ShiftToast } from '@/frontend/components/mst/ShiftStatus';
 import { checkInResolver } from '@/frontend/utils/resolver';
 import NavbarShiftStatus from '@/frontend/components/mst/NavbarShiftStatus';
+import TicketFlowMap from '@/frontend/components/ops/TicketFlowMap';
+import TicketCard from '@/frontend/components/shared/TicketCard';
 
 // Types
-type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile';
+type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
 
 interface Property {
     id: string;
@@ -103,7 +105,7 @@ const StaffDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'electricity', 'settings', 'profile'].includes(tab)) {
+        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -270,6 +272,24 @@ const StaffDashboard = () => {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this request?')) return;
+        try {
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                fetchTickets();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to delete ticket');
+            }
+        } catch (error) {
+            console.error('Delete ticket error:', error);
+        }
+    };
+
     if (isLoading) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="flex flex-col items-center gap-4">
@@ -308,7 +328,7 @@ const StaffDashboard = () => {
             <aside className={`
                 w-64 bg-white border-r border-border flex flex-col h-screen z-50 transition-all duration-300
                 fixed lg:sticky top-0
-                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
             `}>
                 {/* Mobile Close Button */}
                 <button
@@ -413,11 +433,14 @@ const StaffDashboard = () => {
                                 Requests
                             </button>
                             <button
-                                onClick={() => router.push(`/property/${propertyId}/flow-map`)}
-                                className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold text-text-secondary hover:bg-muted hover:text-text-primary"
+                                onClick={() => handleTabChange('flow-map')}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'flow-map'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
                             >
                                 <Activity className="w-4 h-4" />
-                                Flow Map
+                                Live Flow Map
                             </button>
                             <button
                                 onClick={() => handleTabChange('tasks')}
@@ -524,7 +547,7 @@ const StaffDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 lg:ml-0 flex flex-col min-h-screen bg-white">
+            <div className="flex-1 lg:ml-0 flex flex-col bg-white">
                 {/* Top Header */}
                 <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
                     <div className="flex items-center gap-4">
@@ -575,7 +598,7 @@ const StaffDashboard = () => {
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 p-6 overflow-y-auto">
+                <main className="flex-1 p-6">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -604,6 +627,7 @@ const StaffDashboard = () => {
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
                                     onSettingsClick={() => handleTabChange('settings')}
                                     onEditClick={handleEditClick}
+                                    onDeleteClick={handleDelete}
                                     userRole={userRole}
                                 />
                             )}
@@ -638,7 +662,11 @@ const StaffDashboard = () => {
                                     onEditClick={handleEditClick}
                                     userRole={userRole}
                                     propertyId={propertyId}
+                                    onTabChange={handleTabChange}
                                 />
+                            )}
+                            {activeTab === 'flow-map' && (
+                                <TicketFlowMap propertyId={propertyId} />
                             )}
                             {activeTab === 'visitors' && <VMSAdminDashboard propertyId={propertyId} />}
                             {activeTab === 'diesel' && <DieselStaffDashboard />}
@@ -830,101 +858,10 @@ const canAccessElectricityLogger = (role: string): boolean => {
     return ELECTRICITY_LOGGER_ROLES.includes(normalizedRole);
 };
 
-const TicketRow = ({ ticket, onTicketClick, userId, isCompleted, onEditClick, userRole = '' }: { ticket: any, onTicketClick?: (id: string) => void, userId: string, isCompleted?: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, userRole?: string }) => (
-
-    <div
-        onClick={() => onTicketClick?.(ticket.id)}
-        className={`bg-surface-elevated border rounded-lg p-3 transition-colors group cursor-pointer ${isCompleted ? 'opacity-75 grayscale-[0.3] border-border' : ticket.assigned_to === userId ? 'border-success ring-1 ring-success/20 shadow-md ring-offset-1 ring-offset-background' : 'border-border hover:border-primary/50 shadow-sm hover:shadow-md'}`}
-    >
-        <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2">
-                <h3 className={`text-sm font-semibold truncate max-w-[300px] md:max-w-md ${isCompleted ? 'text-text-secondary line-through decoration-text-tertiary' : 'text-text-primary'}`}>{ticket.title}</h3>
-                {ticket.assigned_to === userId ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-success text-text-inverse font-black uppercase tracking-tighter shadow-sm">
-                        YOUR TASK
-                    </span>
-                ) : ticket.assigned_to ? (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20">
-                        {ticket.assignee?.full_name || 'Assigned'}
-                    </span>
-                ) : (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/20">
-                        Unassigned
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center gap-1.5">
-                {ticket.priority && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${ticket.priority === 'high' ? 'bg-error/10 text-error border-error/20' :
-                        ticket.priority === 'medium' ? 'bg-warning/10 text-warning border-warning/20' :
-                            'bg-info/10 text-info border-info/20'
-                        }`}>
-                        {ticket.priority}
-                    </span>
-                )}
-
-                {/* Edit Button - For user's own tickets OR staff technical users */}
-                {(ticket.raised_by === userId || isStaffTechnical(userRole)) && !isCompleted && onEditClick && (
-                    <button
-                        onClick={(e) => onEditClick(e, ticket)}
-                        className="p-1 px-2 text-primary hover:bg-primary/10 rounded border border-primary/20 transition-smooth flex items-center gap-1.5"
-                        title="Edit Request"
-                    >
-                        <Pencil className="w-3 h-3" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
-                    </button>
-                )}
-
-                <button
-                    className={`text-[10px] px-3 py-1 rounded transition-all font-bold uppercase tracking-widest ${isCompleted ? 'bg-muted text-text-tertiary shadow-none' : 'bg-primary text-text-inverse hover:shadow-lg shadow-primary/20'}`}
-                >
-                    View
-                </button>
-            </div>
-        </div>
-
-        <div className="flex gap-4">
-            {ticket.photo_before_url && (
-                <div className="relative group/thumb shrink-0">
-                    <img
-                        src={ticket.photo_before_url}
-                        alt="Before"
-                        className="w-16 h-16 rounded-lg object-cover border border-border group-hover/thumb:border-emerald-500 transition-colors"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 rounded-lg transition-opacity">
-                        <Camera className="w-4 h-4 text-text-primary" />
-                    </div>
-                </div>
-            )}
-            <div className="flex-1 min-w-0">
-                <p className="text-xs text-text-tertiary line-clamp-2 mb-2">{ticket.description}</p>
-                <div className="flex items-center gap-2 text-[10px] text-text-tertiary/60 font-medium">
-                    <span className="flex items-center gap-1">
-                        <Ticket className="w-3 h-3" />
-                        {ticket.ticket_number}
-                    </span>
-                    <span>•</span>
-                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
-                    <span>•</span>
-                    <span className={`uppercase font-bold ${isCompleted ? 'text-success/60' : ticket.status === 'in_progress' ? 'text-info' : ticket.assigned_to ? 'text-primary' : 'text-text-tertiary'}`}>
-                        {ticket.status === 'closed' || ticket.status === 'resolved' ? 'COMPLETE' :
-                            ticket.assigned_to && (ticket.status === 'waitlist' || ticket.status === 'open') ? 'ASSIGNED' :
-                                ticket.status.replace('_', ' ')}
-                    </span>
-                    {ticket.photo_before_url && (
-                        <span className="flex items-center gap-1 text-primary font-bold ml-auto bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
-                            <Camera className="w-3 h-3" />
-                            SEE SITE PHOTO
-                        </span>
-                    )}
-                </div>
-            </div>
-        </div>
-    </div>
-);
+// Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
 
 // Dashboard Tab
-const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, userRole = '' }: { tickets: any[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, userRole?: string }) => {
+const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, onDeleteClick, userRole = '' }: { tickets: any[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string }) => {
     const total = tickets.length + completedCount;
     const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned' || t.status === 'open').length;
     const completed = completedCount;
@@ -934,16 +871,16 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-text-primary">Staff Dashboard</h1>
-                <p className="text-text-tertiary text-sm mt-1">{propertyName || 'Property'} • Staff: {userName}</p>
+                <p className="text-text-tertiary text-xs sm:text-sm mt-1">{propertyName || 'Property'} • Staff: {userName}</p>
             </div>
 
             {/* Dashboard Section */}
-            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-base font-bold text-text-primary">Dashboard</h2>
+                    <h2 className="text-sm sm:text-base font-bold text-text-primary">Dashboard</h2>
                     <button
                         onClick={onSettingsClick}
-                        className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary border border-border px-3 py-1.5 rounded-lg bg-surface-elevated transition-colors">
+                        className="flex items-center gap-1.5 text-[10px] sm:text-xs text-text-secondary hover:text-text-primary border border-border px-3 py-1.5 rounded-lg bg-surface-elevated transition-colors">
                         <Settings className="w-3 h-3" />
                         Customize
                     </button>
@@ -975,20 +912,20 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
             </div>
 
             {/* Property Requests */}
-            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm">
                 <div className="mb-4">
-                    <h2 className="text-base font-bold text-text-primary">Property Requests</h2>
-                    <p className="text-xs text-text-tertiary">All requests for this property</p>
+                    <h2 className="text-sm sm:text-base font-bold text-text-primary">Property Requests</h2>
+                    <p className="text-[10px] sm:text-xs text-text-tertiary">All requests for this property</p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {isLoading ? (
-                        <div className="flex flex-col gap-2 py-4">
+                        <div className="flex flex-col gap-2 py-4 col-span-full">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-16 bg-surface-elevated border border-border rounded-lg animate-pulse" />
                             ))}
                         </div>
                     ) : tickets.length === 0 ? (
-                        <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">
+                        <div className="flex items-center justify-center py-12 text-text-tertiary text-sm col-span-full">
                             No requests found
                         </div>
                     ) : (
@@ -999,7 +936,24 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                                 return 0;
                             })
                             .map((ticket) => (
-                                <TicketRow key={ticket.id} userId={userId} ticket={ticket} onTicketClick={onTicketClick} onEditClick={onEditClick} userRole={userRole} />
+                                <TicketCard
+                                    key={ticket.id}
+                                    id={ticket.id}
+                                    title={ticket.title}
+                                    priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                    status={
+                                        ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
+                                            ticket.status === 'in_progress' ? 'IN_PROGRESS' :
+                                                ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
+                                    }
+                                    ticketNumber={ticket.ticket_number}
+                                    createdAt={ticket.created_at}
+                                    assignedTo={ticket.assignee?.full_name}
+                                    photoUrl={ticket.photo_before_url}
+                                    onClick={() => onTicketClick?.(ticket.id)}
+                                    onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                    onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                                />
                             ))
                     )}
                 </div>
@@ -1031,24 +985,26 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, userRole = '', propertyId }: { activeTickets?: any[], completedTickets?: any[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, userRole?: string, propertyId?: string }) => (
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, onDeleteClick, userRole = '', propertyId, onTabChange }: { activeTickets?: any[], completedTickets?: any[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string, propertyId?: string, onTabChange?: (tab: Tab) => void }) => (
     <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h1 className="text-2xl font-bold text-text-primary">Requests</h1>
-            {propertyName && <span className="text-xs text-text-tertiary font-bold uppercase tracking-widest bg-surface-elevated px-3 py-1 rounded-full border border-border">{propertyName}</span>}
-            {propertyId && (
-                <button
-                    onClick={() => window.location.href = `/property/${propertyId}/flow-map`}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl border border-primary/20 hover:bg-primary/20 transition-all"
-                >
-                    <Activity className="w-4 h-4" /> Live Flow Map
-                </button>
-            )}
+            <div className="flex items-center gap-2">
+                {propertyName && <span className="text-[10px] sm:text-xs text-text-tertiary font-bold uppercase tracking-widest bg-surface-elevated px-3 py-1 rounded-full border border-border truncate max-w-[150px]">{propertyName}</span>}
+                {propertyId && onTabChange && (
+                    <button
+                        onClick={() => onTabChange('flow-map')}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-primary/10 text-primary text-[10px] sm:text-xs font-bold rounded-xl border border-primary/20 hover:bg-primary/20 transition-all active:scale-[0.98]"
+                    >
+                        <Activity className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Live Flow Map</span>
+                    </button>
+                )}
+            </div>
         </div>
 
         {/* Active Requests */}
-        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-text-secondary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm">
+            <h2 className="text-xs sm:text-sm font-bold text-text-secondary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
                 <Clock className="w-4 h-4 text-success" />
                 Active Requests ({activeTickets.length})
             </h2>
@@ -1059,11 +1015,11 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                     ))}
                 </div>
             ) : activeTickets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center bg-muted rounded-xl border border-dashed border-border">
-                    <p className="text-text-tertiary text-sm">No active requests</p>
+                <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-xl border border-dashed border-border">
+                    <p className="text-text-tertiary text-xs sm:text-sm">No active requests</p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {[...activeTickets]
                         .sort((a, b) => {
                             if (a.assigned_to === userId && b.assigned_to !== userId) return -1;
@@ -1071,7 +1027,24 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                             return 0;
                         })
                         .map((ticket) => (
-                            <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} onEditClick={onEditClick} userRole={userRole} />
+                            <TicketCard
+                                key={ticket.id}
+                                id={ticket.id}
+                                title={ticket.title}
+                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                status={
+                                    ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
+                                        ticket.status === 'in_progress' ? 'IN_PROGRESS' :
+                                            ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
+                                }
+                                ticketNumber={ticket.ticket_number}
+                                createdAt={ticket.created_at}
+                                assignedTo={ticket.assignee?.full_name}
+                                photoUrl={ticket.photo_before_url}
+                                onClick={() => onTicketClick?.(ticket.id)}
+                                onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                            />
                         ))}
                 </div>
             )}
@@ -1083,9 +1056,21 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                 <CheckCircle2 className="w-4 h-4 text-success/50" />
                 Recently Completed ({completedTickets.length})
             </h2>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {completedTickets.slice(0, 10).map((ticket) => (
-                    <TicketRow key={ticket.id} ticket={ticket} onTicketClick={onTicketClick} userId={userId} isCompleted />
+                    <TicketCard
+                        key={ticket.id}
+                        id={ticket.id}
+                        title={ticket.title}
+                        priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                        status="COMPLETED"
+                        ticketNumber={ticket.ticket_number}
+                        createdAt={ticket.created_at}
+                        assignedTo={ticket.assignee?.full_name}
+                        photoUrl={ticket.photo_before_url}
+                        onClick={() => onTicketClick?.(ticket.id)}
+                        onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                    />
                 ))}
             </div>
         </div>

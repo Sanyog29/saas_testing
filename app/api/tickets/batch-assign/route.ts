@@ -31,13 +31,39 @@ export async function POST(request: NextRequest) {
         for (const assignment of assignments) {
             const { ticket_id, assigned_to } = assignment;
 
-            // 1. Update Ticket
+            // 1. If assigned_to is provided, fetch MST's skill_group_id from resolver_stats
+            let skillGroupId = null;
+            if (assigned_to) {
+                const { data: stats } = await supabase
+                    .from('resolver_stats')
+                    .select('skill_group_id')
+                    .eq('user_id', assigned_to)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (stats?.skill_group_id) {
+                    skillGroupId = stats.skill_group_id;
+                }
+            }
+
+            // 2. Update Ticket
             const updates: any = {
                 updated_at: now,
                 assigned_to: assigned_to,
                 status: assigned_to ? 'assigned' : 'waitlist',
                 assigned_at: assigned_to ? now : null
             };
+
+            if (skillGroupId) {
+                updates.skill_group_id = skillGroupId;
+                // Also update skill_group_code if possible for consistency
+                const { data: sg } = await supabase
+                    .from('skill_groups')
+                    .select('code')
+                    .eq('id', skillGroupId)
+                    .single();
+                if (sg) updates.skill_group_code = sg.code;
+            }
 
             const { data: ticket, error: updateError } = await supabase
                 .from('tickets')

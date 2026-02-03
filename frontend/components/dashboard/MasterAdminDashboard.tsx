@@ -22,8 +22,9 @@ import { useTheme } from '@/frontend/context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 import TicketCreateModal from '@/frontend/components/tickets/TicketCreateModal';
 import AIInsightsDashboard from './AIInsightsDashboard';
+import IssueCategoryKanban from '@/frontend/components/admin/IssueCategoryKanban';
 
-type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'ai-insights' | 'modules' | 'settings';
+type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'ai-insights' | 'issue-config' | 'modules' | 'settings';
 
 interface Organization {
     id: string;
@@ -251,6 +252,7 @@ const MasterAdminDashboard = () => {
         { id: 'visitors', label: 'Visitors', icon: UserCircle },
         { id: 'invite-links', label: 'Invite Links', icon: LinkIcon },
         { id: 'ai-insights', label: 'AI Intelligence', icon: Brain },
+        { id: 'issue-config', label: 'Issue Mapping', icon: LayoutGrid },
         { id: 'modules', label: 'Module Control', icon: LayoutGrid },
         { id: 'settings', label: 'System', icon: Settings },
     ];
@@ -325,7 +327,7 @@ const MasterAdminDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className="flex-1 p-12 overflow-y-auto">
+            <main className="flex-1 p-12">
                 <header className="flex justify-between items-center mb-12">
                     <div>
                         <h2 className="text-3xl font-black text-text-primary tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
@@ -427,6 +429,9 @@ const MasterAdminDashboard = () => {
                                 organizations={organizations}
                                 onUpdateModules={handleUpdateModules}
                             />
+                        )}
+                        {activeTab === 'issue-config' && (
+                            <IssueCategoryKanban />
                         )}
                         {activeTab === 'settings' && (
                             <SystemSettings onRestore={handleRestoreWithSecret} />
