@@ -427,7 +427,7 @@ const TenantDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col bg-[#fafafa] lg:ml-72">
+            <main className="flex-1 flex flex-col bg-[#fafafa] lg:ml-72 mt-16 lg:mt-0">
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-8 pb-12">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -775,14 +775,14 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-end">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-0">
                 <div>
-                    <h2 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Support Requests</h2>
-                    <p className="text-slate-500 font-medium mt-1">Track and manage your facility assistance tickets.</p>
+                    <h2 className="text-2xl md:text-3xl font-display font-semibold text-slate-900 tracking-tight">Support Requests</h2>
+                    <p className="text-sm md:text-base text-slate-500 font-medium mt-1">Track and manage your facility assistance tickets.</p>
                 </div>
                 <button
                     onClick={() => onNavigate('create_request')}
-                    className="px-8 py-3.5 bg-primary text-white font-black text-xs rounded-2xl uppercase tracking-[0.15em] hover:opacity-95 hover:scale-105 transition-all flex items-center gap-3 shadow-xl shadow-primary/20"
+                    className="w-full md:w-auto px-6 py-3.5 bg-primary text-white font-black text-xs rounded-2xl uppercase tracking-[0.15em] hover:opacity-95 hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
                 >
                     <Plus className="w-4 h-4" />
                     New Request
@@ -793,7 +793,7 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
             <div className="space-y-4">
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Requests ({activeTickets.length})</h3>
+                    <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Requests ({activeTickets.length})</h3>
                 </div>
 
                 {isLoading ? (
@@ -842,7 +842,7 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                 <div className="space-y-4 pt-8">
                     <div className="flex items-center gap-3 px-2">
                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recently Resolved ({completedTickets.length})</h3>
+                        <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recently Resolved ({completedTickets.length})</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         {completedTickets.map(ticket => (

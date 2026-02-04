@@ -618,27 +618,22 @@ const MstDashboard = () => {
                             <Menu className="w-6 h-6" />
                         </button>
                     </div>
-                    <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex items-center gap-3">
                         {/* Shift Status in Navbar */}
                         <NavbarShiftStatus
                             isCheckedIn={isCheckedIn}
                             isLoading={isShiftLoading}
                             onToggle={handleShiftToggle}
                         />
-
-
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-50 text-text-tertiary hover:text-text-primary transition-colors">
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                        <div className="flex items-center gap-2 pl-3 border-l border-border">
-                            <span className="text-xs text-text-secondary font-medium">{user?.user_metadata?.full_name || user?.email?.split('@')[0]}</span>
-                        </div>
+                        <span className="text-xs text-text-secondary font-medium">
+                            {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+                        </span>
                     </div>
                 </header>
 
                 {/* Page Content */}
                 {/* Page Content */}
-                <main className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:ml-64 bg-slate-50/50">
+                <main className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-6 bg-slate-50/50">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -897,16 +892,16 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
 
                 {/* Work Orders Overview */}
                 {/* WORK ORDERS OVERVIEW (Horizontal, wraps if needed) */}
-                <div className="flex flex-wrap gap-4 mt-6">
-                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
                         <p className="text-3xl font-black text-text-primary">{total}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Total</p>
                     </div>
-                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
                         <p className="text-3xl font-black text-info">{active}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Active</p>
                     </div>
-                    <div className="flex-1 min-w-[120px] bg-surface-elevated border border-border rounded-xl p-4 text-center">
+                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
                         <p className="text-3xl font-black text-success">{completed}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Completed</p>
                     </div>

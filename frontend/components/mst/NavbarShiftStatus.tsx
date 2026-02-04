@@ -69,7 +69,7 @@ export default function NavbarShiftStatus({ isCheckedIn, isLoading, onToggle }: 
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
+                        className="absolute right-[-10px] sm:right-0 top-full mt-2 w-[85vw] max-w-xs sm:w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
                     >
                         {/* Header */}
                         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">

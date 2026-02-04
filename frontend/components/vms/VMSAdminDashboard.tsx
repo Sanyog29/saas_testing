@@ -279,7 +279,8 @@ const VMSAdminDashboard: React.FC<VMSAdminDashboardProps> = ({ propertyId }) => 
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50 border-b border-slate-100">
                             <tr>
@@ -375,6 +376,78 @@ const VMSAdminDashboard: React.FC<VMSAdminDashboardProps> = ({ propertyId }) => 
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4 p-4">
+                    {visitors.length === 0 ? (
+                        <div className="text-center text-slate-400 italic py-8">
+                            No visitors found.
+                        </div>
+                    ) : (
+                        visitors.map((visitor) => (
+                            <div
+                                key={visitor.id}
+                                className="bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm"
+                                onClick={() => setSelectedVisitor(visitor)}
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        {visitor.photo_url ? (
+                                            <img
+                                                src={visitor.photo_url}
+                                                alt={visitor.name}
+                                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-slate-100">
+                                                <User className="w-6 h-6 text-slate-400" />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="font-bold text-slate-900 text-base">{visitor.name}</p>
+                                            <p className="text-xs text-slate-500 font-medium">{visitor.mobile || 'No mobile'}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${getCategoryColor(visitor.category)}`}>
+                                        {getCategoryIcon(visitor.category)}
+                                        {visitor.category}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-4">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Host</p>
+                                        <p className="text-sm font-medium text-slate-900 truncate">{visitor.whom_to_meet}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Time</p>
+                                        <p className="text-sm font-medium text-slate-900">
+                                            {new Date(visitor.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${visitor.status === 'checked_in' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                                        <span className="text-xs font-bold text-slate-600">
+                                            {visitor.status === 'checked_in' ? 'Currently On Premise' : 'Checked Out'}
+                                        </span>
+                                    </div>
+                                    {visitor.status === 'checked_in' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleForceCheckout(visitor); }}
+                                            disabled={actionLoading}
+                                            className="px-4 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all border border-rose-100"
+                                        >
+                                            Force Out
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 

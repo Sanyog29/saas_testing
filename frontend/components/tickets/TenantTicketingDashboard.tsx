@@ -211,35 +211,35 @@ export default function TenantTicketingDashboard({
     const isDark = theme === 'dark';
 
     return (
-        <div className="min-h-screen bg-background text-text-primary p-8 font-body transition-colors duration-300">
+        <div className="min-h-screen bg-transparent text-text-primary p-0 md:p-8 font-body transition-colors duration-300">
             {/* Header */}
             <div className="max-w-6xl mx-auto">
-                <div className="flex items-center justify-between mb-12">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 md:mb-12 gap-4">
                     <div>
-                        <h1 className={`text-4xl font-display font-semibold ${isDark ? 'text-white' : 'text-text-primary'} tracking-tight`}>
+                        <h1 className={`text-3xl md:text-4xl font-display font-semibold ${isDark ? 'text-white' : 'text-text-primary'} tracking-tight`}>
                             <span className="text-primary">{propertyName || 'Property'}</span>{' '}
                             {isStaff ? 'Maintenance Portal' : 'Request Manager'}
                         </h1>
                         <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-text-secondary'} mt-1 font-medium`}>Efficiently handle your facility needs</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-3 bg-surface border-border px-6 py-3 rounded-2xl border">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="flex items-center gap-3 bg-surface border-border px-4 py-3 md:px-6 rounded-2xl border w-full md:w-auto">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20 shrink-0">
                                 <User className={`w-5 h-5 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
                             </div>
-                            <div>
-                                <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-text-primary'}`}>{user.full_name}</p>
+                            <div className="overflow-hidden">
+                                <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-text-primary'} truncate`}>{user.full_name}</p>
                                 <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-text-tertiary'} font-bold uppercase tracking-widest`}>{isStaff ? 'MST Account' : 'Tenant Account'}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                     {/* Left Panel - Raise New Request */}
                     <div className="space-y-6">
-                        <div className="bg-surface border-border shadow-2xl p-10 rounded-3xl border transition-all">
-                            <h2 className="text-xs font-bold text-secondary mb-8 flex items-center gap-3 uppercase tracking-[0.2em]">
+                        <div className="bg-surface border-border shadow-2xl p-4 md:p-10 rounded-3xl border transition-all">
+                            <h2 className="text-xs font-bold text-secondary mb-6 md:mb-8 flex items-center gap-3 uppercase tracking-[0.2em]">
                                 <Plus className="w-4 h-4" />
                                 Raise a New Request
                             </h2>
@@ -249,7 +249,7 @@ export default function TenantTicketingDashboard({
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Describe the issue in your words.&#10;Example: Leaking tap in kitchenette"
-                                    className="w-full h-40 bg-surface-elevated text-text-primary border-border border rounded-2xl p-6 placeholder-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                                    className="w-full h-32 md:h-40 bg-surface-elevated text-text-primary border-border border rounded-2xl p-4 md:p-6 placeholder-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
                                 />
                                 {!isDark && <div className="absolute inset-0 rounded-2xl border border-primary/5 pointer-events-none group-focus-within:border-primary/20 transition-smooth"></div>}
                             </div>
@@ -267,8 +267,8 @@ export default function TenantTicketingDashboard({
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between mt-10">
-                                <label className={`flex items-center gap-3 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl border border-transparent hover:border-primary/10`}>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mt-6 md:mt-10 gap-4">
+                                <label className={`flex items-center justify-center gap-3 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-xs font-bold uppercase tracking-widest px-4 py-3 md:py-2 rounded-xl border border-transparent hover:border-primary/10 bg-surface-elevated sm:bg-transparent`}>
                                     <Paperclip className="w-5 h-5" />
                                     <span>Attach File</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
@@ -276,7 +276,7 @@ export default function TenantTicketingDashboard({
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !description.trim()}
-                                    className={`px-10 py-4 ${isDark ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-primary shadow-primary/20'} hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all flex items-center gap-3 shadow-xl uppercase tracking-widest text-[11px]`}
+                                    className={`px-6 md:px-10 py-3 md:py-4 ${isDark ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-primary shadow-primary/20'} hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl uppercase tracking-widest text-[11px]`}
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -318,8 +318,8 @@ export default function TenantTicketingDashboard({
 
                     {/* Right Panel - My Tickets */}
                     <div className="space-y-8">
-                        <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'glass-panel'} p-10 rounded-3xl border transition-all`}>
-                            <div className="flex items-center justify-between mb-10 border-b pb-6">
+                        <div className={`${isDark ? 'bg-[#161b22] border-[#21262d]' : 'glass-panel'} p-4 md:p-10 rounded-3xl border transition-all`}>
+                            <div className="flex items-center justify-between mb-6 md:mb-10 border-b pb-4 md:pb-6">
                                 <h2 className={`text-xs font-bold ${isDark ? 'text-slate-500 border-[#21262d]' : 'text-text-tertiary border-border/5'} uppercase tracking-[0.2em]`}>
                                     {isStaff ? 'Assigned Operations' : 'Recent Activity'}
                                 </h2>
@@ -341,7 +341,7 @@ export default function TenantTicketingDashboard({
                             {loading ? (
                                 <div className="space-y-6">
                                     {[1, 2, 3].map(i => (
-                                        <div key={i} className={`${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-text-primary/5 border-border/5'} rounded-3xl p-8 border animate-pulse`}>
+                                        <div key={i} className={`${isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-text-primary/5 border-border/5'} rounded-3xl p-4 md:p-8 border animate-pulse`}>
                                             <div className="h-5 bg-text-primary/10 rounded-lg w-3/4 mb-4" />
                                             <div className="h-2.5 bg-text-primary/5 rounded-full w-1/2" />
                                         </div>
@@ -378,20 +378,20 @@ export default function TenantTicketingDashboard({
                                                     <div
                                                         key={ticket.id}
                                                         onClick={() => router.push(`/tickets/${ticket.id}`)}
-                                                        className={`group/ticket ${isDark ? 'bg-[#0d1117] border-[#21262d] hover:border-emerald-500/30' : 'premium-list border-border/5 hover:border-primary/20'} p-8 cursor-pointer transition-all rounded-2xl border hover:shadow-2xl ${isFinal ? 'opacity-80' : ''}`}
+                                                        className={`group/ticket ${isDark ? 'bg-[#0d1117] border-[#21262d] hover:border-emerald-500/30' : 'premium-list border-border/5 hover:border-primary/20'} p-4 md:p-8 cursor-pointer transition-all rounded-2xl border hover:shadow-2xl ${isFinal ? 'opacity-80' : ''}`}
                                                     >
                                                         <div className="flex items-start justify-between">
-                                                            <div className="flex items-start gap-6">
-                                                                <div className={`w-14 h-14 ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'kpi-icon'} flex items-center justify-center flex-shrink-0 rounded-xl border`}>
+                                                            <div className="flex items-start gap-3 md:gap-6">
+                                                                <div className={`w-10 h-10 md:w-14 md:h-14 ${isDark ? 'bg-[#161b22] border-[#21262d]' : 'kpi-icon'} flex items-center justify-center flex-shrink-0 rounded-xl border`}>
                                                                     {isFinal ? (
-                                                                        <CheckCircle className={`w-7 h-7 ${isDark ? 'text-emerald-500' : 'text-success'}`} />
+                                                                        <CheckCircle className={`w-5 h-5 md:w-7 md:h-7 ${isDark ? 'text-emerald-500' : 'text-success'}`} />
                                                                     ) : (
-                                                                        <MessageSquare className={`w-7 h-7 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
+                                                                        <MessageSquare className={`w-5 h-5 md:w-7 md:h-7 ${isDark ? 'text-emerald-500' : 'text-primary'}`} />
                                                                     )}
                                                                 </div>
                                                                 <div>
                                                                     <div className="flex items-center gap-2 mb-1">
-                                                                        <p className={`font-display font-semibold ${isDark ? 'text-white group-hover/ticket:text-emerald-400' : 'text-text-primary group-hover/ticket:text-primary'} text-xl transition-all`}>{ticket.title}</p>
+                                                                        <p className={`font-display font-semibold ${isDark ? 'text-white group-hover/ticket:text-emerald-400' : 'text-text-primary group-hover/ticket:text-primary'} text-base md:text-xl transition-all`}>{ticket.title}</p>
                                                                         {isFinal && <span className="text-[9px] bg-success/10 text-success px-2 py-0.5 rounded font-black uppercase tracking-tighter">Resolved</span>}
                                                                     </div>
                                                                     <div className="flex items-center gap-3">
