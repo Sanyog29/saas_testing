@@ -23,7 +23,6 @@ interface IssueCategory {
     id: string;
     code: string;
     name: string;
-    description?: string;
     skill_group_id: string | null;
     priority: number;
     is_active: boolean;
@@ -342,16 +341,10 @@ export default function IssueCategoryKanban() {
                                     {expandedCategory === category.id && (
                                         <div className="mt-3 pt-3 border-t border-border">
                                             <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-bold text-text-secondary">Keywords</span>
-                                                <button
-                                                    onClick={() => setEditingKeywords(
-                                                        editingKeywords === category.id ? null : category.id
-                                                    )}
-                                                    className="text-xs text-primary flex items-center gap-1"
-                                                >
-                                                    <Edit3 className="w-3 h-3" />
-                                                    {editingKeywords === category.id ? 'Done' : 'Edit'}
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-text-secondary">Keywords</span>
+                                                    <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">Code Managed</span>
+                                                </div>
                                             </div>
 
                                             {/* Keyword Tags */}
@@ -362,37 +355,12 @@ export default function IssueCategoryKanban() {
                                                         className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded group"
                                                     >
                                                         {kw.keyword}
-                                                        {editingKeywords === category.id && (
-                                                            <button
-                                                                onClick={() => handleDeleteKeyword(kw.id)}
-                                                                className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
-                                                            >
-                                                                <X className="w-3 h-3" />
-                                                            </button>
-                                                        )}
                                                     </span>
                                                 ))}
+                                                {(!category.issue_keywords || category.issue_keywords.length === 0) && (
+                                                    <span className="text-[10px] text-text-tertiary italic">No keywords mapped in code</span>
+                                                )}
                                             </div>
-
-                                            {/* Add Keyword */}
-                                            {editingKeywords === category.id && (
-                                                <div className="mt-2 flex items-center gap-1">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Add keyword..."
-                                                        value={newKeyword}
-                                                        onChange={(e) => setNewKeyword(e.target.value)}
-                                                        onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword(category.id)}
-                                                        className="flex-1 text-xs px-2 py-1 border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                                    />
-                                                    <button
-                                                        onClick={() => handleAddKeyword(category.id)}
-                                                        className="p-1 bg-primary text-white rounded hover:bg-primary/90"
-                                                    >
-                                                        <Plus className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -411,8 +379,8 @@ export default function IssueCategoryKanban() {
             {/* Info Footer */}
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                 <p className="text-sm text-blue-700">
-                    <strong>How it works:</strong> Drag a category card to a different column to reassign it to another skill group.
-                    Click a card to expand and manage keywords. Changes are saved instantly and affect new ticket categorization immediately.
+                    <strong>How it works:</strong> Drag a category card to a different column to reassign its Skill Group (stored in DB).
+                    Keywords are currently pulled from the <code>issueDictionary.json</code> core mapping. Re-assignment affects how the system routes tickets matching those keywords.
                 </p>
             </div>
         </div>

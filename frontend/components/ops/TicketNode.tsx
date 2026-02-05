@@ -13,6 +13,7 @@ interface TicketNodeProps {
     assignedToName?: string;
     onClick?: () => void;
     isSaving?: boolean;
+    isOverlay?: boolean;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; symbol: string }> = {
@@ -38,14 +39,20 @@ export default function TicketNode({
     assignedToName,
     onClick,
     isSaving,
+    isOverlay,
 }: TicketNodeProps) {
     const [isHovered, setIsHovered] = useState(false);
 
-    // DND Kit Draggable
+    // DND Kit Draggable - skip if this is the overlay ghost
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: id,
-        disabled: isSaving,
+        disabled: isSaving || isOverlay,
     });
+
+    // When used in DragOverlay, we don't want the node behaving like a draggable source
+    const dragListeners = isOverlay ? {} : listeners;
+    const dragAttributes = isOverlay ? {} : attributes;
+    const dragRef = isOverlay ? null : setNodeRef;
 
     const config = statusConfig[status.toLowerCase()] || statusConfig.waitlist;
     const shortId = ticketNumber.replace('T-', '').slice(-4);
@@ -63,10 +70,10 @@ export default function TicketNode({
     return (
         <div
             className="relative"
-            ref={setNodeRef}
-            style={style}
-            {...listeners}
-            {...attributes}
+            ref={dragRef}
+            style={{ ...style, touchAction: 'none' }}
+            {...dragListeners}
+            {...dragAttributes}
             onClick={(e) => {
                 e.stopPropagation();
                 if (!isDragging && onClick) onClick();
@@ -74,7 +81,10 @@ export default function TicketNode({
         >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: isDragging ? 1.05 : 1, opacity: isDragging ? 0.8 : 1 }}
+                animate={{
+                    scale: isDragging ? 1.05 : 1,
+                    opacity: isDragging ? 0 : 1
+                }}
                 whileHover={{ scale: 1.1, zIndex: 50 }}
                 onHoverStart={() => setIsHovered(true)}
                 onHoverEnd={() => setIsHovered(false)}
@@ -86,6 +96,7 @@ export default function TicketNode({
                     height: '44px', // Increased size
                     borderRadius: '6px',
                     border: '1px solid rgba(0,0,0,0.1)',
+                    touchAction: 'none',
                 }}
             >
                 <div className="flex flex-col items-center justify-center leading-none">

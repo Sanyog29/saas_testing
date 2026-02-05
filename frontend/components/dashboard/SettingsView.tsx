@@ -243,22 +243,22 @@ export default function SettingsView({ onUpdate }: SettingsViewProps) {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
+        <div className="max-w-4xl mx-auto px-4 py-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-display font-bold text-slate-900">Account Settings</h1>
                 <p className="text-slate-500 font-body mt-2">Manage your personal information and profile details.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
                 {/* Profile Section */}
-                <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
                     <h2 className="text-xl font-display font-semibold text-slate-900 mb-6 flex items-center gap-2">
                         <User className="w-5 h-5 text-primary" />
                         Profile Information
                     </h2>
 
-                    <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                         {/* Avatar Upload */}
                         <div className="flex flex-col items-center gap-4">
                             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
@@ -366,7 +366,7 @@ export default function SettingsView({ onUpdate }: SettingsViewProps) {
                 </section>
 
                 {/* Additional Info Section (Read Only) */}
-                <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                <section className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
                     <h2 className="text-xl font-display font-semibold text-slate-900 mb-6 flex items-center gap-2">
                         <Shield className="w-5 h-5 text-primary" />
                         Account Roles & Memberships

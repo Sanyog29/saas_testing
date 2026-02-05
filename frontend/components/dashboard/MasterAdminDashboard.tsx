@@ -23,8 +23,9 @@ import { Sun, Moon } from 'lucide-react';
 import TicketCreateModal from '@/frontend/components/tickets/TicketCreateModal';
 import AIInsightsDashboard from './AIInsightsDashboard';
 import IssueCategoryKanban from '@/frontend/components/admin/IssueCategoryKanban';
+import AnalyticsTab from './AnalyticsTab';
 
-type Tab = 'overview' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'ai-insights' | 'issue-config' | 'modules' | 'settings';
+type Tab = 'overview' | 'analytics' | 'organizations' | 'tickets' | 'users' | 'visitors' | 'invite-links' | 'ai-insights' | 'issue-config' | 'modules' | 'settings';
 
 interface Organization {
     id: string;
@@ -61,6 +62,12 @@ const MasterAdminDashboard = () => {
     const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
     const [showCreateUserModal, setShowCreateUserModal] = useState(false);
     const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+    const [stats, setStats] = useState({
+        entities: 0,
+        activeSessions: 0,
+        securityAlerts: 0,
+        pendingDeletions: 0
+    });
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null); // For drill-down
     const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -86,6 +93,7 @@ const MasterAdminDashboard = () => {
             if (userProfile?.is_master_admin) {
                 fetchOrganizations();
                 fetchUsers();
+                fetchStats();
             }
         };
 
@@ -97,7 +105,7 @@ const MasterAdminDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['overview', 'organizations', 'tickets', 'users', 'visitors', 'invite-links', 'ai-insights', 'modules', 'settings'].includes(tab)) {
+        if (tab && ['overview', 'analytics', 'organizations', 'tickets', 'users', 'visitors', 'invite-links', 'ai-insights', 'issue-config', 'modules', 'settings'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -152,6 +160,17 @@ const MasterAdminDashboard = () => {
             );
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchStats = async () => {
+        try {
+            const response = await fetch('/api/admin/dashboard-stats');
+            if (!response.ok) throw new Error('Failed to fetch stats');
+            const data = await response.json();
+            setStats(data);
+        } catch (err) {
+            console.error('Error fetching dashboard stats:', err);
         }
     };
 
@@ -246,6 +265,7 @@ const MasterAdminDashboard = () => {
 
     const navItems: { id: Tab, label: string, icon: any }[] = [
         { id: 'overview', label: 'Console', icon: ShieldCheck },
+        { id: 'analytics', label: 'Engagement', icon: Activity },
         { id: 'organizations', label: 'Organizations', icon: Building2 },
         { id: 'tickets', label: 'Support Tickets', icon: Ticket },
         { id: 'users', label: 'User Directory', icon: Users },
@@ -378,7 +398,8 @@ const MasterAdminDashboard = () => {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
                     >
-                        {activeTab === 'overview' && <OverviewGrid />}
+                        {activeTab === 'overview' && <OverviewGrid stats={stats} />}
+                        {activeTab === 'analytics' && <AnalyticsTab />}
                         {activeTab === 'organizations' && (
                             selectedOrg ? (
                                 <OrgPropertyDashboard
@@ -500,7 +521,7 @@ const MasterAdminDashboard = () => {
 };
 
 // Sub-component: Overview Grid with Haptic Hover
-const OverviewGrid = () => {
+const OverviewGrid = ({ stats }: { stats: any }) => {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -517,7 +538,7 @@ const OverviewGrid = () => {
         {
             id: 'licensed-entities',
             label: 'Licensed Entities',
-            value: '0',
+            value: stats.entities.toString(),
             icon: Building2,
             trend: '-',
             color: 'text-blue-600',
@@ -525,58 +546,52 @@ const OverviewGrid = () => {
             analytics: {
                 title: 'Entity Growth',
                 items: [
-                    { region: 'North America', count: 0, delta: '-' },
-                    { region: 'Europe', count: 0, delta: '-' },
-                    { region: 'Asia Pacific', count: 0, delta: '-' },
+                    { region: 'Current Total', count: stats.entities, delta: '-' },
                 ]
             }
         },
         {
             id: 'active-sessions',
             label: 'Active Sessions',
-            value: '0',
+            value: stats.activeSessions.toString(),
             icon: Activity,
-            trend: '-',
+            trend: stats.activeSessions > 0 ? 'LIVE' : '-',
             color: 'text-emerald-600',
             bg: 'bg-emerald-50',
             analytics: {
-                title: 'Session Heatmap',
+                title: 'Engagement',
                 items: [
-                    { time: 'Peak', count: '-', delta: '0' },
-                    { time: 'Low', count: '-', delta: '0' },
-                    { time: 'Avg Duration', count: '-', delta: '-' },
+                    { label: 'Live Users', count: stats.activeSessions, delta: '0' },
                 ]
             }
         },
         {
             id: 'security-alerts',
             label: 'Security Alerts',
-            value: '0',
+            value: stats.securityAlerts.toString(),
             icon: ShieldCheck,
-            trend: 'SAFE',
+            trend: stats.securityAlerts === 0 ? 'SAFE' : 'NOTICE',
             color: 'text-indigo-600',
             bg: 'bg-indigo-50',
             analytics: {
                 title: 'Threat Timeline',
                 items: [
-                    { label: 'Resolved Today', count: 0, delta: '-' },
-                    { label: 'Blocked IPs', count: 0, delta: '-' },
-                    { label: 'Last Incident', count: '-', delta: '-' },
+                    { label: 'Resolved Today', count: stats.securityAlerts, delta: '-' },
                 ]
             }
         },
         {
             id: 'pending-deletions',
             label: 'Pending Deletions',
-            value: '0',
+            value: stats.pendingDeletions.toString(),
             icon: Trash2,
-            trend: '-',
+            trend: stats.pendingDeletions > 0 ? 'QUEUED' : '-',
             color: 'text-rose-600',
             bg: 'bg-rose-50',
             analytics: {
                 title: 'Deletion Queue',
                 items: [
-                    { name: 'No pending', expires: '-', status: '-' },
+                    { label: 'Pending', count: stats.pendingDeletions, delta: '-' },
                 ]
             }
         },

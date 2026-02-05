@@ -74,6 +74,7 @@ const PropertyAdminDashboard = () => {
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [statsVersion, setStatsVersion] = useState(0);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
 
     // Ref to prevent duplicate fetches
     const hasFetchedProperty = useRef(false);
@@ -91,14 +92,26 @@ const PropertyAdminDashboard = () => {
         if (tab && ['overview', 'requests', 'reports', 'users', 'visitors', 'diesel', 'electricity', 'electricity_analytics', 'cafeteria', 'settings', 'profile', 'units', 'vendor_revenue'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
+        const filter = searchParams.get('filter');
+        if (filter) {
+            setPendingStatusFilter(filter);
+        } else {
+            setPendingStatusFilter('all');
+        }
     }, [searchParams]);
 
     // Helper to change tab with URL persistence
-    const handleTabChange = (tab: Tab) => {
+    const handleTabChange = (tab: Tab, filter: string = 'all') => {
         setActiveTab(tab);
+        setPendingStatusFilter(filter);
         setSidebarOpen(false);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
+        if (filter !== 'all') {
+            url.searchParams.set('filter', filter);
+        } else {
+            url.searchParams.delete('filter');
+        }
         window.history.pushState({}, '', url.toString());
     };
 
@@ -429,7 +442,7 @@ const PropertyAdminDashboard = () => {
             {/* Main Content */}
             <main className="flex-1 lg:ml-72 flex flex-col bg-white">
                 {activeTab !== 'overview' && (
-                    <header className="h-20 flex justify-between items-center px-4 md:px-8 lg:px-12 mb-4 border-b border-border/10">
+                    <header className="h-20 flex justify-between items-center px-4 md:px-8 lg:px-12 mb-2 md:mb-4 border-b border-border/10">
                         <div className="flex items-center gap-4">
                             {/* Mobile Menu Toggle */}
                             <button
@@ -475,7 +488,7 @@ const PropertyAdminDashboard = () => {
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}
-                        className={activeTab === 'overview' ? '' : 'p-4 md:p-8 lg:p-12 pt-4'}
+                        className={activeTab === 'overview' ? '' : 'px-0 md:px-8 lg:px-12 pt-0 md:pt-4 pb-8'}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
@@ -487,6 +500,7 @@ const PropertyAdminDashboard = () => {
                             property={property}
                             onMenuToggle={() => setSidebarOpen(true)}
                             onRefresh={() => setStatsVersion(v => v + 1)}
+                            onTabChange={handleTabChange}
                         />}
                         {activeTab === 'users' && <UserDirectory
                             propertyId={propertyId}
@@ -498,10 +512,11 @@ const PropertyAdminDashboard = () => {
                             })}
                         />}
                         {activeTab === 'vendor_revenue' && <VendorRevenueTab propertyId={propertyId} />}
-                        {activeTab === 'requests' && property && user && (
+                        {activeTab === 'requests' && property && (
                             <TicketsView
                                 key={`tickets-${statsVersion}`}
                                 propertyId={property.id}
+                                initialStatusFilter={pendingStatusFilter}
                                 canDelete={true}
                                 onNewRequest={() => setShowCreateTicketModal(true)}
                             />
@@ -671,7 +686,21 @@ const DieselSphere = ({ percentage }: { percentage: number }) => {
     );
 };
 
-const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, property, onMenuToggle, onRefresh }: { propertyId: string, statsVersion: number, property: { name: string; code: string; address?: string; image_url?: string } | null, onMenuToggle?: () => void, onRefresh: () => void }) {
+const OverviewTab = memo(function OverviewTab({
+    propertyId,
+    statsVersion,
+    property,
+    onMenuToggle,
+    onRefresh,
+    onTabChange
+}: {
+    propertyId: string,
+    statsVersion: number,
+    property: { name: string; code: string; address?: string; image_url?: string } | null,
+    onMenuToggle?: () => void,
+    onRefresh: () => void,
+    onTabChange: (tab: Tab, filter?: string) => void
+}) {
     const fetchKey = `${propertyId}-${statsVersion}`;
     const { getCachedData, setCachedData } = useDataCache();
     const supabase = useMemo(() => createClient(), []);
@@ -821,7 +850,7 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
     return (
         <div className="min-h-screen bg-background">
             {/* Header Section */}
-            <div className="bg-[#708F96] px-8 lg:px-12 py-10 border-b border-white/10 shadow-lg">
+            <div className="bg-[#708F96] px-2 lg:px-12 py-8 border-b border-white/10 shadow-lg">
                 <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-4">
                         {/* Mobile Menu Toggle */}
@@ -852,8 +881,11 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
 
                 {/* KPI Cards Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Open Tickets</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'open,assigned,in_progress,blocked')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm cursor-pointer hover:border-primary/50 transition-all group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">Open Tickets</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{ticketStats.open + ticketStats.in_progress}</span>
                             {ticketStats.sla_breached > 0 && (
@@ -861,15 +893,21 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                             )}
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Resolved</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'resolved,closed')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm cursor-pointer hover:border-emerald-500/50 transition-all group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-emerald-500 transition-colors">Resolved</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{ticketStats.resolved}</span>
                             <span className="text-[10px] text-slate-400 font-bold uppercase">Avg {ticketStats.avg_resolution_hours}h resolution</span>
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Completion Rate</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'all')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm cursor-pointer hover:border-blue-500/50 transition-all group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors">Completion Rate</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{completionRate}%</span>
                             <span className="text-[10px] text-slate-400 font-bold uppercase">{ticketStats.resolved} of {ticketStats.total} closed</span>
@@ -878,8 +916,9 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                 </div>
             </div>
 
+
             {/* Main Content Grid */}
-            <div className="px-8 lg:px-12 py-5 space-y-5">
+            <div className="px-2 lg:px-12 py-5 space-y-5">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                     {/* Left Column */}
                     <div className="lg:col-span-3 space-y-5">
@@ -953,6 +992,7 @@ const OverviewTab = memo(function OverviewTab({ propertyId, statsVersion, proper
                     </div>
                 </div>
             </div>
+
         </div>
     );
 });
@@ -1037,12 +1077,12 @@ const VendorRevenueTab = memo(function VendorRevenueTab({ propertyId }: { proper
             const { data, error } = await supabase
                 .from('vendors')
                 .select(`
-                    *,
-                    vendor_daily_revenue (
-                        revenue_amount,
-                        revenue_date
-                    )
-                `)
+            *,
+            vendor_daily_revenue (
+            revenue_amount,
+            revenue_date
+            )
+            `)
                 .eq('property_id', propertyId);
 
             if (error) throw error;
@@ -1107,13 +1147,15 @@ const VendorRevenueTab = memo(function VendorRevenueTab({ propertyId }: { proper
         !v.vendor_daily_revenue?.some((r: any) => r.revenue_date === today)
     ).length;
 
-    const totalRevenue = vendors.reduce((acc, v) =>
-        acc + (v.vendor_daily_revenue?.find((r: any) => r.revenue_date === today)?.revenue_amount || 0), 0
-    );
+    const totalRevenue = vendors.reduce((acc, v) => {
+        const entry = v.vendor_daily_revenue?.find((r: any) => r.revenue_date === today);
+        return acc + (entry?.revenue_amount || 0);
+    }, 0);
 
     const totalCommission = vendors.reduce((acc, v) => {
-        const rev = v.vendor_daily_revenue?.find((r: any) => r.revenue_date === today)?.revenue_amount || 0;
-        return acc + (rev * (v.commission_rate / 100));
+        const entry = v.vendor_daily_revenue?.find((r: any) => r.revenue_date === today);
+        const rev = entry?.revenue_amount || 0;
+        return acc + (rev * ((v.commission_rate || 0) / 100));
     }, 0);
 
     if (isLoading) return <div className="p-12 text-center text-slate-400 font-bold">Loading Revenue Data...</div>;
@@ -1183,8 +1225,9 @@ const VendorRevenueTab = memo(function VendorRevenueTab({ propertyId }: { proper
                                 </tr>
                             ) : (
                                 vendors.map((vendor) => {
-                                    const todayRevenue = vendor.vendor_daily_revenue?.find((r: any) => r.revenue_date === today)?.revenue_amount || 0;
-                                    const commission = (todayRevenue * (vendor.commission_rate / 100)).toFixed(2);
+                                    const entry = vendor.vendor_daily_revenue?.find((r: any) => r.revenue_date === today);
+                                    const todayRevenue = entry?.revenue_amount || 0;
+                                    const commission = (todayRevenue * ((vendor.commission_rate || 0) / 100)).toFixed(2);
 
                                     return (
                                         <tr key={vendor.id} className="hover:bg-slate-50/50 transition-all">

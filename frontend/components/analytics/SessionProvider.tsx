@@ -35,10 +35,13 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [isSessionActive, setIsSessionActive] = useState(false);
     const lastPingRef = useRef<number>(0);
+    const isStartingRef = useRef<boolean>(false);
     const pathname = usePathname();
 
     // Start a new session
     const startSession = useCallback(async () => {
+        if (isStartingRef.current) return;
+        isStartingRef.current = true;
         try {
             console.log('[SessionProvider] Starting new session...');
             const res = await fetch('/api/session/start', {
@@ -65,6 +68,8 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
             }
         } catch (err) {
             console.error('[SessionProvider] Error starting session:', err);
+        } finally {
+            isStartingRef.current = false;
         }
     }, []);
 
@@ -83,18 +88,16 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
         lastPingRef.current = now;
 
         try {
-            const res = await fetch('/api/session/ping', {
+            const res = await fetch('/api/session/heartbeat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: currentSessionId }),
             });
 
-            if (!res.ok) {
-                const data = await res.json();
-                if (data.should_restart) {
-                    console.log('[SessionProvider] Session expired, starting new one');
-                    await startSession();
-                }
+            const data = await res.json();
+            if (data.should_restart) {
+                console.log('[SessionProvider] Session expired/invalid, starting new one');
+                await startSession();
             }
         } catch (err) {
             console.error('[SessionProvider] Ping error:', err);

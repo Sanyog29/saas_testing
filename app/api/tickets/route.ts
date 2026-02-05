@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
             .from('tickets')
             .select(`
         *,
-        category:issue_categories(id, code, name, icon),
+        category:issue_categories(id, code, name),
         skill_group:skill_groups(id, code, name),
         creator:users!raised_by(id, full_name, email),
         assignee:users!assigned_to(id, full_name, email),

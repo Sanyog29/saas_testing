@@ -72,8 +72,8 @@ export default function TicketCard({
             onClick={onClick}
             className="
                 @container w-full h-full bg-white rounded-2xl border border-gray-200 
-                p-[clamp(0.75rem,4cqw,1.25rem)] cursor-pointer transition-all hover:shadow-lg
-                flex flex-col gap-[clamp(0.75rem,3cqw,1.25rem)]
+                p-[clamp(0.5rem,4cqw,1.25rem)] cursor-pointer transition-all hover:shadow-lg
+                flex flex-col gap-[clamp(0.5rem,3cqw,1.25rem)]
             "
         >
             {/* Header: Title, Photo + Actions */}

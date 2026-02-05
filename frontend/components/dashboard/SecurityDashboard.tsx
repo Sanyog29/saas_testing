@@ -414,7 +414,7 @@ const SecurityDashboard = () => {
                     </div>
                 </header>
 
-                <div className="flex-1 p-4 md:p-8 lg:p-12 pt-6">
+                <div className="flex-1 p-2 sm:p-4 md:p-8 lg:p-12 pt-6">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -431,7 +431,7 @@ const SecurityDashboard = () => {
                                 />
                             )}
                             {activeTab === 'checkinout' && property && (
-                                <div className="rounded-[2.5rem] overflow-hidden shadow-2xl">
+                                <div className="flex-1 w-full flex flex-col items-center">
                                     <VMSKiosk propertyId={propertyId} propertyName={property.name} />
                                 </div>
                             )}

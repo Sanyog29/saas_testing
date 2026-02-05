@@ -52,6 +52,7 @@ interface AdminSPOCDashboardProps {
     organizationId?: string;
     propertyName?: string;
     adminUser?: { full_name: string; avatar_url?: string };
+    initialStatusFilter?: string;
 }
 
 export default function AdminSPOCDashboard({
@@ -59,6 +60,7 @@ export default function AdminSPOCDashboard({
     organizationId,
     propertyName,
     adminUser,
+    initialStatusFilter = 'all',
 }: AdminSPOCDashboardProps) {
     const router = useRouter();
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -71,6 +73,13 @@ export default function AdminSPOCDashboard({
     const [showOverrideModal, setShowOverrideModal] = useState(false);
     const [overrideCategory, setOverrideCategory] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState(initialStatusFilter || 'all');
+
+    useEffect(() => {
+        if (initialStatusFilter) {
+            setStatusFilter(initialStatusFilter);
+        }
+    }, [initialStatusFilter]);
 
     useEffect(() => {
         fetchData();
@@ -84,6 +93,7 @@ export default function AdminSPOCDashboard({
             const params = new URLSearchParams();
             if (propertyId) params.append('propertyId', propertyId);
             if (organizationId && organizationId !== '') params.append('organizationId', organizationId);
+            if (statusFilter !== 'all') params.append('status', statusFilter);
 
             console.log('Fetching tickets with params:', params.toString()); // Debug
 
@@ -269,9 +279,21 @@ export default function AdminSPOCDashboard({
                         <p className="text-slate-400 text-sm font-bold">{propertyName || 'All Properties'}</p>
                     </div>
                 </div>
-                <button onClick={fetchData} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                    <RefreshCw className={`w-5 h-5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="h-9 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="open,assigned,in_progress,blocked">Open</option>
+                        <option value="resolved,closed">Completed</option>
+                        <option value="waitlist">Waitlist</option>
+                    </select>
+                    <button onClick={fetchData} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <RefreshCw className={`w-5 h-5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-12 gap-5">

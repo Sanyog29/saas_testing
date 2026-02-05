@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
     LayoutDashboard, Ticket as TicketIcon, Settings, LogOut, Plus,
     CheckCircle2, Clock, MessageSquare, UsersRound, Coffee, UserCircle,
-    Calendar, Building2, Shield, ChevronRight, Sun, Moon, Menu, X, Camera, Pencil, Loader2
+    Calendar, Building2, Shield, ChevronRight, Sun, Moon, Menu, X, Camera, Pencil, Loader2, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -768,10 +768,20 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
 // Helper Sub-component for Ticket Row (MST Style)
 // Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
 
-// Requests Tab for Tenant
+// RequestsTab for Tenant
 const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, onEditClick, onDeleteClick }: { activeTickets: Ticket[], completedTickets: Ticket[], onNavigate: (tab: Tab) => void, isLoading: boolean, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void }) => {
     const { user } = useAuth();
     const router = useRouter();
+    const [filter, setFilter] = useState('all');
+
+    const getFilteredTickets = () => {
+        if (filter === 'completed') return completedTickets;
+        if (filter === 'waitlist') return activeTickets.filter(t => t.status === 'waitlist');
+        if (filter === 'in_progress') return activeTickets.filter(t => t.status !== 'waitlist');
+        return []; // for 'all', we handle separately
+    };
+
+    const displayedTickets = getFilteredTickets();
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -780,86 +790,151 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                     <h2 className="text-2xl md:text-3xl font-display font-semibold text-slate-900 tracking-tight">Support Requests</h2>
                     <p className="text-sm md:text-base text-slate-500 font-medium mt-1">Track and manage your facility assistance tickets.</p>
                 </div>
-                <button
-                    onClick={() => onNavigate('create_request')}
-                    className="w-full md:w-auto px-6 py-3.5 bg-primary text-white font-black text-xs rounded-2xl uppercase tracking-[0.15em] hover:opacity-95 hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
-                >
-                    <Plus className="w-4 h-4" />
-                    New Request
-                </button>
-            </div>
-
-            {/* Active Requests */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                    <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Requests ({activeTickets.length})</h3>
-                </div>
-
-                {isLoading ? (
-                    <div className="space-y-4">
-                        {[1, 2].map(i => (
-                            <div key={i} className="h-40 bg-slate-50 rounded-3xl animate-pulse border border-slate-100" />
-                        ))}
-                    </div>
-                ) : activeTickets.length === 0 ? (
-                    <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-20 text-center">
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                            <TicketIcon className="w-8 h-8 text-slate-200" />
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl shadow-sm flex-1 md:flex-none justify-between md:justify-start">
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4 text-slate-400" />
+                            <select
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                                className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none cursor-pointer appearance-none pr-8 relative z-10"
+                            >
+                                <option value="all">All Requests</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="waitlist">Waitlist</option>
+                                <option value="completed">Completed</option>
+                            </select>
                         </div>
-                        <h4 className="text-lg font-bold text-slate-900 mb-2">No active requests</h4>
-                        <p className="text-slate-500 max-w-xs mx-auto">You don't have any requests in progress at the moment.</p>
-                        <button
-                            onClick={() => onNavigate('create_request')}
-                            className="mt-8 text-primary font-black text-[10px] uppercase tracking-widest hover:underline"
-                        >
-                            Create your first request
-                        </button>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {activeTickets.map(ticket => (
-                            <TicketCard
-                                key={ticket.id}
-                                id={ticket.id}
-                                title={ticket.title}
-                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
-                                status={ticket.status.toUpperCase() as any || 'OPEN'}
-                                ticketNumber={ticket.ticket_number}
-                                createdAt={ticket.created_at}
-                                photoUrl={ticket.photo_before_url}
-                                onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
-                                onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
-                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
-                            />
-                        ))}
-                    </div>
-                )}
+                    <button
+                        onClick={() => onNavigate('create_request')}
+                        className="w-auto px-4 md:px-6 py-3.5 bg-primary text-white font-black text-xs rounded-2xl uppercase tracking-[0.15em] hover:opacity-95 hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20 shrink-0"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden md:inline">New Request</span>
+                        <span className="md:hidden">New</span>
+                    </button>
+                </div>
             </div>
 
-            {/* Completed Requests */}
-            {completedTickets.length > 0 && (
-                <div className="space-y-4 pt-8">
+            {filter === 'all' ? (
+                <>
+                    {/* Active Requests */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 px-2">
+                            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                            <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Requests ({activeTickets.length})</h3>
+                        </div>
+
+                        {isLoading ? (
+                            <div className="space-y-4">
+                                {[1, 2].map(i => (
+                                    <div key={i} className="h-40 bg-slate-50 rounded-3xl animate-pulse border border-slate-100" />
+                                ))}
+                            </div>
+                        ) : activeTickets.length === 0 ? (
+                            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-20 text-center">
+                                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                    <TicketIcon className="w-8 h-8 text-slate-200" />
+                                </div>
+                                <h4 className="text-lg font-bold text-slate-900 mb-2">No active requests</h4>
+                                <p className="text-slate-500 max-w-xs mx-auto">You don't have any requests in progress at the moment.</p>
+                                <button
+                                    onClick={() => onNavigate('create_request')}
+                                    className="mt-8 text-primary font-black text-[10px] uppercase tracking-widest hover:underline"
+                                >
+                                    Create your first request
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                                {activeTickets.map(ticket => (
+                                    <TicketCard
+                                        key={ticket.id}
+                                        id={ticket.id}
+                                        title={ticket.title}
+                                        priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                        status={ticket.status.toUpperCase() as any || 'OPEN'}
+                                        ticketNumber={ticket.ticket_number}
+                                        createdAt={ticket.created_at}
+                                        photoUrl={ticket.photo_before_url}
+                                        onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
+                                        onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                        onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Completed Requests */}
+                    {completedTickets.length > 0 && (
+                        <div className="space-y-4 pt-8">
+                            <div className="flex items-center gap-3 px-2">
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                                <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recently Resolved ({completedTickets.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                                {completedTickets.map(ticket => (
+                                    <TicketCard
+                                        key={ticket.id}
+                                        id={ticket.id}
+                                        title={ticket.title}
+                                        priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                        status="COMPLETED"
+                                        ticketNumber={ticket.ticket_number}
+                                        createdAt={ticket.created_at}
+                                        photoUrl={ticket.photo_before_url}
+                                        onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
+                                        onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="space-y-4">
                     <div className="flex items-center gap-3 px-2">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                        <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recently Resolved ({completedTickets.length})</h3>
+                        <div className={`w-1.5 h-1.5 rounded-full ${filter === 'completed' ? 'bg-emerald-500' : 'bg-primary'}`} />
+                        <h3 className="text-xs md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                            {filter === 'completed' ? 'Completed Requests' : filter === 'waitlist' ? 'Waitlist Requests' : 'In Progress Requests'} ({displayedTickets.length})
+                        </h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {completedTickets.map(ticket => (
-                            <TicketCard
-                                key={ticket.id}
-                                id={ticket.id}
-                                title={ticket.title}
-                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
-                                status="COMPLETED"
-                                ticketNumber={ticket.ticket_number}
-                                createdAt={ticket.created_at}
-                                photoUrl={ticket.photo_before_url}
-                                onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
-                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
-                            />
-                        ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="h-40 bg-slate-50 rounded-3xl animate-pulse border border-slate-100" />
+                            ))}
+                        </div>
+                    ) : displayedTickets.length === 0 ? (
+                        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-20 text-center">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <TicketIcon className="w-8 h-8 text-slate-200" />
+                            </div>
+                            <h4 className="text-lg font-bold text-slate-900 mb-2">No tickets found</h4>
+                            <p className="text-slate-500 max-w-xs mx-auto">No tickets match the selected filter.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                            {displayedTickets.map(ticket => (
+                                <TicketCard
+                                    key={ticket.id}
+                                    id={ticket.id}
+                                    title={ticket.title}
+                                    priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                    status={filter === 'completed' ? 'COMPLETED' : ticket.status.toUpperCase() as any || 'OPEN'}
+                                    ticketNumber={ticket.ticket_number}
+                                    createdAt={ticket.created_at}
+                                    photoUrl={ticket.photo_before_url}
+                                    onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
+                                    // Allow edit only if not completed
+                                    onEdit={filter !== 'completed' && onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                    onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

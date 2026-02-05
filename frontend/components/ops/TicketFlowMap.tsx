@@ -5,19 +5,25 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     RefreshCw, Filter, Calendar, Users,
     Search, ChevronRight, Activity, Clock,
-    CheckCircle2, AlertCircle, ArrowLeft, Zap
+    CheckCircle2, AlertCircle, ArrowLeft, Zap, ChevronDown
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
 import { useDataCache } from '@/frontend/context/DataCacheContext';
+import { useAuth } from '@/frontend/context/AuthContext';
 import Skeleton from '@/frontend/components/ui/Skeleton';
 import {
     DndContext,
     PointerSensor,
+    MouseSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
+    DragOverlay,
     useDroppable,
+    closestCenter,
 } from '@dnd-kit/core';
 import TicketNode from './TicketNode';
 import MstGroup from './MstGroup';
@@ -76,7 +82,7 @@ function WaitlistLane({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="lg:flex-1 lg:overflow-y-auto overflow-y-visible pr-2 custom-scrollbar min-h-[120px] lg:min-h-0 h-auto lg:h-full">
                 <div className="flex flex-wrap gap-2">
                     {tickets.map((ticket) => (
                         <TicketNode
@@ -107,6 +113,10 @@ export default function TicketFlowMap({
     propertyId,
 }: TicketFlowMapProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const from = searchParams.get('from');
+
+    const { membership } = useAuth();
     const { getCachedData, setCachedData } = useDataCache();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -123,12 +133,12 @@ export default function TicketFlowMap({
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Sync state if cacheKey changes
-    useMemo(() => {
+    useEffect(() => {
         const cached = getCachedData(cacheKey);
-        if (cached && flowData?.stats === undefined) { // Check if current data matches key
+        if (cached) {
             setFlowData(cached);
             setLoading(false);
-        } else if (!cached && !flowData) {
+        } else {
             setLoading(true);
         }
     }, [cacheKey, getCachedData]);
@@ -140,12 +150,20 @@ export default function TicketFlowMap({
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showDevTools, setShowDevTools] = useState(false); // FOR DEMO ONLY
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    // Find active ticket for overlay
+    const activeTicket = useMemo(() => {
+        if (!activeId || !flowData) return null;
+        return [...flowData.waitlist, ...flowData.mstGroups.flatMap(g => g.tickets)]
+            .find(t => t.id === activeId);
+    }, [activeId, flowData]);
 
     // DND Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 10,
             },
         })
     );
@@ -159,33 +177,15 @@ export default function TicketFlowMap({
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        // Try to load from cache first if not already initialized
-        if (isInitial && !flowData) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setFlowData(cached);
-                setLoading(false);
-            }
-        }
-
-        let timeoutId: NodeJS.Timeout | null = null;
         try {
             const params = new URLSearchParams();
             if (organizationId) params.set('organization_id', organizationId);
             if (propertyId) params.set('property_id', propertyId);
             params.set('date', selectedDate);
 
-            // Timeout after 10 seconds
-            timeoutId = setTimeout(() => {
-                controller.abort('timeout');
-            }, 10000);
-
             const response = await fetch(`/api/tickets/flow?${params}`, {
                 signal: controller.signal
             });
-
-            if (timeoutId) clearTimeout(timeoutId);
-            timeoutId = null;
 
             const data = await response.json();
 
@@ -201,23 +201,23 @@ export default function TicketFlowMap({
             setCachedData(cacheKey, data);
             setError(null);
         } catch (err: any) {
-            // Silently ignore manual aborts
-            if (err.name === 'AbortError') {
-                if (controller.signal.reason === 'timeout') {
-                    setError('Request timed out. Please try again.');
-                }
-                return;
-            }
-
+            if (err.name === 'AbortError') return;
             console.error('[TicketFlowMapV2] Fetch error:', err);
             setError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
-            if (timeoutId) clearTimeout(timeoutId);
             if (abortControllerRef.current === controller) {
                 setLoading(false);
             }
         }
-    }, [organizationId, propertyId, selectedDate, cacheKey, getCachedData, setCachedData]);
+    }, [organizationId, propertyId, selectedDate, cacheKey, setCachedData]);
+
+    const lastFetchRef = useRef<number>(0);
+    const debouncedFetch = useCallback(() => {
+        const now = Date.now();
+        if (now - lastFetchRef.current < 2000) return; // Throttle to once every 2 seconds
+        lastFetchRef.current = now;
+        fetchFlowData();
+    }, [fetchFlowData]);
 
     useEffect(() => {
         fetchFlowData(true);
@@ -226,14 +226,20 @@ export default function TicketFlowMap({
     // Realtime subscription
     useEffect(() => {
         const supabase = createClient();
+
+        // Filter changes to current property if available to reduce noise
+        const filter = propertyId ? `property_id=eq.${propertyId}` : undefined;
+
         const channel = supabase
-            .channel('ticket-flow-v2')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchFlowData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchFlowData())
+            .channel(`flow-${propertyId || 'global'}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'tickets', filter },
+                () => debouncedFetch()
+            )
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [fetchFlowData]);
+    }, [propertyId, debouncedFetch]);
 
     const handleTicketClick = (ticketId: string) => {
         const ticket = [...(flowData?.waitlist || []), ...(flowData?.mstGroups.flatMap(g => g.tickets) || [])]
@@ -304,8 +310,13 @@ export default function TicketFlowMap({
         };
     }, [derivedFlowData]);
 
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
+        setActiveId(null);
         if (!over) return;
 
         const ticketId = active.id as string;
@@ -388,6 +399,48 @@ export default function TicketFlowMap({
         }
     };
 
+    const handleBack = () => {
+        if (!propertyId || !membership) {
+            router.back();
+            return;
+        }
+
+        const propMember = membership.properties.find(p => p.id === propertyId);
+
+        if (propMember) {
+            switch (propMember.role) {
+                case 'property_admin':
+                    if (from === 'requests') {
+                        router.push(`/property/${propertyId}/dashboard?tab=requests`);
+                    } else {
+                        router.push(`/property/${propertyId}/dashboard`);
+                    }
+                    break;
+                case 'mst':
+                    router.push(`/property/${propertyId}/mst`);
+                    break;
+                case 'staff':
+                    router.push(`/property/${propertyId}/staff`);
+                    break;
+                case 'tenant':
+                    router.push(`/property/${propertyId}/tenant`);
+                    break;
+                case 'security':
+                    router.push(`/property/${propertyId}/security`);
+                    break;
+                default:
+                    router.push(`/property/${propertyId}/dashboard`);
+            }
+        } else {
+            // Fallback for org admins or if membership not found
+            if (organizationId) {
+                router.push(`/org/${organizationId}/dashboard`);
+            } else {
+                router.push(`/property/${propertyId}/dashboard`);
+            }
+        }
+    };
+
     if (loading && !flowData) {
         return (
             <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -440,21 +493,21 @@ export default function TicketFlowMap({
     return (
         <div className="flex flex-col h-full bg-background text-text-primary overflow-hidden">
             {/* Top Toolbar */}
-            <header className="px-6 py-4 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between z-20">
-                <div className="flex items-center gap-6">
+            <header className="px-4 lg:px-6 py-3 lg:py-4 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between z-20">
+                <div className="flex items-center gap-4 lg:gap-6">
                     <button
-                        onClick={() => router.back()}
+                        onClick={handleBack}
                         className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-secondary hover:bg-slate-50 transition-all group"
                     >
                         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                        <span>Back</span>
+                        <span className="hidden sm:inline">Back</span>
                     </button>
 
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
                             <Activity className="w-5 h-5 text-primary" />
                         </div>
-                        <h2 className="text-xl font-display font-bold tracking-tight">Ticket Flow Map</h2>
+                        <h2 className="text-lg lg:text-xl font-display font-bold tracking-tight">Ticket Flow</h2>
                     </div>
 
                     <div className="hidden lg:flex items-center gap-4 border-l border-border pl-6">
@@ -488,13 +541,13 @@ export default function TicketFlowMap({
                         />
                     </div>
 
-                    <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-3 py-2 transition-all hover:border-primary/50">
+                    <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-2 lg:px-3 py-2 transition-all hover:border-primary/50">
                         <Calendar className="w-4 h-4 text-primary" />
                         <input
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="bg-transparent text-sm font-bold outline-none cursor-pointer text-text-primary h-auto"
+                            className="bg-transparent text-sm font-bold outline-none cursor-pointer text-text-primary h-auto w-28 lg:w-auto"
                         />
                     </div>
 
@@ -511,17 +564,28 @@ export default function TicketFlowMap({
                 </div>
             </header>
 
-            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <main className="flex-1 overflow-x-auto overflow-y-hidden p-0 flex min-h-0 bg-white relative">
+            <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                collisionDetection={closestCenter}
+            >
+                <main className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-y-hidden lg:overflow-x-auto p-0 min-h-0 bg-white relative">
                     {/* Upstream Waitlist Feed */}
-                    <div className="w-80 flex-shrink-0 flex flex-col bg-slate-50/50 border-r border-slate-200/60 z-20 relative overflow-hidden h-full">
+                    <div className="w-full lg:w-80 flex-shrink-0 flex flex-col bg-slate-50/50 border-b lg:border-b-0 lg:border-r border-slate-200/60 z-20 relative overflow-hidden h-auto lg:h-full transition-all">
                         {/* Feed Flow Visual */}
-                        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-r from-transparent to-warning/5 pointer-events-none" />
-                        <div className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full flex items-center justify-center z-30 shadow-sm">
+                        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-r from-transparent to-warning/5 pointer-events-none hidden lg:block" />
+                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-transparent to-warning/5 pointer-events-none lg:hidden" />
+
+                        <div className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full items-center justify-center z-30 shadow-sm hidden lg:flex">
                             <ChevronRight className="w-4 h-4 text-warning" />
                         </div>
 
-                        <div className="p-6 relative z-10 h-full flex flex-col">
+                        <div className="absolute left-1/2 bottom-[-16px] -translate-x-1/2 w-8 h-8 bg-white border border-slate-200/60 rounded-full items-center justify-center z-30 shadow-sm flex lg:hidden">
+                            <ChevronDown className="w-4 h-4 text-warning" />
+                        </div>
+
+                        <div className="p-4 lg:p-6 relative z-10 h-full flex flex-col">
                             <WaitlistLane
                                 tickets={derivedFlowData?.waitlist || []}
                                 onTicketClick={handleTicketClick}
@@ -530,8 +594,8 @@ export default function TicketFlowMap({
                         </div>
                     </div>
 
-                    <div className="flex flex-1 min-w-0 overflow-x-auto overflow-y-hidden custom-scrollbar">
-                        <div className="flex h-full min-w-max">
+                    <div className="flex flex-1 min-w-0 flex-col lg:flex-row h-auto lg:h-full custom-scrollbar">
+                        <div className="flex flex-col lg:flex-row h-full min-w-0 lg:min-w-max">
                             {TEAM_CONFIG.map((team) => {
                                 const mstsInTeam = filteredMstGroups.filter(g => {
                                     if (team.id === 'housekeeping') {
@@ -551,7 +615,7 @@ export default function TicketFlowMap({
                                     team.id === 'plumbing' ? 'text-success' : 'text-error';
 
                                 return (
-                                    <div key={team.id} className="w-[400px] flex flex-col border-r border-slate-100 last:border-r-0 relative group/dept flex-shrink-0 h-full">
+                                    <div key={team.id} className="w-full lg:w-[400px] flex flex-col border-b lg:border-b-0 lg:border-r border-slate-100 last:border-0 relative group/dept flex-shrink-0 h-auto lg:h-full min-h-[300px]">
                                         {/* Department Vertical Rail Backdrop */}
                                         <div className="absolute inset-0 bg-slate-50/30 opacity-100 transition-opacity pointer-events-none" />
 
@@ -574,7 +638,7 @@ export default function TicketFlowMap({
                                             </div>
                                         </div>
 
-                                        <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
+                                        <div className="flex-1 overflow-y-hidden lg:overflow-y-auto custom-scrollbar w-full">
                                             <div className="flex flex-col px-1">
                                                 {mstsInTeam.map((group) => (
                                                     <MstGroup
@@ -617,6 +681,21 @@ export default function TicketFlowMap({
                 tickets={derivedFlowData?.mstGroups.find(g => g.mst.id === selectedMst?.id)?.tickets || []}
             />
 
+            <DragOverlay dropAnimation={null}>
+                {activeTicket ? (
+                    <div className="opacity-80 scale-110 pointer-events-none">
+                        <TicketNode
+                            id={activeTicket.id}
+                            ticketNumber={activeTicket.ticket_number || activeTicket.ticket_id || activeTicket.id}
+                            status={activeTicket.status}
+                            title={activeTicket.title}
+                            description={activeTicket.description}
+                            isOverlay={true}
+                        />
+                    </div>
+                ) : null}
+            </DragOverlay>
+
             {/* DEV TOOLS (Simulations) */}
             <div className={`fixed bottom-4 right-4 z-[9999] transition-all bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden ${showDevTools ? 'w-64' : 'w-10 h-10 rounded-full'}`}>
                 {showDevTools ? (
@@ -642,7 +721,7 @@ export default function TicketFlowMap({
             </div>
 
             <style jsx global>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #484f58; }

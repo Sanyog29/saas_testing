@@ -79,6 +79,7 @@ const OrgAdminDashboard = () => {
     const [isPropSelectorOpen, setIsPropSelectorOpen] = useState(false);
     const [userRole, setUserRole] = useState<string>('User');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
     const searchParams = useSearchParams();
 
     // Derived state
@@ -358,14 +359,32 @@ const OrgAdminDashboard = () => {
         fetchOrgUsers();
     };
 
-    // Helper to change tab and close mobile sidebar
-    const handleTabChange = (tab: Tab) => {
-        setActiveTab(tab);
-        setSidebarOpen(false);
+    // Restore tab from URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['overview', 'properties', 'requests', 'reports', 'visitors', 'settings', 'profile', 'revenue', 'users', 'diesel', 'electricity'].includes(tab)) {
+            setActiveTab(tab as Tab);
+        }
+        const filter = searchParams.get('filter');
+        if (filter) {
+            setPendingStatusFilter(filter);
+        } else {
+            setPendingStatusFilter('all');
+        }
+    }, [searchParams]);
 
-        // Update URL with current tab for history persistence
+    // Helper to change tab with URL persistence
+    const handleTabChange = (tab: Tab, filter: string = 'all') => {
+        setActiveTab(tab);
+        setPendingStatusFilter(filter);
+        setSidebarOpen(false);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
+        if (filter !== 'all') {
+            url.searchParams.set('filter', filter);
+        } else {
+            url.searchParams.delete('filter');
+        }
         window.history.pushState({}, '', url.toString());
     };
 
@@ -743,6 +762,7 @@ const OrgAdminDashboard = () => {
                                 selectedPropertyId={selectedPropertyId}
                                 setSelectedPropertyId={setSelectedPropertyId}
                                 onMenuToggle={() => setSidebarOpen(true)}
+                                onTabChange={handleTabChange}
                             />
                         )}
                         {activeTab === 'revenue' && <RevenueTab properties={properties} selectedPropertyId={selectedPropertyId} />}
@@ -764,6 +784,7 @@ const OrgAdminDashboard = () => {
                                         full_name: user?.user_metadata?.full_name || 'Super Admin',
                                         avatar_url: '' // Add avatar if available
                                     }}
+                                    initialStatusFilter={pendingStatusFilter}
                                 />
                             </div>
                         )}
@@ -1022,13 +1043,15 @@ const OverviewTab = memo(function OverviewTab({
     orgId,
     selectedPropertyId,
     setSelectedPropertyId,
-    onMenuToggle
+    onMenuToggle,
+    onTabChange
 }: {
     properties: Property[],
     orgId: string,
     selectedPropertyId: string,
     setSelectedPropertyId: (id: string) => void,
-    onMenuToggle: () => void
+    onMenuToggle: () => void,
+    onTabChange: (tab: Tab, filter?: string) => void
 }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isOverviewSelectorOpen, setIsOverviewSelectorOpen] = useState(false);
@@ -1291,8 +1314,11 @@ const OverviewTab = memo(function OverviewTab({
                 {/* KPI Cards Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                     {/* Active Requests */}
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Open Tickets</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'open,assigned,in_progress,blocked')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md cursor-pointer hover:border-primary/50 group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">Open Tickets</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{displayTicketStats.open_tickets + displayTicketStats.in_progress}</span>
                             {displayTicketStats.sla_breached > 0 && (
@@ -1302,8 +1328,11 @@ const OverviewTab = memo(function OverviewTab({
                     </div>
 
                     {/* Resolved */}
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Resolved</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'resolved,closed')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md cursor-pointer hover:border-emerald-500/50 group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-emerald-500 transition-colors">Resolved</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{displayTicketStats.resolved}</span>
                             <span className="text-[10px] text-slate-400 font-bold uppercase">Avg {displayTicketStats.avg_resolution_hours}h resolution</span>
@@ -1311,8 +1340,11 @@ const OverviewTab = memo(function OverviewTab({
                     </div>
 
                     {/* Completion Rate */}
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md">
-                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Completion Rate</div>
+                    <div
+                        onClick={() => onTabChange('requests', 'all')}
+                        className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:shadow-md cursor-pointer hover:border-blue-500/50 group"
+                    >
+                        <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors">Completion Rate</div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-4xl font-black text-slate-900">{completionRate}%</span>
                             <span className="text-[10px] text-slate-400 font-bold uppercase">{displayTicketStats.resolved} of {displayTicketStats.total_tickets} closed</span>

@@ -633,7 +633,7 @@ const MstDashboard = () => {
 
                 {/* Page Content */}
                 {/* Page Content */}
-                <main className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-6 bg-slate-50/50">
+                <main className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden p-2 sm:p-4 md:p-6 bg-slate-50/50">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import dictionary from '@/backend/lib/ticketing/issueDictionary.json';
 
 // Admin client for table operations
 const supabaseAdmin = createClient(
@@ -7,36 +8,49 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper to get keywords for an issue code from the code dictionary
+function getKeywordsForCode(code: string): any[] {
+    const skillGroups = ['vendor', 'technical', 'plumbing', 'soft_services'];
+    for (const sg of skillGroups) {
+        const issues = (dictionary as any)[sg];
+        if (issues && issues[code]) {
+            return issues[code].map((kw: string, index: number) => ({
+                id: `${code}_${index}`,
+                keyword: kw,
+                match_type: 'contains'
+            }));
+        }
+    }
+    return [];
+}
+
 // GET: Fetch all skill groups with their issue categories and keywords
 export async function GET(request: NextRequest) {
     try {
-        // First, fetch all skill groups
+        // First, fetch global skill groups (property_id IS NULL)
         const { data: skillGroups, error: sgError } = await supabaseAdmin
             .from('skill_groups')
-            .select('id, code, name, description')
+            .select('id, code, name')
+            .is('property_id', null)
             .order('name');
 
         if (sgError) {
             return NextResponse.json({ error: sgError.message }, { status: 500 });
         }
 
-        // Then fetch all issue categories with their keywords
-        const { data: categories, error: catError } = await supabaseAdmin
+        // Then fetch global issue categories 
+        // Note: keywords are now pulled from issueDictionary.json instead of DB
+        const { data: catData, error: catError } = await supabaseAdmin
             .from('issue_categories')
             .select(`
                 id,
                 code,
                 name,
-                description,
                 skill_group_id,
                 priority,
-                is_active,
-                issue_keywords (
-                    id,
-                    keyword,
-                    match_type
-                )
+                is_active
             `)
+            .is('property_id', null)
             .eq('is_active', true)
             .order('priority', { ascending: false });
 
@@ -50,16 +64,25 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Attach keywords from our hardcoded issueDictionary.json
+        const categories = (catData || []).map((cat: any) => ({
+            ...cat,
+            issue_keywords: getKeywordsForCode(cat.code)
+        }));
+
+        // Determine if setup is needed (no categories yet)
+        const needsSetup = !categories || categories.length === 0;
+
         // Group categories by skill_group_id
         const categoriesBySkillGroup: Record<string, any[]> = {};
         for (const sg of skillGroups || []) {
-            categoriesBySkillGroup[sg.id] = (categories || []).filter(
+            categoriesBySkillGroup[sg.id] = categories.filter(
                 (c: any) => c.skill_group_id === sg.id
             );
         }
 
         // Also include uncategorized (no skill group)
-        categoriesBySkillGroup['uncategorized'] = (categories || []).filter(
+        categoriesBySkillGroup['uncategorized'] = categories.filter(
             (c: any) => !c.skill_group_id
         );
 
@@ -67,7 +90,7 @@ export async function GET(request: NextRequest) {
             skill_groups: skillGroups || [],
             categories: categories || [],
             categories_by_skill_group: categoriesBySkillGroup,
-            needs_setup: false
+            needs_setup: needsSetup
         });
 
     } catch (error: any) {
@@ -92,7 +115,6 @@ export async function POST(request: NextRequest) {
             .insert({
                 code,
                 name,
-                description,
                 skill_group_id,
                 priority: priority || 0
             })
@@ -141,7 +163,6 @@ export async function PATCH(request: NextRequest) {
         const updates: any = { updated_at: new Date().toISOString() };
         if (code !== undefined) updates.code = code;
         if (name !== undefined) updates.name = name;
-        if (description !== undefined) updates.description = description;
         if (skill_group_id !== undefined) updates.skill_group_id = skill_group_id;
         if (priority !== undefined) updates.priority = priority;
         if (is_active !== undefined) updates.is_active = is_active;

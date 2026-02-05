@@ -44,13 +44,14 @@ interface TicketsViewProps {
     propertyId?: string;
     canDelete?: boolean;
     onNewRequest?: () => void;
+    initialStatusFilter?: string;
 }
 
-const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewRequest }) => {
+const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewRequest, initialStatusFilter = 'all' }) => {
     const router = useRouter();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     // Edit Modal State
@@ -60,6 +61,10 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
     const [isUpdating, setIsUpdating] = useState(false);
 
     const supabase = createClient();
+
+    useEffect(() => {
+        setStatusFilter(initialStatusFilter);
+    }, [initialStatusFilter]);
 
     useEffect(() => {
         // Get current user
@@ -219,9 +224,9 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 px-1 sm:px-0">
             {/* Header with Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-1 sm:px-0">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     <h3 className="text-xl font-display font-bold text-text-primary whitespace-nowrap">Support Tickets</h3>
                     <div className="flex items-center gap-2">
@@ -240,7 +245,7 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3">
                     <button
-                        onClick={() => window.open(`/property/${propertyId}/flow-map`, '_blank')}
+                        onClick={() => router.push(`/property/${propertyId}/flow-map?from=requests`)}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-secondary/10 text-secondary text-[10px] sm:text-xs font-bold rounded-[var(--radius-md)] border border-secondary/20 hover:bg-secondary/20 transition-all active:scale-[0.98]"
                         title="View Operational Flow Map"
                     >
@@ -270,7 +275,7 @@ const TicketsView: React.FC<TicketsViewProps> = ({ propertyId, canDelete, onNewR
                 ) : tickets.length === 0 ? (
                     <div className="p-12 text-center text-text-tertiary font-body">No tickets found</div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 p-3 sm:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6 p-1.5 sm:p-6">
                         {tickets.map((ticket) => (
                             <TicketCard
                                 key={ticket.id}

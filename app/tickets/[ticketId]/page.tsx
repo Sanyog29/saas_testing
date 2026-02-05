@@ -1081,12 +1081,12 @@ export default function TicketDetailPage() {
                                     {resolvers.map((r: any) => (
                                         <div
                                             key={r.id}
-                                            onClick={() => setSelectedResolver(r.id)}
-                                            className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${selectedResolver === r.id ? 'bg-primary/10 border-primary text-white' : (isDark ? 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:border-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}
+                                            onClick={() => setSelectedResolver(r.user_id)}
+                                            className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${selectedResolver === r.user_id ? 'bg-primary/10 border-primary text-white' : (isDark ? 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:border-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className="font-bold">{r.full_name}</span>
-                                                {selectedResolver === r.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                                                <span className="font-bold">{r.user?.full_name || 'Unknown Technician'}</span>
+                                                {selectedResolver === r.user_id && <CheckCircle2 className="w-5 h-5 text-primary" />}
                                             </div>
                                         </div>
                                     ))}

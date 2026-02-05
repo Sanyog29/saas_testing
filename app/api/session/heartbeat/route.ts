@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
 
 /**
- * POST /api/session/ping
+ * POST /api/session/heartbeat
  * Updates the last_activity timestamp for an active session
  * Called by frontend on route changes, clicks, API interactions (throttled to 30-60s)
  */
@@ -20,11 +20,11 @@ export async function POST(request: NextRequest) {
     const sessionId = body.session_id;
 
     if (!sessionId) {
-        console.log('[SessionPing] No session_id provided, skipping');
+        console.log('[SessionHeartbeat] No session_id provided, skipping');
         return NextResponse.json({ error: 'session_id required' }, { status: 400 });
     }
 
-    console.log('[SessionPing] Ping for session:', sessionId);
+    // console.log('[SessionHeartbeat] Heartbeat for session:', sessionId);
 
     try {
         // Update last_activity for this session
@@ -39,17 +39,18 @@ export async function POST(request: NextRequest) {
 
         if (updateError) {
             // Session might not exist or already closed
-            console.log('[SessionPing] Session not found or closed:', updateError.message);
+            console.log('[SessionHeartbeat] Session not found or closed:', updateError.message);
             return NextResponse.json({
-                error: 'Session not found or expired',
-                should_restart: true
-            }, { status: 404 });
+                success: false,
+                should_restart: true,
+                error: 'Session not found or expired'
+            }, { status: 200 });
         }
 
         return NextResponse.json({ success: true });
 
     } catch (err: any) {
-        console.error('[SessionPing] Error:', err.message);
+        console.error('[SessionHeartbeat] Error:', err.message);
         return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
     }
 }
