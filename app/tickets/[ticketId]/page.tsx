@@ -32,6 +32,9 @@ import {
     AlertTriangle,
     Sparkles,
     Brain,
+    Pencil,
+    X,
+    RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { compressImage } from '@/frontend/utils/image-compression';
@@ -98,7 +101,7 @@ export default function TicketDetailPage() {
     const [ticket, setTicket] = useState<Ticket | null>(null);
     const [activities, setActivities] = useState<Activity[]>([]);
     const [comments, setComments] = useState<Comment[]>([]);
-    const [userRole, setUserRole] = useState<'admin' | 'staff' | 'tenant' | null>(null);
+    const [userRole, setUserRole] = useState<'admin' | 'staff' | 'tenant' | 'mst' | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [commentText, setCommentText] = useState('');
@@ -116,6 +119,12 @@ export default function TicketDetailPage() {
 
     // Notification State
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+    // Edit Modal State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [isUpdatingContent, setIsUpdatingContent] = useState(false);
 
     // Initial Fetch
     useEffect(() => {
@@ -251,7 +260,9 @@ export default function TicketDetailPage() {
 
         if (propMember?.role === 'property_admin') {
             setUserRole('admin');
-        } else if (propMember?.role === 'staff' || propMember?.role === 'mst') {
+        } else if (propMember?.role === 'mst') {
+            setUserRole('mst');
+        } else if (propMember?.role === 'staff') {
             setUserRole('staff');
         } else {
             setUserRole('tenant');
@@ -313,58 +324,19 @@ export default function TicketDetailPage() {
         */
 
         try {
-            const updates: any = { status: newStatus };
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
 
-            // If starting work on a waitlist ticket, also set assignment fields
-            if (newStatus === 'in_progress') {
-                updates.work_started_at = new Date().toISOString();
-                // If ticket was waitlist, mark SLA as started now
-                if (ticket.status === 'waitlist' || ticket.status === 'open') {
-                    updates.sla_started = true;
-                    if (!ticket.assigned_at) {
-                        updates.assigned_at = new Date().toISOString();
-                    }
-                }
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to update status');
             }
 
-            if (newStatus === 'resolved' || newStatus === 'closed') {
-                updates.resolved_at = new Date().toISOString();
-            }
-
-            const { error } = await supabase
-                .from('tickets')
-                .update(updates)
-                .eq('id', ticketId);
-
-            if (error) {
-                console.error('Update Error:', error);
-                throw error;
-            }
-
-            // Notify requestor on closure
-            if (newStatus === 'closed') {
-                const requestorId = ticket.raised_by || (ticket as any).created_by;
-                if (requestorId) {
-                    try {
-                        await supabase.from('notifications').insert({
-                            user_id: requestorId,
-                            title: 'Request Completed',
-                            message: `Your request "${ticket.title}" has been completed and closed.`,
-                            type: 'success',
-                            link: `/tickets/${ticketId}`
-                        });
-                    } catch (notificationErr) {
-                        console.error('Notification failed:', notificationErr);
-                    }
-                }
-            }
-
-            // Log Activity
-            await logActivity(newStatus === 'closed' ? 'closed_ticket' : 'status_update', ticket.status, newStatus);
-
-            // Refresh ticket data locally to update UI immediately
-            setTicket(prev => prev ? { ...prev, ...updates } : null);
-
+            // Refresh ticket data
+            fetchTicketDetails(userId, true);
             showToast(`Ticket ${newStatus.replace('_', ' ')}`, 'success');
         } catch (err: any) {
             console.error('Status Change Error:', err);
@@ -451,44 +423,74 @@ export default function TicketDetailPage() {
         }
 
         try {
-            const { error } = await supabase
-                .from('tickets')
-                .update({
-                    assigned_to: userId,
-                    assigned_at: new Date().toISOString(),
-                    status: 'assigned'
-                })
-                .eq('id', ticketId);
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_to: userId }) // API handles status change to 'assigned'
+            });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to claim request');
+            }
 
-            await logActivity('claimed', null, 'Self-assigned by MST');
             showToast('Request Claimed', 'success');
             fetchTicketDetails(userId, true);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            showToast('Failed to claim request', 'error');
+            showToast(err.message || 'Failed to claim request', 'error');
         }
     };
 
     const handleReassign = async () => {
         if (!selectedResolver) return;
         try {
-            await supabase
-                .from('tickets')
-                .update({
-                    assigned_to: selectedResolver,
-                    assigned_at: new Date().toISOString(),
-                    status: 'assigned'
-                })
-                .eq('id', ticketId);
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_to: selectedResolver })
+            });
 
-            await logActivity('reassigned', ticket?.assigned_to, selectedResolver);
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to reassign');
+            }
+
             showToast('Ticket Reassigned', 'success');
             setShowAssignModal(false);
             fetchTicketDetails(userId, true);
-        } catch (err) {
-            showToast('Failed to reassign', 'error');
+        } catch (err: any) {
+            console.error(err);
+            showToast(err.message || 'Failed to reassign', 'error');
+        }
+    };
+
+    const handleEditSubmit = async () => {
+        if (!editTitle.trim()) return;
+        setIsUpdatingContent(true);
+        try {
+            const res = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: editTitle.trim(),
+                    description: editDescription.trim()
+                })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to update request');
+            }
+
+            showToast('Request Updated', 'success');
+            setIsEditing(false);
+            fetchTicketDetails(userId, true);
+        } catch (err: any) {
+            console.error(err);
+            showToast(err instanceof Error ? err.message : 'Failed to update request', 'error');
+        } finally {
+            setIsUpdatingContent(false);
         }
     };
 
@@ -576,16 +578,35 @@ export default function TicketDetailPage() {
                 body: JSON.stringify({ pause, reason: pause ? 'Paused by admin' : undefined }),
             });
             showToast(pause ? 'SLA Paused' : 'SLA Resumed', 'success');
+            fetchTicketDetails(userId, true);
         } catch (err) {
             showToast('Failed to update SLA', 'error');
         }
     };
 
     const handleBack = () => {
+        const via = searchParams.get('via');
+        const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+
         if (from) {
-            // If we came from a dashboard, try to go back to that specific tab
-            // This assumes the dashboard handles ?tab= parameter
             window.history.back();
+        } else if (via === 'notification' || !hasHistory) {
+            // Smart redirect based on role and property context
+            const pId = ticket?.property_id;
+            if (!pId) {
+                router.push('/');
+                return;
+            }
+
+            if (userRole === 'admin') {
+                router.push(`/property/${pId}/dashboard?tab=requests`);
+            } else if (userRole === 'mst') {
+                router.push(`/property/${pId}/mst?tab=requests`);
+            } else if (userRole === 'staff') {
+                router.push(`/property/${pId}/staff?tab=requests`);
+            } else {
+                router.push(`/property/${pId}/tenant?tab=requests`);
+            }
         } else {
             router.back();
         }
@@ -597,6 +618,7 @@ export default function TicketDetailPage() {
     const isAssignedToMe = userId === ticket.assigned_to;
     const canManage = userRole === 'admin';
     const canWork = userRole === 'staff' && isAssignedToMe;
+    const canEditContent = userId === ticket.raised_by || userRole === 'admin' || userRole === 'staff' || userRole === 'mst';
     const isDark = theme === 'dark';
 
     return (
@@ -667,7 +689,22 @@ export default function TicketDetailPage() {
                                 </div>
                             )}
 
-                            <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-tight ${(ticket as any).risk_flag ? 'mt-3' : ''}`}>{ticket.title}</h1>
+                            <div className="flex items-center gap-3">
+                                <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-tight ${(ticket as any).risk_flag ? 'mt-3' : ''}`}>{ticket.title}</h1>
+                                {canEditContent && (
+                                    <button
+                                        onClick={() => {
+                                            setEditTitle(ticket.title);
+                                            setEditDescription(ticket.description);
+                                            setIsEditing(true);
+                                        }}
+                                        className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-[#21262d] text-slate-500 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+                                        title="Edit Request"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
 
                             {(ticket as any).llm_reasoning && (
                                 <p className={`mt-2 text-[11px] font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'} italic flex items-start gap-2`}>
@@ -686,10 +723,18 @@ export default function TicketDetailPage() {
                             </div>
                             {ticket.sla_deadline && ticket.status !== 'closed' && (
                                 <div className={`flex items-center justify-end gap-1 text-xs font-bold ${ticket.sla_breached ? 'text-error' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
-                                    <Clock className="w-3 h-3" />
-                                    {ticket.sla_paused ? 'SLA Paused' :
-                                        ticket.sla_breached ? 'Breached' :
-                                            `Due ${new Date(ticket.sla_deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                    {ticket.sla_paused ? (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-lg w-fit animate-pulse">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SLA Paused</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Clock className="w-3 h-3" />
+                                            {ticket.sla_breached ? 'Breached' :
+                                                `Due ${new Date(ticket.sla_deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -865,13 +910,27 @@ export default function TicketDetailPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Before Photo */}
                                 <div className="space-y-3">
-                                    <div className={`text-xs font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest`}>Before Work</div>
+                                    <div className={`text-xs font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest flex items-center justify-between`}>
+                                        Before Work
+                                        {ticket.photo_before_url && (canWork || canManage || userRole === 'tenant') && (
+                                            <span className="text-[10px] text-primary/60 italic font-medium">Click to change</span>
+                                        )}
+                                    </div>
                                     {ticket.photo_before_url ? (
                                         <div className={`relative aspect-video rounded-xl overflow-hidden ${isDark ? 'bg-[#0d1117] border-[#30363d]' : 'bg-slate-50 border-slate-100'} border group`}>
                                             <img src={ticket.photo_before_url} alt="Before" className="w-full h-full object-cover" />
-                                            <a href={ticket.photo_before_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <span className={`text-white text-xs font-bold px-4 py-2 ${isDark ? 'bg-[#161b22]' : 'bg-white/10 backdrop-blur-md'} rounded-lg`}>View Full</span>
-                                            </a>
+                                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                                <a href={ticket.photo_before_url} target="_blank" rel="noreferrer" className={`text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 ${isDark ? 'bg-[#161b22]' : 'bg-white/10 backdrop-blur-md'} rounded-lg hover:bg-primary transition-colors`}>
+                                                    View Full
+                                                </a>
+                                                {(canWork || canManage || userRole === 'tenant') && (
+                                                    <label className={`text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 ${isDark ? 'bg-[#21262d]' : 'bg-white/20 backdrop-blur-md'} rounded-lg cursor-pointer hover:bg-primary transition-colors flex items-center gap-2`}>
+                                                        <Camera className="w-3 h-3" />
+                                                        Change Photo
+                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'before')} />
+                                                    </label>
+                                                )}
+                                            </div>
                                         </div>
                                     ) : (
                                         <label className={`flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed ${isDark ? 'border-[#30363d] bg-[#0d1117] hover:bg-[#161b22]' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'} cursor-pointer transition-all group`}>
@@ -884,13 +943,27 @@ export default function TicketDetailPage() {
 
                                 {/* After Photo */}
                                 <div className="space-y-3">
-                                    <div className={`text-xs font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest`}>After Work</div>
+                                    <div className={`text-xs font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest flex items-center justify-between`}>
+                                        After Work
+                                        {ticket.photo_after_url && (canWork || canManage) && (
+                                            <span className="text-[10px] text-emerald-500/60 italic font-medium">Click to change</span>
+                                        )}
+                                    </div>
                                     {ticket.photo_after_url ? (
                                         <div className={`relative aspect-video rounded-xl overflow-hidden ${isDark ? 'bg-[#0d1117] border-[#30363d]' : 'bg-slate-50 border-slate-100'} border group`}>
                                             <img src={ticket.photo_after_url} alt="After" className="w-full h-full object-cover" />
-                                            <a href={ticket.photo_after_url} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <span className={`text-white text-xs font-bold px-4 py-2 ${isDark ? 'bg-[#161b22]' : 'bg-white/10 backdrop-blur-md'} rounded-lg`}>View Full</span>
-                                            </a>
+                                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                                <a href={ticket.photo_after_url} target="_blank" rel="noreferrer" className={`text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 ${isDark ? 'bg-[#161b22]' : 'bg-white/10 backdrop-blur-md'} rounded-lg hover:bg-emerald-500 transition-colors`}>
+                                                    View Full
+                                                </a>
+                                                {(canWork || canManage) && (
+                                                    <label className={`text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 ${isDark ? 'bg-[#21262d]' : 'bg-white/20 backdrop-blur-md'} rounded-lg cursor-pointer hover:bg-emerald-500 transition-colors flex items-center gap-2`}>
+                                                        <Camera className="w-3 h-3" />
+                                                        Change Photo
+                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'after')} />
+                                                    </label>
+                                                )}
+                                            </div>
                                         </div>
                                     ) : (
                                         <label className={`flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed ${isDark ? 'border-[#30363d] bg-[#0d1117] hover:bg-[#161b22]' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'} cursor-pointer transition-all group`}>
@@ -916,7 +989,7 @@ export default function TicketDetailPage() {
                                         <CheckCircle2 className="w-4 h-4" />
                                     </div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{new Date(ticket.created_at).toLocaleString()}</p>
-                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Request Logged Successfully</p>
+                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Ticket Created</p>
                                     <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>System generated unique ID: {ticket.ticket_number}</p>
                                 </div>
 
@@ -926,7 +999,7 @@ export default function TicketDetailPage() {
                                         {ticket.assigned_at ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
                                     </div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'PENDING'}</p>
-                                    <p className={`text-sm font-bold ${ticket.assigned_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Resolver Dispatched</p>
+                                    <p className={`text-sm font-bold ${ticket.assigned_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Assigned</p>
                                     {ticket.assignee && (
                                         <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Assigned to {ticket.assignee.full_name}</p>
                                     )}
@@ -938,7 +1011,7 @@ export default function TicketDetailPage() {
                                         {ticket.work_started_at ? <CheckCircle2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
                                     </div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{ticket.work_started_at ? new Date(ticket.work_started_at).toLocaleString() : 'AWAITING START'}</p>
-                                    <p className={`text-sm font-bold ${ticket.work_started_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>On-Site Execution</p>
+                                    <p className={`text-sm font-bold ${ticket.work_started_at ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>In Progress</p>
                                     {ticket.work_started_at && (
                                         <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Resolver is currently working on the issue</p>
                                     )}
@@ -950,7 +1023,7 @@ export default function TicketDetailPage() {
                                         {(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                                     </div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? new Date(ticket.resolved_at || ticket.created_at).toLocaleString() : 'RESOLUTION TARGET'}</p>
-                                    <p className={`text-sm font-bold ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Signal Terminated</p>
+                                    <p className={`text-sm font-bold ${(ticket.resolved_at || ticket.status === 'closed' || ticket.status === 'resolved') ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-700' : 'text-slate-300')}`}>Completed</p>
                                 </div>
                             </div>
 
@@ -1101,6 +1174,74 @@ export default function TicketDetailPage() {
                                         className={`flex-1 py-4 ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-primary text-white hover:bg-primary-dark shadow-primary/20'} rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 shadow-xl`}
                                     >
                                         Execute Transfer
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+
+                    {isEditing && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setIsEditing(false)}
+                                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className={`${isDark ? 'bg-[#161b22] border-[#30363d] text-white' : 'bg-white border-slate-200 text-slate-900'} border rounded-[2.5rem] w-full max-w-lg p-8 relative z-10 shadow-2xl overflow-hidden`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} italic`}>Edit Request</h2>
+                                    <button
+                                        onClick={() => setIsEditing(false)}
+                                        className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-[#21262d] text-slate-500 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-900'}`}
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <p className={`${isDark ? 'text-slate-500' : 'text-slate-400'} text-sm mb-8 italic`}>Modify the transmission data for this ticket.</p>
+
+                                <div className="space-y-6 mb-8">
+                                    <div>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-2 block`}>Mission Title</label>
+                                        <input
+                                            type="text"
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            placeholder="Mission name..."
+                                            className={`w-full ${isDark ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} px-4 py-4 rounded-2xl border-2 focus:border-primary focus:outline-none transition-all font-bold`}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-2 block`}>Detailed Intelligence</label>
+                                        <textarea
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            placeholder="Intelligence briefing..."
+                                            rows={5}
+                                            className={`w-full ${isDark ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} px-4 py-4 rounded-2xl border-2 focus:border-primary focus:outline-none transition-all font-medium resize-none`}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button onClick={() => setIsEditing(false)} className={`flex-1 py-4 ${isDark ? 'bg-[#21262d] text-slate-400' : 'bg-slate-100 text-slate-500'} rounded-2xl font-black text-xs uppercase tracking-widest hover:text-white transition-all`}>Cancel</button>
+                                    <button
+                                        onClick={handleEditSubmit}
+                                        disabled={isUpdatingContent || !editTitle.trim()}
+                                        className={`flex-1 py-4 ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-primary text-white hover:bg-primary-dark shadow-primary/20'} rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 shadow-xl flex items-center justify-center gap-2`}
+                                    >
+                                        {isUpdatingContent ? (
+                                            <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                                        ) : (
+                                            <CheckCircle2 className="w-4 h-4" />
+                                        )}
+                                        {isUpdatingContent ? 'Updating...' : 'Save Intel'}
                                     </button>
                                 </div>
                             </motion.div>

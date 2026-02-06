@@ -270,6 +270,26 @@ export async function POST(request: NextRequest) {
             console.error('[Ticket API] Classification logging error:', err);
         });
 
+        // Trigger Web Push Notifications asynchronously
+        try {
+            console.log('>>>>>>>>>> [NOTIFICATION TEST] Ticket API Notifications for:', finalTicket.id);
+            const { NotificationService } = await import('@/backend/services/NotificationService');
+
+            if (finalTicket.assigned_to) {
+                console.log('>>>>>>>>>> [NOTIFICATION TEST] Ticket AUTO-ASSIGNED. Sending assignment notification ONLY.');
+                NotificationService.afterTicketAssigned(finalTicket.id).catch(err => {
+                    console.error('>>>>>>>>>> [NOTIFICATION TEST] Notification error (Auto-Assign):', err);
+                });
+            } else {
+                console.log('>>>>>>>>>> [NOTIFICATION TEST] Ticket NOT assigned. Sending creation notification to staff.');
+                NotificationService.afterTicketCreated(finalTicket.id).catch(err => {
+                    console.error('>>>>>>>>>> [NOTIFICATION TEST] Notification error (Creation):', err);
+                });
+            }
+        } catch (err) {
+            console.error('>>>>>>>>>> [NOTIFICATION TEST] Failed to load NotificationService:', err);
+        }
+
         return NextResponse.json({
             success: true,
             ticket: finalTicket,

@@ -601,7 +601,12 @@ export default function TicketFlowMap({
                                     if (team.id === 'housekeeping') {
                                         return g.mst.team === 'housekeeping' || g.mst.team === 'soft_services';
                                     }
-                                    return g.mst.team === team.id || (team.id === 'technical' && !g.mst.team);
+                                    const t = (g.mst.team || '').toLowerCase();
+                                    // "Show in both": Technical, Plumbing, and Vendor appear in both Technical and Plumbing columns
+                                    if (['technical', 'plumbing'].includes(team.id)) {
+                                        return ['technical', 'plumbing', 'vendor'].includes(t) || (!t && team.id === 'technical');
+                                    }
+                                    return t === team.id;
                                 });
 
                                 const teamTickets = mstsInTeam.flatMap(g => g.tickets);

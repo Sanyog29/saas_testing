@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
 
+/**
+ * Electricity Readings API v2
+ * PRD: Log raw → derive everything
+ * PRD: User must explicitly select multiplier
+ * PRD: Cost is computed, never entered
+ */
+
 // GET: Fetch electricity readings with optional filters
 export async function GET(
     request: NextRequest,
@@ -21,7 +28,9 @@ export async function GET(
         .from('electricity_readings')
         .select(`
             *,
-            meter:electricity_meters(name, meter_number, meter_type, max_load_kw)
+            meter:electricity_meters(name, meter_number, meter_type, max_load_kw),
+            multiplier:meter_multipliers(id, multiplier_value, ct_ratio_primary, ct_ratio_secondary, pt_ratio_primary, pt_ratio_secondary),
+            tariff:grid_tariffs(id, rate_per_unit, utility_provider)
         `)
         .eq('property_id', propertyId)
         .order('reading_date', { ascending: false });
@@ -54,7 +63,7 @@ export async function GET(
     return NextResponse.json(data);
 }
 
-// POST: Submit a daily electricity reading
+// POST: Submit a daily electricity reading with multiplier and cost computation
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ propertyId: string }> }
@@ -63,30 +72,97 @@ export async function POST(
     const supabase = await createClient();
     const body = await request.json();
 
-    console.log('[ElectricityReadings] POST request for property:', propertyId, 'body:', JSON.stringify(body).slice(0, 200));
+    console.log('[ElectricityReadings] POST request for property:', propertyId, 'body:', JSON.stringify(body).slice(0, 300));
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Helper function to compute cost for a single reading
+    const computeReadingWithCost = async (reading: any) => {
+        const readingDate = reading.reading_date || new Date().toISOString().split('T')[0];
+        const rawUnits = reading.closing_reading - reading.opening_reading;
+
+        let multiplierValue = 1;
+        let multiplierId = reading.multiplier_id;
+        let tariffRate = 0;
+        let tariffId = null;
+
+        // Get active multiplier if not explicitly provided
+        if (!multiplierId && reading.meter_id) {
+            const { data: multiplierData } = await supabase
+                .rpc('get_active_multiplier', {
+                    p_meter_id: reading.meter_id,
+                    p_date: readingDate
+                });
+
+            if (multiplierData && multiplierData.length > 0) {
+                multiplierId = multiplierData[0].id;
+                multiplierValue = multiplierData[0].multiplier_value || 1;
+            }
+        } else if (multiplierId) {
+            // Fetch the multiplier value
+            const { data: mult } = await supabase
+                .from('meter_multipliers')
+                .select('multiplier_value')
+                .eq('id', multiplierId)
+                .single();
+
+            if (mult) {
+                multiplierValue = mult.multiplier_value || 1;
+            }
+        }
+
+        // Get active tariff for the property
+        const { data: tariffData } = await supabase
+            .rpc('get_active_grid_tariff', {
+                p_property_id: propertyId,
+                p_date: readingDate
+            });
+
+        if (tariffData && tariffData.length > 0) {
+            tariffId = tariffData[0].id;
+            tariffRate = tariffData[0].rate_per_unit || 0;
+        }
+
+        // Compute final values (PRD: Cost = Units × Tariff × Multiplier)
+        const finalUnits = rawUnits * multiplierValue;
+        const computedCost = finalUnits * tariffRate;
+
+        return {
+            property_id: propertyId,
+            meter_id: reading.meter_id,
+            reading_date: readingDate,
+            opening_reading: reading.opening_reading,
+            closing_reading: reading.closing_reading,
+            // Removed: peak_load_kw (PRD: Peak load removed)
+            notes: reading.notes || null,
+            alert_status: reading.alert_status || 'normal',
+            created_by: user.id,
+            // New v2 fields
+            multiplier_id: multiplierId,
+            multiplier_value_used: multiplierValue,
+            tariff_id: tariffId,
+            tariff_rate_used: tariffRate,
+            final_units: finalUnits,
+            computed_cost: computedCost
+        };
+    };
 
     // Handle batch submission (multiple meters)
     if (Array.isArray(body.readings)) {
         console.log('[ElectricityReadings] Batch submission with', body.readings.length, 'readings');
 
-        const readings = body.readings.map((r: any) => ({
-            property_id: propertyId,
-            meter_id: r.meter_id,
-            reading_date: r.reading_date || new Date().toISOString().split('T')[0],
-            opening_reading: r.opening_reading,
-            closing_reading: r.closing_reading,
-            peak_load_kw: r.peak_load_kw || null,
-            notes: r.notes || null,
-            alert_status: r.alert_status || 'normal',
-            created_by: user?.id,
-        }));
+        const processedReadings = await Promise.all(
+            body.readings.map((r: any) => computeReadingWithCost(r))
+        );
 
         const { data, error } = await supabase
             .from('electricity_readings')
-            .upsert(readings, {
+            .upsert(processedReadings, {
                 onConflict: 'meter_id,reading_date',
                 ignoreDuplicates: false
             })
@@ -112,19 +188,11 @@ export async function POST(
     // Single reading submission
     console.log('[ElectricityReadings] Single reading submission');
 
+    const processedReading = await computeReadingWithCost(body);
+
     const { data, error } = await supabase
         .from('electricity_readings')
-        .upsert({
-            property_id: propertyId,
-            meter_id: body.meter_id,
-            reading_date: body.reading_date || new Date().toISOString().split('T')[0],
-            opening_reading: body.opening_reading,
-            closing_reading: body.closing_reading,
-            peak_load_kw: body.peak_load_kw || null,
-            notes: body.notes || null,
-            alert_status: body.alert_status || 'normal',
-            created_by: user?.id,
-        }, {
+        .upsert(processedReading, {
             onConflict: 'meter_id,reading_date',
             ignoreDuplicates: false
         })
@@ -142,6 +210,6 @@ export async function POST(
         .update({ last_reading: body.closing_reading, updated_at: new Date().toISOString() })
         .eq('id', body.meter_id);
 
-    console.log('[ElectricityReadings] Single reading saved:', data?.id);
+    console.log('[ElectricityReadings] Single reading saved:', data?.id, 'Cost:', data?.computed_cost);
     return NextResponse.json(data, { status: 201 });
 }

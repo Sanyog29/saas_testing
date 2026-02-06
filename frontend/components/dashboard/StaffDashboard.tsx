@@ -51,6 +51,7 @@ interface Ticket {
     } | null;
     photo_before_url?: string;
     raised_by?: string;
+    sla_paused?: boolean;
 }
 
 const StaffDashboard = () => {
@@ -950,6 +951,7 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                                     createdAt={ticket.created_at}
                                     assignedTo={ticket.assignee?.full_name}
                                     photoUrl={ticket.photo_before_url}
+                                    isSlaPaused={ticket.sla_paused}
                                     onClick={() => onTicketClick?.(ticket.id)}
                                     onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                     onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
@@ -1041,6 +1043,7 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                                 createdAt={ticket.created_at}
                                 assignedTo={ticket.assignee?.full_name}
                                 photoUrl={ticket.photo_before_url}
+                                isSlaPaused={ticket.sla_paused}
                                 onClick={() => onTicketClick?.(ticket.id)}
                                 onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                 onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
@@ -1068,7 +1071,9 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                         createdAt={ticket.created_at}
                         assignedTo={ticket.assignee?.full_name}
                         photoUrl={ticket.photo_before_url}
+                        isSlaPaused={ticket.sla_paused}
                         onClick={() => onTicketClick?.(ticket.id)}
+                        onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                         onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
                     />
                 ))}

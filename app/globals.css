@@ -98,6 +98,49 @@
   --duration-fast: 150ms;
   --duration-base: 250ms;
   --duration-slow: 350ms;
+
+  /* ============================================
+     ENERGY UTILITIES DESIGN TOKENS
+     Grid Power (Electricity): Amber/Gold
+     DG Power (Diesel): Emerald/Green
+     ============================================ */
+
+  /* Grid Power (Electricity) - Amber Palette */
+  --energy-grid: #F59E0B;
+  --energy-grid-light: #FCD34D;
+  --energy-grid-dark: #D97706;
+  --energy-grid-bg: rgba(245, 158, 11, 0.1);
+  --energy-grid-bg-hover: rgba(245, 158, 11, 0.15);
+  --energy-grid-border: rgba(245, 158, 11, 0.2);
+  --energy-grid-glow: rgba(245, 158, 11, 0.4);
+
+  /* DG Power (Diesel) - Emerald Palette */
+  --energy-dg: #10B981;
+  --energy-dg-light: #34D399;
+  --energy-dg-dark: #059669;
+  --energy-dg-bg: rgba(16, 185, 129, 0.1);
+  --energy-dg-bg-hover: rgba(16, 185, 129, 0.15);
+  --energy-dg-border: rgba(16, 185, 129, 0.2);
+  --energy-dg-glow: rgba(16, 185, 129, 0.4);
+
+  /* Combined Utilities */
+  --energy-combined: var(--primary);
+  --energy-combined-bg: rgba(112, 143, 150, 0.1);
+
+  /* Energy Cost Display */
+  --energy-cost-positive: #10B981;
+  --energy-cost-negative: #EF4444;
+  --energy-cost-neutral: var(--text-secondary);
+
+  /* Utility Card Surfaces */
+  --energy-card-radius: 16px;
+  --energy-card-padding: 20px;
+  --energy-card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  /* Utility Chart Colors */
+  --chart-grid-line: rgba(0, 0, 0, 0.08);
+  --chart-grid-fill: rgba(245, 158, 11, 0.6);
+  --chart-dg-fill: rgba(16, 185, 129, 0.6);
 }
 
 .dark {
@@ -144,6 +187,18 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+
+  /* Energy Utilities (Dark Mode Adjustments) */
+  --energy-grid-bg: rgba(245, 158, 11, 0.15);
+  --energy-grid-bg-hover: rgba(245, 158, 11, 0.2);
+  --energy-grid-border: rgba(245, 158, 11, 0.25);
+  --energy-dg-bg: rgba(16, 185, 129, 0.15);
+  --energy-dg-bg-hover: rgba(16, 185, 129, 0.2);
+  --energy-dg-border: rgba(16, 185, 129, 0.25);
+  --energy-card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --chart-grid-line: rgba(255, 255, 255, 0.08);
+  --chart-grid-fill: rgba(245, 158, 11, 0.7);
+  --chart-dg-fill: rgba(16, 185, 129, 0.7);
 }
 
 @theme {
@@ -744,6 +799,165 @@
   /* Text Balance */
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* ============================================
+     ENERGY UTILITIES CLASSES
+     ============================================ */
+
+  /* Grid Power (Electricity) */
+  .energy-grid {
+    color: var(--energy-grid);
+  }
+
+  .energy-grid-bg {
+    background-color: var(--energy-grid-bg);
+  }
+
+  .energy-grid-border {
+    border-color: var(--energy-grid-border);
+  }
+
+  .energy-grid-card {
+    background-color: var(--energy-grid-bg);
+    border: 1px solid var(--energy-grid-border);
+    border-radius: var(--energy-card-radius);
+    padding: var(--energy-card-padding);
+    transition: all var(--duration-base) var(--transition-smooth);
+  }
+
+  .energy-grid-card:hover {
+    background-color: var(--energy-grid-bg-hover);
+    box-shadow: 0 0 20px var(--energy-grid-glow);
+  }
+
+  /* DG Power (Diesel) */
+  .energy-dg {
+    color: var(--energy-dg);
+  }
+
+  .energy-dg-bg {
+    background-color: var(--energy-dg-bg);
+  }
+
+  .energy-dg-border {
+    border-color: var(--energy-dg-border);
+  }
+
+  .energy-dg-card {
+    background-color: var(--energy-dg-bg);
+    border: 1px solid var(--energy-dg-border);
+    border-radius: var(--energy-card-radius);
+    padding: var(--energy-card-padding);
+    transition: all var(--duration-base) var(--transition-smooth);
+  }
+
+  .energy-dg-card:hover {
+    background-color: var(--energy-dg-bg-hover);
+    box-shadow: 0 0 20px var(--energy-dg-glow);
+  }
+
+  /* Combined Utilities Card */
+  .energy-combined-card {
+    background-color: var(--energy-combined-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--energy-card-radius);
+    padding: var(--energy-card-padding);
+    box-shadow: var(--energy-card-shadow);
+  }
+
+  /* Energy Cost Badge */
+  .energy-cost-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+
+  .energy-cost-badge.grid {
+    background-color: var(--energy-grid-bg);
+    color: var(--energy-grid);
+  }
+
+  .energy-cost-badge.dg {
+    background-color: var(--energy-dg-bg);
+    color: var(--energy-dg);
+  }
+
+  /* Energy Chart Bar */
+  .energy-chart-bar {
+    border-radius: 4px 4px 0 0;
+    transition: opacity var(--duration-fast) var(--transition-smooth);
+  }
+
+  .energy-chart-bar.grid {
+    background-color: var(--chart-grid-fill);
+  }
+
+  .energy-chart-bar.dg {
+    background-color: var(--chart-dg-fill);
+  }
+
+  .energy-chart-bar:hover {
+    opacity: 0.85;
+  }
+
+  /* Energy Summary Hero */
+  .energy-summary-hero {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-elevated) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Energy Breakdown Bar */
+  .energy-breakdown-bar {
+    height: 12px;
+    border-radius: 6px;
+    background-color: var(--muted);
+    overflow: hidden;
+    display: flex;
+  }
+
+  .energy-breakdown-bar .grid-segment {
+    background-color: var(--energy-grid);
+    transition: width var(--duration-slow) var(--transition-smooth);
+  }
+
+  .energy-breakdown-bar .dg-segment {
+    background-color: var(--energy-dg);
+    transition: width var(--duration-slow) var(--transition-smooth);
+  }
+
+  /* Energy Meter Strip Colors */
+  .energy-meter-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+    transition: background-color var(--duration-base) var(--transition-smooth);
+  }
+
+  .energy-meter-strip.grid {
+    background-color: var(--energy-grid);
+  }
+
+  .energy-meter-strip.dg {
+    background-color: var(--energy-dg);
+  }
+
+  .energy-meter-strip.inactive {
+    background-color: var(--border);
+  }
+
+  .energy-meter-strip.warning {
+    background-color: var(--warning);
   }
 }
 

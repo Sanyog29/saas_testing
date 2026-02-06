@@ -27,6 +27,7 @@ export interface TicketCardProps {
     // Optional
     assignedTo?: string; // Full name
     photoUrl?: string;
+    isSlaPaused?: boolean;
 
     // Actions
     onClick: () => void;
@@ -45,7 +46,7 @@ const STATUS_STYLES = {
     OPEN: 'bg-gray-100 text-gray-700',
     ASSIGNED: 'bg-blue-100 text-blue-700',
     IN_PROGRESS: 'bg-amber-100 text-amber-700',
-    COMPLETED: 'bg-purple-100 text-purple-700',
+    COMPLETED: 'bg-emerald-100 text-emerald-700',
 } as const;
 
 export default function TicketCard({
@@ -57,6 +58,7 @@ export default function TicketCard({
     createdAt,
     assignedTo,
     photoUrl,
+    isSlaPaused,
     onClick,
     onEdit,
     onDelete,
@@ -93,9 +95,17 @@ export default function TicketCard({
                     )}
 
                     {/* Title */}
-                    <h3 className="flex-1 text-[clamp(0.9375rem,4.5cqw,1.125rem)] font-semibold text-gray-900 line-clamp-2 leading-snug min-w-0">
-                        {title}
-                    </h3>
+                    <div className="flex-1 space-y-2 min-w-0">
+                        <h3 className="text-[clamp(0.9375rem,4.5cqw,1.125rem)] font-semibold text-gray-900 line-clamp-2 leading-snug min-w-0">
+                            {title}
+                        </h3>
+                        {isSlaPaused && (
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-lg w-fit animate-pulse">
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SLA Paused</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Actions Container: Grouped and Top-Right */}
@@ -151,9 +161,9 @@ export default function TicketCard({
             </div>
 
             {/* Assignee Information */}
-            {assignedTo && (
+            {assignedTo && status !== 'OPEN' && (
                 <div className="flex items-center gap-[clamp(0.4rem,1.5cqw,0.5rem)]">
-                    <span className="text-[clamp(0.75rem,3cqw,0.875rem)] text-gray-600">Assigned to:</span>
+                    <span className="text-[clamp(0.75rem,3cqw,0.875rem)] text-gray-600">Serving Request:</span>
                     <span className="text-[clamp(0.75rem,3cqw,0.875rem)] font-semibold text-gray-900">{assignedTo}</span>
                 </div>
             )}

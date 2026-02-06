@@ -71,6 +71,25 @@ export async function POST(request: NextRequest) {
             new_value: newStatus,
         });
 
+        // 4. Trigger Notifications
+        try {
+            const { NotificationService } = await import('@/backend/services/NotificationService');
+
+            if (newAssignee) {
+                NotificationService.afterTicketAssigned(ticketId).catch(err => {
+                    console.error('[UpdateStatus API] Assignment Notification error:', err);
+                });
+            }
+
+            if (newStatus === 'resolved' || newStatus === 'closed') {
+                NotificationService.afterTicketCompleted(ticketId).catch(err => {
+                    console.error('[UpdateStatus API] Completion Notification error:', err);
+                });
+            }
+        } catch (err) {
+            console.error('[UpdateStatus API] Failed to load NotificationService:', err);
+        }
+
         return NextResponse.json({
             success: true,
             ticket: data,

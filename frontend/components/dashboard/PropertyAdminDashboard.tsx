@@ -16,6 +16,8 @@ import SignOutModal from '@/frontend/components/ui/SignOutModal';
 import DieselAnalyticsDashboard from '@/frontend/components/diesel/DieselAnalyticsDashboard';
 import ElectricityStaffDashboard from '@/frontend/components/electricity/ElectricityStaffDashboard';
 import ElectricityAnalyticsDashboard from '@/frontend/components/electricity/ElectricityAnalyticsDashboard';
+import NotificationBell from './NotificationBell';
+import { usePushNotifications } from '@/frontend/hooks/usePushNotifications';
 import Image from 'next/image';
 import Skeleton from '@/frontend/components/ui/Skeleton';
 import VendorExportModal from '@/frontend/components/vendor/VendorExportModal';
@@ -54,6 +56,7 @@ const PropertyAdminDashboard = () => {
     const { theme, toggleTheme } = useTheme();
     const params = useParams();
     const router = useRouter();
+    const { token, notification: foregroundNotification } = usePushNotifications();
     const orgSlug = params?.orgId as string;
     const propertyId = params?.propertyId as string;
 
@@ -457,6 +460,9 @@ const PropertyAdminDashboard = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-6">
+                            {/* Notification Bell */}
+                            <NotificationBell />
+
                             {/* User Account Info - Simplified Level Look */}
                             <div className="flex items-center gap-6">
                                 <button
@@ -754,7 +760,7 @@ const OverviewTab = memo(function OverviewTab({
                     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('property_id', propertyId).in('status', ['assigned', 'in_progress', 'paused', 'work_started']),
                     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('property_id', propertyId).in('status', ['resolved', 'closed']),
                     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('property_id', propertyId),
-                    supabase.from('tickets').select('id, title, status, created_at').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(5),
+                    supabase.from('tickets').select('id, title, status, created_at, sla_paused').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(5),
                 ]);
 
                 // --- Diesel, VMS, Vendors (all in parallel) ---
@@ -973,7 +979,15 @@ const OverviewTab = memo(function OverviewTab({
                             <div className="space-y-3 max-h-48 overflow-y-auto">
                                 {recentTickets.map((t, idx) => (
                                     <div key={t.id || idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                                        <div><div className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{t.title}</div><div className="text-xs text-slate-500 capitalize">{t.status?.replace('_', ' ')}</div></div>
+                                        <div>
+                                            <div className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{t.title}</div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="text-xs text-slate-500 capitalize">{t.status?.replace('_', ' ')}</div>
+                                                {t.sla_paused && (
+                                                    <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter bg-amber-50 px-1 rounded">SLA Paused</span>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div className="text-right"><div className="text-xs text-slate-400">{new Date(t.created_at).toLocaleDateString()}</div></div>
                                     </div>
                                 ))}

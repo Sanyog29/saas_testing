@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
 
+/**
+ * Diesel Readings API v2
+ * PRD: Log raw → derive everything
+ * PRD: Cost is computed, never entered
+ * PRD: Diesel has full parity analytics with electricity
+ */
+
 // GET: Fetch diesel readings with optional filters
 export async function GET(
     request: NextRequest,
@@ -15,11 +22,14 @@ export async function GET(
     const generatorId = searchParams.get('generatorId');
     const period = searchParams.get('period'); // 'today' | 'week' | 'month'
 
+    console.log('[DieselReadings] GET request for property:', propertyId, { startDate, endDate, generatorId, period });
+
     let query = supabase
         .from('diesel_readings')
         .select(`
             *,
-            generator:generators(name, make, capacity_kva, tank_capacity_litres)
+            generator:generators(name, make, capacity_kva, tank_capacity_litres, fuel_efficiency_lphr),
+            tariff:dg_tariffs(id, cost_per_litre)
         `)
         .eq('property_id', propertyId)
         .order('reading_date', { ascending: false });
@@ -44,13 +54,15 @@ export async function GET(
     const { data, error } = await query;
 
     if (error) {
+        console.error('[DieselReadings] Error fetching readings:', error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log('[DieselReadings] Fetched', data?.length || 0, 'readings');
     return NextResponse.json(data);
 }
 
-// POST: Submit a daily diesel reading
+// POST: Submit a daily diesel reading with cost computation
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ propertyId: string }> }
@@ -59,54 +71,92 @@ export async function POST(
     const supabase = await createClient();
     const body = await request.json();
 
+    console.log('[DieselReadings] POST request for property:', propertyId, 'body:', JSON.stringify(body).slice(0, 300));
+
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Helper function to compute cost for a single reading
+    const computeReadingWithCost = async (reading: any) => {
+        const readingDate = reading.reading_date || new Date().toISOString().split('T')[0];
+        const consumedLitres = reading.computed_consumed_litres || 0;
+
+        let tariffRate = 0;
+        let tariffId = null;
+
+        // Get active DG tariff for the generator
+        if (reading.generator_id) {
+            const { data: tariffData } = await supabase
+                .rpc('get_active_dg_tariff', {
+                    p_generator_id: reading.generator_id,
+                    p_date: readingDate
+                });
+
+            if (tariffData && tariffData.length > 0) {
+                tariffId = tariffData[0].id;
+                tariffRate = tariffData[0].cost_per_litre || 0;
+            }
+        }
+
+        // Compute cost (PRD: Cost = Units × DG Rate)
+        const computedCost = consumedLitres * tariffRate;
+
+        return {
+            property_id: propertyId,
+            generator_id: reading.generator_id,
+            reading_date: readingDate,
+            opening_hours: reading.opening_hours,
+            diesel_added_litres: reading.diesel_added_litres || 0,
+            closing_hours: reading.closing_hours,
+            computed_run_hours: reading.closing_hours - reading.opening_hours,
+            computed_consumed_litres: consumedLitres,
+            notes: reading.notes || null,
+            alert_status: reading.alert_status || 'normal',
+            created_by: user.id,
+            // New v2 fields
+            tariff_id: tariffId,
+            tariff_rate_used: tariffRate,
+            computed_cost: computedCost
+        };
+    };
+
     // Handle batch submission (multiple generators)
     if (Array.isArray(body.readings)) {
-        const readings = body.readings.map((r: any) => ({
-            property_id: propertyId,
-            generator_id: r.generator_id,
-            reading_date: r.reading_date || new Date().toISOString().split('T')[0],
-            opening_hours: r.opening_hours,
-            diesel_added_litres: r.diesel_added_litres || 0,
-            closing_hours: r.closing_hours,
-            computed_consumed_litres: r.computed_consumed_litres,
-            notes: r.notes || null,
-            alert_status: r.alert_status || 'normal',
-            created_by: user?.id,
-        }));
+        console.log('[DieselReadings] Batch submission with', body.readings.length, 'readings');
+
+        const processedReadings = await Promise.all(
+            body.readings.map((r: any) => computeReadingWithCost(r))
+        );
 
         const { data, error } = await supabase
             .from('diesel_readings')
-            .upsert(readings, {
+            .upsert(processedReadings, {
                 onConflict: 'generator_id,reading_date',
                 ignoreDuplicates: false
             })
             .select();
 
         if (error) {
+            console.error('[DieselReadings] Error submitting batch readings:', error.message);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        console.log('[DieselReadings] Batch submission successful:', data?.length || 0, 'readings saved');
         return NextResponse.json(data, { status: 201 });
     }
 
     // Single reading submission
+    console.log('[DieselReadings] Single reading submission');
+
+    const processedReading = await computeReadingWithCost(body);
+
     const { data, error } = await supabase
         .from('diesel_readings')
-        .upsert({
-            property_id: propertyId,
-            generator_id: body.generator_id,
-            reading_date: body.reading_date || new Date().toISOString().split('T')[0],
-            opening_hours: body.opening_hours,
-            diesel_added_litres: body.diesel_added_litres || 0,
-            closing_hours: body.closing_hours,
-            computed_consumed_litres: body.computed_consumed_litres,
-            notes: body.notes || null,
-            alert_status: body.alert_status || 'normal',
-            created_by: user?.id,
-        }, {
+        .upsert(processedReading, {
             onConflict: 'generator_id,reading_date',
             ignoreDuplicates: false
         })
@@ -114,8 +164,10 @@ export async function POST(
         .single();
 
     if (error) {
+        console.error('[DieselReadings] Error submitting reading:', error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log('[DieselReadings] Single reading saved:', data?.id, 'Cost:', data?.computed_cost);
     return NextResponse.json(data, { status: 201 });
 }

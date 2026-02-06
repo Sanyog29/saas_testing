@@ -20,9 +20,9 @@ const statusConfig: Record<string, { bg: string; text: string; symbol: string }>
     assigned: { bg: '#fbbf24', text: '#000000', symbol: 'A' },
     in_progress: { bg: '#fbbf24', text: '#000000', symbol: 'A' },
     waitlist: { bg: '#ef4444', text: '#ffffff', symbol: 'W' },
-    completed: { bg: '#22c55e', text: '#ffffff', symbol: 'C' },
-    resolved: { bg: '#22c55e', text: '#ffffff', symbol: 'C' },
-    closed: { bg: '#22c55e', text: '#ffffff', symbol: 'C' },
+    completed: { bg: '#10b981', text: '#ffffff', symbol: 'C' },
+    resolved: { bg: '#10b981', text: '#ffffff', symbol: 'C' },
+    closed: { bg: '#10b981', text: '#ffffff', symbol: 'C' },
 };
 
 /**

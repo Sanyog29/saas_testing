@@ -24,6 +24,17 @@ export async function POST(request: NextRequest) {
     const ipAddress = forwardedFor?.split(',')[0]?.trim() || null;
 
     try {
+        // Fetch property membership to populate property_id
+        const { data: membershipData } = await supabase
+            .from('property_memberships')
+            .select('property_id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle();
+
+        const propertyId = membershipData?.property_id || null;
+
         // Close any existing open sessions for this user
         const { data: closedSessions } = await supabase
             .from('user_sessions')
@@ -50,7 +61,7 @@ export async function POST(request: NextRequest) {
             .insert({
                 user_id: user.id,
                 user_agent: userAgent,
-                ip_address: ipAddress,
+                ip_address: ipAddress
             })
             .select('id')
             .single();
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: insertError.message }, { status: 500 });
         }
 
-        console.log('[SessionStart] Created new session:', newSession.id);
+        console.log('[SessionStart] Created new session:', newSession.id, 'for property:', propertyId);
 
         return NextResponse.json({
             session_id: newSession.id,

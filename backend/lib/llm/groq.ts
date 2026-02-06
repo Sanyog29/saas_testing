@@ -20,9 +20,9 @@ const LLMInputSchema = z.object({
 // Output schema (what we expect from Groq)
 const LLMOutputSchema = z.object({
     primary_category: z.string(),
-    secondary_category: z.string().nullable(),
+    secondary_category: z.string().nullable().optional(),
     priority: z.enum(['Low', 'Medium', 'High', 'Urgent']),
-    risk_flag: z.string().nullable(),
+    risk_flag: z.string().nullable().optional(),
     reasoning: z.string(),
 });
 

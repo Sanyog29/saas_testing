@@ -88,6 +88,18 @@ export async function POST(request: NextRequest) {
             new_value: newAssigneeId,
         });
 
+        // Trigger Notifications
+        if (newAssigneeId) {
+            try {
+                const { NotificationService } = await import('@/backend/services/NotificationService');
+                NotificationService.afterTicketAssigned(ticketId).catch(err => {
+                    console.error('[Reassign API] Notification error:', err);
+                });
+            } catch (err) {
+                console.error('[Reassign API] Failed to load NotificationService:', err);
+            }
+        }
+
         return NextResponse.json({
             success: true,
             ticket: data,

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Fuel, Plus, Minus, AlertTriangle, TrendingUp, Trash2 } from 'lucide-react';
+import { Fuel, Plus, Minus, AlertTriangle, TrendingUp, Trash2, IndianRupee } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Generator {
@@ -14,11 +14,19 @@ interface Generator {
     status: string;
 }
 
+interface DGTariff {
+    id: string;
+    cost_per_litre: number;
+    effective_from: string;
+}
+
 interface DieselReading {
     opening_hours: number;
     diesel_added_litres: number;
     closing_hours: number;
     computed_consumed_litres?: number;
+    tariff_id?: string;
+    tariff_rate?: number;
     notes?: string;
 }
 
@@ -26,6 +34,7 @@ interface DieselLoggerCardProps {
     generator: Generator;
     previousClosing?: number;
     averageConsumption?: number;
+    activeTariff?: DGTariff | null;
     onReadingChange: (generatorId: string, reading: DieselReading) => void;
     onDelete?: (generatorId: string) => void;
     isSubmitting?: boolean;
@@ -33,13 +42,16 @@ interface DieselLoggerCardProps {
 }
 
 /**
- * Individual generator input card for daily diesel logging
- * Matches the provided HTML mockup with warning states
+ * Diesel Logger Card v2
+ * PRD: Cost is computed, never entered
+ * PRD: Cost shown before units
+ * PRD: Full parity analytics with electricity
  */
 const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
     generator,
     previousClosing,
     averageConsumption,
+    activeTariff,
     onReadingChange,
     onDelete,
     isSubmitting = false,
@@ -51,10 +63,14 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
     const [notes, setNotes] = useState<string>('');
     const [isFocused, setIsFocused] = useState(false);
 
-    // Calculate consumption and run time
+    // Calculate consumption, run time, and cost
     const runHours = closingHours > openingHours ? closingHours - openingHours : 0;
     const fuelEfficiency = generator.fuel_efficiency_lphr || 15;
     const estimatedConsumption = Math.round(runHours * fuelEfficiency);
+
+    // Compute cost (PRD: Cost = Units × DG Rate)
+    const tariffRate = activeTariff?.cost_per_litre || 0;
+    const computedCost = estimatedConsumption * tariffRate;
 
     // Warning state: consumption > 25% vs average
     const isHighConsumption = averageConsumption && estimatedConsumption > averageConsumption * 1.25;
@@ -81,10 +97,12 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                 diesel_added_litres: dieselAdded,
                 closing_hours: closingHours,
                 computed_consumed_litres: estimatedConsumption,
+                tariff_id: activeTariff?.id,
+                tariff_rate: tariffRate,
                 notes: notes || undefined,
             });
         }
-    }, [openingHours, dieselAdded, closingHours, notes, hasValidReading]);
+    }, [openingHours, dieselAdded, closingHours, notes, hasValidReading, activeTariff]);
 
     // Set opening hours from previous closing
     useEffect(() => {
@@ -119,6 +137,13 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                     </div>
                     <div className="flex flex-col items-end gap-2">
                         <div className="flex items-center gap-2">
+                            {/* Show current tariff rate */}
+                            {tariffRate > 0 && (
+                                <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-primary bg-primary/10' : 'text-primary bg-primary/5'} px-2 py-1 rounded-lg`}>
+                                    <IndianRupee className="w-3 h-3" />
+                                    <span>{tariffRate}/L</span>
+                                </div>
+                            )}
                             {onDelete && (
                                 <button
                                     onClick={(e) => {
@@ -155,7 +180,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                     readOnly
                                     className={`w-full ${isDark ? 'bg-[#0d1117] border-[#21262d] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'} font-bold rounded-lg p-2.5 pl-3 focus:outline-none cursor-not-allowed border`}
                                 />
-                                <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>KVAH</span>
+                                <span className={`absolute right-3 top-2.5 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-medium`}>hrs</span>
                             </div>
                         </label>
 
@@ -212,7 +237,7 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                                 className={`w-full ${isDark ? 'bg-[#0d1117] border-primary/50 focus:border-primary text-white' : 'bg-white border-primary/30 focus:border-primary text-slate-900'} border-2 focus:ring-4 ${isDark ? 'focus:ring-primary/10' : 'focus:ring-primary/10'} text-lg font-bold rounded-xl py-3 px-4 shadow-sm transition-all`}
                                 placeholder={`>${openingHours}`}
                             />
-                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>KVAH</span>
+                            <span className={`absolute right-4 top-4 ${isDark ? 'text-slate-600' : 'text-slate-400'} text-sm font-bold`}>hrs</span>
                         </div>
                         {isFocused && (
                             <p className={`text-xs ${isDark ? 'text-primary' : 'text-primary'} animate-pulse font-medium`}>Typing...</p>
@@ -225,25 +250,42 @@ const DieselLoggerCard: React.FC<DieselLoggerCardProps> = ({
                         )}
                     </label>
 
-                    {/* Calculation Result Box */}
-                    <div className={`rounded-lg p-3 border flex justify-between items-center ${hasValidReading
+                    {/* Cost + Consumption Result Box (PRD: Cost shown before units) */}
+                    <div className={`rounded-xl p-4 border ${hasValidReading
                         ? (isDark ? 'bg-primary/5 border-primary/20' : 'bg-primary/5 border-primary/20')
                         : (isDark ? 'bg-[#0d1117] border-[#21262d]' : 'bg-slate-50 border-slate-100')
                         }`}>
-                        <div className="flex flex-col">
-                            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Run Time</span>
-                            <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                {hasValidReading ? `${Math.floor(runHours)}h ${Math.round((runHours % 1) * 60)}m` : '—'}
-                            </span>
-                        </div>
-                        <div className={`h-8 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'}`} />
-                        <div className="flex flex-col items-end">
-                            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Consumption</span>
-                            <div className="flex items-center gap-1">
-                                <Fuel className={`w-4 h-4 ${hasValidReading ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`} />
-                                <span className={`text-lg font-black ${hasValidReading ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`}>
-                                    {hasValidReading ? `${estimatedConsumption}L` : '—'}
+                        <div className="flex justify-between items-center">
+                            {/* Cost First (PRD requirement) */}
+                            <div className="flex flex-col">
+                                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Cost Incurred</span>
+                                <div className="flex items-center gap-1">
+                                    <IndianRupee className={`w-5 h-5 ${hasValidReading && tariffRate > 0 ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`} />
+                                    <span className={`text-xl font-black ${hasValidReading && tariffRate > 0 ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`}>
+                                        {hasValidReading && tariffRate > 0 ? computedCost.toFixed(2) : '—'}
+                                    </span>
+                                </div>
+                                {!tariffRate && hasValidReading && (
+                                    <span className={`text-[10px] ${isDark ? 'text-amber-500' : 'text-amber-600'}`}>No tariff set</span>
+                                )}
+                            </div>
+                            <div className={`h-10 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col items-center">
+                                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Run Time</span>
+                                <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                    {hasValidReading ? `${Math.floor(runHours)}h ${Math.round((runHours % 1) * 60)}m` : '—'}
                                 </span>
+                            </div>
+                            <div className={`h-10 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'}`} />
+                            {/* Consumption Second */}
+                            <div className="flex flex-col items-end">
+                                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'} font-medium`}>Consumed</span>
+                                <div className="flex items-center gap-1">
+                                    <Fuel className={`w-4 h-4 ${hasValidReading ? (isDark ? 'text-primary' : 'text-primary') : 'text-slate-300'}`} />
+                                    <span className={`text-lg font-black ${hasValidReading ? (isDark ? 'text-white' : 'text-slate-900') : 'text-slate-300'}`}>
+                                        {hasValidReading ? `${estimatedConsumption}L` : '—'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>

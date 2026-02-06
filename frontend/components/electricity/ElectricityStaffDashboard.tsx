@@ -28,8 +28,28 @@ interface ElectricityReading {
     opening_reading: number;
     closing_reading: number;
     computed_units?: number;
-    peak_load_kw?: number;
+    multiplier_id?: string;
+    multiplier_value?: number;
     notes?: string;
+}
+
+interface MeterMultiplier {
+    id: string;
+    meter_id: string;
+    multiplier_value: number;
+    ct_ratio_primary: number;
+    ct_ratio_secondary: number;
+    pt_ratio_primary: number;
+    pt_ratio_secondary: number;
+    meter_constant: number;
+    effective_from: string;
+}
+
+interface GridTariff {
+    id: string;
+    rate_per_unit: number;
+    utility_provider?: string;
+    effective_from: string;
 }
 
 interface ElectricityStaffDashboardProps {
@@ -58,6 +78,10 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
     const [showConfigModal, setShowConfigModal] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    // v2: Multipliers and Tariffs state
+    const [multipliersMap, setMultipliersMap] = useState<Record<string, MeterMultiplier[]>>({});
+    const [activeTariff, setActiveTariff] = useState<GridTariff | null>(null);
 
     // Current date/time
     const now = new Date();
@@ -130,6 +154,28 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                     setAverages(avgs);
                     console.log('[ElectricityDashboard] Averages:', avgs);
                 }
+
+                // v2: Fetch multipliers for all meters
+                const multipliersRes = await fetch(`/api/properties/${propertyId}/meter-multipliers`);
+                if (multipliersRes.ok) {
+                    const multipliersData = await multipliersRes.json();
+                    const multMap: Record<string, MeterMultiplier[]> = {};
+                    multipliersData.forEach((m: any) => {
+                        if (!multMap[m.meter_id]) multMap[m.meter_id] = [];
+                        multMap[m.meter_id].push(m);
+                    });
+                    setMultipliersMap(multMap);
+                    console.log('[ElectricityDashboard] Multipliers fetched for', Object.keys(multMap).length, 'meters');
+                }
+
+                // v2: Fetch active tariff for property
+                const today = new Date().toISOString().split('T')[0];
+                const tariffRes = await fetch(`/api/properties/${propertyId}/grid-tariffs?date=${today}`);
+                if (tariffRes.ok) {
+                    const tariffData = await tariffRes.json();
+                    setActiveTariff(tariffData);
+                    console.log('[ElectricityDashboard] Active tariff:', tariffData?.rate_per_unit);
+                }
             }
         } catch (err: any) {
             console.error('[ElectricityDashboard] Error:', err.message);
@@ -148,13 +194,20 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
         setReadings(prev => ({ ...prev, [meterId]: reading }));
     };
 
-    // Calculate totals
-    const totalConsumption = Object.values(readings).reduce(
-        (sum, r) => sum + (r.computed_units || 0), 0
+    // Calculate totals (v2: uses multiplied units and tariff for cost)
+    const totalConsumption = Object.entries(readings).reduce(
+        (sum, [meterId, r]) => {
+            const rawUnits = r.computed_units || 0;
+            const multiplier = r.multiplier_value || 1;
+            return sum + (rawUnits * multiplier);
+        }, 0
     );
+    const totalCost = totalConsumption * (activeTariff?.rate_per_unit || 0);
+
     const warningsCount = Object.entries(readings).filter(([meterId, r]) => {
         const avg = averages[meterId];
-        return avg && r.computed_units && r.computed_units > avg * 1.25;
+        const multipliedUnits = (r.computed_units || 0) * (r.multiplier_value || 1);
+        return avg && multipliedUnits > avg * 1.25;
     }).length;
     const validReadingsCount = Object.values(readings).filter(
         r => r.closing_reading > r.opening_reading
@@ -209,13 +262,46 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
         }
     };
 
-    // Add meter
+    // v2: Save multiplier from card flip editor
+    const handleSaveMultiplier = async (meterId: string, multiplierData: any) => {
+        console.log('[ElectricityDashboard] Saving multiplier for meter:', meterId, multiplierData);
+
+        const res = await fetch(`/api/properties/${propertyId}/meter-multipliers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(multiplierData),
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'Failed to save multiplier');
+        }
+
+        const newMult = await res.json();
+        console.log('[ElectricityDashboard] Multiplier saved:', newMult.id);
+
+        // Update local state
+        setMultipliersMap(prev => ({
+            ...prev,
+            [meterId]: [newMult, ...(prev[meterId] || []).slice(0, 4)], // Keep last 5
+        }));
+
+        setSuccessMessage('Multiplier saved successfully!');
+        setTimeout(() => setSuccessMessage(null), 3000);
+    };
+
+    // Add meter (v2: also creates initial multiplier)
     const handleAddMeter = async (data: any) => {
         console.log('[ElectricityDashboard] Adding meter:', data);
+
+        // Extract multiplier config from data
+        const { initial_multiplier, ...meterData } = data;
+
+        // Create the meter first
         const res = await fetch(`/api/properties/${propertyId}/electricity-meters`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(meterData),
         });
 
         if (!res.ok) {
@@ -223,7 +309,34 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
             throw new Error(errData.error || 'Failed to add meter');
         }
 
-        console.log('[ElectricityDashboard] Meter added successfully');
+        const newMeter = await res.json();
+        console.log('[ElectricityDashboard] Meter added successfully:', newMeter.id);
+
+        // v2: Create the initial multiplier for this meter
+        if (initial_multiplier && newMeter?.id) {
+            try {
+                const multRes = await fetch(`/api/properties/${propertyId}/meter-multipliers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meter_id: newMeter.id,
+                        ...initial_multiplier
+                    }),
+                });
+
+                if (multRes.ok) {
+                    console.log('[ElectricityDashboard] Initial multiplier created for meter:', newMeter.id);
+                } else {
+                    console.warn('[ElectricityDashboard] Failed to create initial multiplier:', await multRes.text());
+                }
+            } catch (multErr) {
+                console.warn('[ElectricityDashboard] Failed to create initial multiplier:', multErr);
+                // Don't throw - meter was created successfully, multiplier is optional
+            }
+        }
+
+        setSuccessMessage('Meter added successfully!');
+        setTimeout(() => setSuccessMessage(null), 3000);
         fetchData();
     };
 
@@ -391,7 +504,10 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                                 meter={meter}
                                 previousClosing={previousClosings[meter.id]}
                                 averageConsumption={averages[meter.id]}
+                                multipliers={multipliersMap[meter.id] || []}
+                                activeTariffRate={activeTariff?.rate_per_unit || 0}
                                 onReadingChange={handleReadingChange}
+                                onMultiplierSave={handleSaveMultiplier}
                                 onDelete={handleDeleteMeter}
                                 isSubmitting={isSubmitting}
                                 isDark={isDark}
@@ -414,9 +530,17 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                                 Back to Dashboard
                             </button>
                             <div className={`h-8 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'} hidden sm:block`} />
-                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-                                <span className={`text-sm font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Today Total</span>
-                                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption} KVAH</span>
+                            {/* v2: Cost shown first per PRD */}
+                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-1">
+                                    <span className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Cost</span>
+                                    <span className={`text-xl font-black ${isDark ? 'text-primary' : 'text-primary'} tracking-tight`}>₹{totalCost.toFixed(0)}</span>
+                                </div>
+                                <div className={`h-6 w-[1px] ${isDark ? 'bg-[#21262d]' : 'bg-slate-200'} hidden sm:block`} />
+                                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-1">
+                                    <span className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Units</span>
+                                    <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{totalConsumption.toFixed(0)} kVAh</span>
+                                </div>
                             </div>
                         </div>
 

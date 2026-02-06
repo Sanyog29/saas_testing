@@ -15,6 +15,8 @@ import NextImage from 'next/image';
 import { useDataCache } from '@/frontend/context/DataCacheContext';
 import Skeleton from '@/frontend/components/ui/Skeleton';
 import SignOutModal from '@/frontend/components/ui/SignOutModal';
+import NotificationBell from './NotificationBell';
+import { usePushNotifications } from '@/frontend/hooks/usePushNotifications';
 import DieselStaffDashboard from '@/frontend/components/diesel/DieselStaffDashboard';
 import VMSAdminDashboard from '@/frontend/components/vms/VMSAdminDashboard';
 import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicketingDashboard';
@@ -43,6 +45,8 @@ interface Ticket {
     created_at: string;
     photo_before_url?: string;
     raised_by?: string;
+    sla_paused?: boolean;
+    assignee?: { full_name: string };
 }
 
 const TenantDashboard = () => {
@@ -50,6 +54,7 @@ const TenantDashboard = () => {
     const { theme, toggleTheme } = useTheme();
     const params = useParams();
     const router = useRouter();
+    const { token, notification: foregroundNotification } = usePushNotifications();
     const propertyId = params?.propertyId as string;
 
     // State
@@ -138,7 +143,7 @@ const TenantDashboard = () => {
 
         const { data, error } = await supabase
             .from('tickets')
-            .select('*')
+            .select('*, assignee:users!assigned_to(full_name)')
             .eq('property_id', propertyId)
             .eq('raised_by', user.id)
             .order('created_at', { ascending: false });
@@ -251,13 +256,16 @@ const TenantDashboard = () => {
         <div className="min-h-screen bg-white font-inter text-text-primary flex">
 
             {/* Mobile Menu Button - Fixed position */}
-            <button
-                onClick={() => setSidebarOpen(true)}
-                className="fixed top-6 left-6 z-50 p-2.5 bg-slate-900 text-white rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 group"
-                aria-label="Open navigation menu"
-            >
-                <Menu className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-            </button>
+            <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
+                <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2.5 bg-slate-900 text-white rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 group"
+                    aria-label="Open navigation menu"
+                >
+                    <Menu className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                </button>
+                <NotificationBell />
+            </div>
 
             {/* Overlay when sidebar is open */}
             <AnimatePresence>
@@ -858,6 +866,8 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                                         ticketNumber={ticket.ticket_number}
                                         createdAt={ticket.created_at}
                                         photoUrl={ticket.photo_before_url}
+                                        isSlaPaused={ticket.sla_paused}
+                                        assignedTo={ticket.assignee?.full_name}
                                         onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
                                         onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                         onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
@@ -885,6 +895,7 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                                         ticketNumber={ticket.ticket_number}
                                         createdAt={ticket.created_at}
                                         photoUrl={ticket.photo_before_url}
+                                        isSlaPaused={ticket.sla_paused}
                                         onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
                                         onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
                                     />
@@ -927,9 +938,11 @@ const RequestsTab = ({ activeTickets, completedTickets, onNavigate, isLoading, o
                                     ticketNumber={ticket.ticket_number}
                                     createdAt={ticket.created_at}
                                     photoUrl={ticket.photo_before_url}
+                                    isSlaPaused={ticket.sla_paused}
+                                    assignedTo={ticket.assignee?.full_name}
                                     onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
                                     // Allow edit only if not completed
-                                    onEdit={filter !== 'completed' && onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                    onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                     onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
                                 />
                             ))}

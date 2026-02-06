@@ -23,18 +23,18 @@ const securityHeaders = {
     // Content Security Policy - adjust based on your needs
     'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https://xvucakstcmtfoanmgcql.supabase.co",
         "font-src 'self' data: https://fonts.gstatic.com",
-        "connect-src 'self' https://xvucakstcmtfoanmgcql.supabase.co wss://xvucakstcmtfoanmgcql.supabase.co",
+        "connect-src 'self' http://localhost:3000 ws://localhost:3000 https://xvucakstcmtfoanmgcql.supabase.co wss://xvucakstcmtfoanmgcql.supabase.co https://www.gstatic.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://*.firebaseio.com",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
     ].join('; '),
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname
 
     // Define public routes that don't require authentication
@@ -52,12 +52,8 @@ export async function middleware(request: NextRequest) {
     // Check if current path is public
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route)) || pathname === '/'
 
-    // Create response and add security headers
-    let response = NextResponse.next({
-        request: {
-            headers: request.headers,
-        },
-    })
+    // Create response
+    let response = NextResponse.next()
 
     // Apply security headers to all responses
     Object.entries(securityHeaders).forEach(([key, value]) => {
@@ -84,14 +80,18 @@ export async function middleware(request: NextRequest) {
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
                         request.cookies.set(name, value)
-                        response.cookies.set(name, value, {
-                            ...options,
-                            // Set httpOnly to false so that the client-side Supabase SDK 
-                            // can synchronize and handle refreshes correctly.
-                            httpOnly: false,
-                            secure: process.env.NODE_ENV === 'production',
-                            sameSite: 'lax',
-                        })
+                    })
+                    // Re-create the response to ensure cookies are applied if needed
+                    // This is a common pattern for Supabase SSR
+                    response = NextResponse.next({
+                        request,
+                    })
+                    // Re-apply headers to the new response
+                    Object.entries(securityHeaders).forEach(([key, value]) => {
+                        response.headers.set(key, value)
+                    })
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        response.cookies.set(name, value, options)
                     })
                 },
             },
@@ -121,6 +121,8 @@ export async function middleware(request: NextRequest) {
 
     return response
 }
+
+export default proxy
 
 export const config = {
     matcher: [

@@ -15,6 +15,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { checkInResolver } from '@/frontend/utils/resolver';
 import Skeleton from '@/frontend/components/ui/Skeleton';
 import SignOutModal from '@/frontend/components/ui/SignOutModal';
+import NotificationBell from './NotificationBell';
+import { usePushNotifications } from '@/frontend/hooks/usePushNotifications';
 import Image from 'next/image';
 import DieselStaffDashboard from '@/frontend/components/diesel/DieselStaffDashboard';
 import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicketingDashboard';
@@ -52,12 +54,14 @@ interface Ticket {
     } | null;
     photo_before_url?: string;
     raised_by?: string;
+    sla_paused?: boolean;
 }
 
 const MstDashboard = () => {
     const { user, signOut } = useAuth();
     const params = useParams();
     const router = useRouter();
+    const { token, notification: foregroundNotification } = usePushNotifications();
     const propertyId = params?.propertyId as string;
 
     // State
@@ -619,6 +623,9 @@ const MstDashboard = () => {
                         </button>
                     </div>
                     <div className="flex items-center gap-3">
+                        {/* Notification Bell */}
+                        <NotificationBell />
+
                         {/* Shift Status in Navbar */}
                         <NavbarShiftStatus
                             isCheckedIn={isCheckedIn}
@@ -947,6 +954,7 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                                     createdAt={ticket.created_at}
                                     assignedTo={ticket.assignee?.full_name}
                                     photoUrl={ticket.photo_before_url}
+                                    isSlaPaused={ticket.sla_paused}
                                     onClick={() => onTicketClick?.(ticket.id)}
                                     onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                     onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
@@ -1097,6 +1105,7 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                                     createdAt={ticket.created_at}
                                     assignedTo={ticket.assignee?.full_name}
                                     photoUrl={ticket.photo_before_url}
+                                    isSlaPaused={ticket.sla_paused}
                                     onClick={() => onTicketClick?.(ticket.id)}
                                     onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
                                     onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}

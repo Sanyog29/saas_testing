@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
+import { NotificationService } from '@/backend/services/NotificationService';
 
 /**
  * POST /api/tickets/batch-assign
@@ -24,7 +25,6 @@ export async function POST(request: NextRequest) {
         const now = new Date().toISOString();
         const results = [];
         const auditLogs = [];
-        const notifications = [];
 
         // In a real production app, use an RPC or transaction
         // For this implementation, we'll iterate and update (Supabase doesn't support transactions via REST easily)
@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
 
             if (skillGroupId) {
                 updates.skill_group_id = skillGroupId;
-                // Also update skill_group_code if possible for consistency
                 const { data: sg } = await supabase
                     .from('skill_groups')
                     .select('code')
@@ -87,30 +86,17 @@ export async function POST(request: NextRequest) {
                 new_value: assigned_to || 'waitlist'
             });
 
-            // 3. Prepare Notification if assigned
+            // 3. Trigger Notification if assigned
             if (assigned_to) {
-                notifications.push({
-                    type: 'ticket_assigned',
-                    recipient_role: 'MST',
-                    recipient_id: assigned_to,
-                    title: 'New ticket assigned',
-                    body: `${ticket.ticket_number || 'A ticket'} has been assigned to you`,
-                    entity_id: ticket_id
-                });
+                // Use the centralized NotificationService which handles DB insert + Push Notification
+                // This replaces the previous incorrect manual insert
+                await NotificationService.afterTicketAssigned(ticket_id);
             }
         }
 
         // Batch insert audit logs
         if (auditLogs.length > 0) {
             await supabase.from('ticket_activity_log').insert(auditLogs);
-        }
-
-        // Batch insert notifications
-        if (notifications.length > 0) {
-            const { error: notifError } = await supabase.from('notifications').insert(notifications);
-            if (notifError) {
-                console.error('[Batch Assign] Notification insert error:', notifError);
-            }
         }
 
         // Audit Event (PRD 8)

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { useAuth } from '@/frontend/context/AuthContext';
 
 const SESSION_COOKIE_NAME = 'app_session_id';
 const SESSION_COOKIE_TTL = 1; // 1 day
@@ -104,8 +105,17 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
         }
     }, [sessionId, startSession]);
 
-    // Initialize session on mount
+    const { user, isLoading: isAuthLoading } = useAuth();
+
+    // Initialize session on mount/auth change
     useEffect(() => {
+        if (isAuthLoading) return;
+        if (!user) {
+            setSessionId(null);
+            setIsSessionActive(false);
+            return;
+        }
+
         const existingSessionId = Cookies.get(SESSION_COOKIE_NAME);
 
         if (existingSessionId) {
@@ -118,7 +128,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
             // No session, start new one
             startSession();
         }
-    }, []);
+    }, [user, isAuthLoading, startSession, sendPing]);
 
     // Send ping on route change
     useEffect(() => {

@@ -305,11 +305,45 @@ export async function PATCH(
         if (photo_after_url) updates.photo_after_url = photo_after_url;
         if (rating) updates.rating = rating;
 
-        // Allow editing title and description only if the user is the one who raised the ticket
+        // Allow editing title and description for Creator, Property Admin, or MST
         if (title || description) {
-            if (currentTicket.raised_by !== user.id) {
-                return NextResponse.json({ error: 'Only the creator can edit the ticket content' }, { status: 403 });
+            let canEditContent = false;
+
+            if (currentTicket.raised_by === user.id) {
+                canEditContent = true;
+            } else {
+                // Check Property Membership (Admin or MST/Staff)
+                const { data: member } = await supabase
+                    .from('property_memberships')
+                    .select('role')
+                    .eq('user_id', user.id)
+                    .eq('property_id', currentTicket.property_id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+
+                if (member && ['PROPERTY_ADMIN', 'property_admin', 'MST', 'mst', 'STAFF', 'staff'].includes(member.role)) {
+                    canEditContent = true;
+                }
+
+                // Check Org Super Admin
+                if (!canEditContent && currentTicket.organization_id) {
+                    const { data: om } = await supabase
+                        .from('organization_memberships')
+                        .select('role')
+                        .eq('user_id', user.id)
+                        .eq('organization_id', currentTicket.organization_id)
+                        .eq('is_active', true)
+                        .eq('role', 'ORG_SUPER_ADMIN')
+                        .maybeSingle();
+
+                    if (om) canEditContent = true;
+                }
             }
+
+            if (!canEditContent) {
+                return NextResponse.json({ error: 'You do not have permission to edit the ticket content' }, { status: 403 });
+            }
+
             if (title) updates.title = title;
             if (description) updates.description = description;
 
@@ -319,6 +353,7 @@ export async function PATCH(
                 user_id: user.id,
                 action: 'ticket_edited',
                 old_value: 'Content updated',
+                new_value: title || currentTicket.title // Store new title in logs
             });
         }
 
@@ -334,6 +369,34 @@ export async function PATCH(
             return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 });
         }
 
+        // Trigger Web Push Notifications asynchronously
+        try {
+            console.log('[Ticket Update API] update successful. Triggering notifications checks...');
+            console.log('[Ticket Update API] Updates:', JSON.stringify(updates));
+
+            const { NotificationService } = await import('@/backend/services/NotificationService');
+
+            // Check for assignment
+            if (updates.assigned_to) {
+                console.log('[Ticket Update API] Triggering afterTicketAssigned...');
+                NotificationService.afterTicketAssigned(ticketId).catch(err => {
+                    console.error('[Ticket Update API] Notification trigger error (Assigned):', err);
+                });
+            } else {
+                console.log('[Ticket Update API] skipping assignment notification (assigned_to not in updates)');
+            }
+
+            // Check for completion
+            if (updates.status === 'closed' || updates.status === 'resolved') {
+                console.log('[Ticket Update API] Triggering afterTicketCompleted...');
+                NotificationService.afterTicketCompleted(ticketId).catch(err => {
+                    console.error('[Ticket Update API] Notification trigger error (Completed):', err);
+                });
+            }
+        } catch (err) {
+            console.error('[Ticket Update API] Failed to load NotificationService:', err);
+        }
+
         return NextResponse.json({ success: true, ticket });
     } catch (error) {
         console.error('Ticket update error:', error);
@@ -346,26 +409,121 @@ export async function DELETE(
 ) {
     try {
         const { id: ticketId } = await params;
-        const supabase = await createClient();
+        const supabase = await createClient(); // User client for auth check
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { error } = await supabase
+        // Fetch ticket details to verify permissions
+        // We use the USER client here to ensure they can at least SEE the ticket
+        const { data: ticket, error: ticketError } = await supabase
+            .from('tickets')
+            .select('id, property_id, organization_id, raised_by')
+            .eq('id', ticketId)
+            .single();
+
+        if (ticketError || !ticket) {
+            console.error('Delete permission check failed:', ticketError);
+            return NextResponse.json({ error: 'Ticket not found or access denied' }, { status: 404 });
+        }
+
+        // Permission Logic:
+        // 1. Creator can delete
+        // 2. Property Admin can delete
+        // 3. Org Super Admin can delete
+        let canDelete = false;
+
+        if (ticket.raised_by === user.id) {
+            canDelete = true;
+        } else {
+            // Check Property Admin
+            const { data: pm } = await supabase
+                .from('property_memberships')
+                .select('role')
+                .eq('user_id', user.id)
+                .eq('property_id', ticket.property_id)
+                .eq('is_active', true) // improved security
+                .in('role', ['PROPERTY_ADMIN', 'property_admin'])
+                .maybeSingle();
+
+            if (pm) canDelete = true;
+
+            // Check Org Super Admin (if not already found)
+            if (!canDelete && ticket.organization_id) {
+                const { data: om } = await supabase
+                    .from('organization_memberships')
+                    .select('role')
+                    .eq('user_id', user.id)
+                    .eq('organization_id', ticket.organization_id)
+                    .eq('is_active', true)
+                    .eq('role', 'ORG_SUPER_ADMIN')
+                    .maybeSingle();
+
+                if (om) canDelete = true;
+            }
+        }
+
+        if (!canDelete) {
+            return NextResponse.json({ error: 'You do not have permission to delete this ticket' }, { status: 403 });
+        }
+
+        // Perform deletion using Admin Client to bypass RLS on cascaded tables
+        const adminSupabase = createAdminClient();
+
+        // 1. Manually delete notifications (and rely on their cascade to delivery, or do strictly manual)
+        // Check if we need to clean up notifications first due to missing DB cascade
+        const { error: notifDeleteError } = await adminSupabase
+            .from('notifications')
+            .delete()
+            .eq('ticket_id', ticketId);
+
+        if (notifDeleteError) {
+            console.error('Admin notification cleanup error:', notifDeleteError);
+            // Verify if it is a "still referenced" error from notification_delivery
+            // If so, we might need to delete delivery records first.
+            // Assuming notification_delivery -> notification usually has cascade, but let's be safe.
+        }
+
+        // If the above failed due to FK from notification_delivery, we try deleting that first
+        if (notifDeleteError && notifDeleteError.code === '23503') {
+            console.log('Cascade blocked by notification_delivery, cleaning that up first...');
+            // We need notification IDs to delete delivery records
+            const { data: notifIds } = await adminSupabase
+                .from('notifications')
+                .select('id')
+                .eq('ticket_id', ticketId);
+
+            if (notifIds && notifIds.length > 0) {
+                const ids = notifIds.map(n => n.id);
+                await adminSupabase
+                    .from('notification_delivery')
+                    .delete()
+                    .in('notification_id', ids);
+
+                // Retry notification delete
+                await adminSupabase
+                    .from('notifications')
+                    .delete()
+                    .eq('ticket_id', ticketId);
+            }
+        }
+
+        // 2. Delete the Ticket
+        const { error: deleteError } = await adminSupabase
             .from('tickets')
             .delete()
             .eq('id', ticketId);
 
-        if (error) {
-            console.error('Delete error:', error);
+        if (deleteError) {
+            console.error('Admin delete error:', deleteError);
             return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Delete ticket error:', error);
+        console.error('Delete handler exception:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

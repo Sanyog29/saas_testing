@@ -71,6 +71,18 @@ export async function POST(
             new_value: assigned_to || 'waitlist'
         });
 
+        // 4. Trigger Notifications
+        if (assigned_to) {
+            try {
+                const { NotificationService } = await import('@/backend/services/NotificationService');
+                NotificationService.afterTicketAssigned(ticketId).catch(err => {
+                    console.error('[Assign API] Notification error:', err);
+                });
+            } catch (err) {
+                console.error('[Assign API] Failed to load NotificationService:', err);
+            }
+        }
+
         return NextResponse.json({ success: true, ticket: data });
 
     } catch (error) {

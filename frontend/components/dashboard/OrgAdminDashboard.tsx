@@ -18,6 +18,8 @@ import SettingsView from './SettingsView';
 import DieselAnalyticsDashboard from '../diesel/DieselAnalyticsDashboard';
 import ElectricityAnalyticsDashboard from '../electricity/ElectricityAnalyticsDashboard';
 import InviteMemberModal from './InviteMemberModal';
+import NotificationBell from './NotificationBell';
+import { usePushNotifications } from '@/frontend/hooks/usePushNotifications';
 import Image from 'next/image';
 import { ImportReportsView } from '@/frontend/components/snags';
 
@@ -60,6 +62,7 @@ const OrgAdminDashboard = () => {
     const { user, signOut } = useAuth();
     const params = useParams();
     const router = useRouter();
+    const { token, notification: foregroundNotification } = usePushNotifications();
     const orgSlugOrId = params?.orgId as string;
 
     // State
@@ -93,31 +96,7 @@ const OrgAdminDashboard = () => {
     const hasFetchedOrg = useRef(false);
     const hasFetchedProperties = useRef(false);
 
-    useEffect(() => {
-        if (orgSlugOrId && !hasFetchedOrg.current) {
-            hasFetchedOrg.current = true;
-            fetchOrgDetails();
-        }
-    }, [orgSlugOrId]);
-
-    // Restore tab from URL
-    useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab && ['overview', 'properties', 'requests', 'reports', 'visitors', 'settings', 'profile', 'revenue', 'users', 'diesel', 'electricity'].includes(tab)) {
-            setActiveTab(tab as Tab);
-        }
-    }, [searchParams]);
-
-    // Fetch properties ONCE when org is loaded (not on every tab change)
-    useEffect(() => {
-        if (org && !hasFetchedProperties.current) {
-            hasFetchedProperties.current = true;
-            fetchProperties();
-            fetchUserRole();
-        }
-    }, [org]);
-
-    const fetchUserRole = async () => {
+    const fetchUserRole = useCallback(async () => {
         if (!org || !user) return;
 
         const { data } = await supabase
@@ -134,9 +113,9 @@ const OrgAdminDashboard = () => {
             ).join(' ');
             setUserRole(formattedRole);
         }
-    };
+    }, [org, user, supabase]);
 
-    const fetchOrgDetails = async () => {
+    const fetchOrgDetails = useCallback(async () => {
         setIsLoading(true);
         setErrorMsg('');
 
@@ -168,9 +147,9 @@ const OrgAdminDashboard = () => {
             setOrg(data);
         }
         setIsLoading(false);
-    };
+    }, [orgSlugOrId, supabase]);
 
-    const fetchProperties = async () => {
+    const fetchProperties = useCallback(async () => {
         if (!org) return;
         const { data, error } = await supabase
             .from('properties')
@@ -179,7 +158,37 @@ const OrgAdminDashboard = () => {
             .order('created_at', { ascending: false });
 
         if (!error && data) setProperties(data);
-    };
+    }, [org, supabase]);
+
+    useEffect(() => {
+        const init = async () => {
+            if (orgSlugOrId && !hasFetchedOrg.current) {
+                hasFetchedOrg.current = true;
+                await fetchOrgDetails();
+            }
+        };
+        init();
+    }, [orgSlugOrId, fetchOrgDetails]);
+
+    // Restore tab from URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['overview', 'properties', 'requests', 'reports', 'visitors', 'settings', 'profile', 'revenue', 'users', 'diesel', 'electricity'].includes(tab)) {
+            setActiveTab(tab as Tab);
+        }
+    }, [searchParams]);
+
+    // Fetch properties ONCE when org is loaded (not on every tab change)
+    useEffect(() => {
+        const init = async () => {
+            if (org && !hasFetchedProperties.current) {
+                hasFetchedProperties.current = true;
+                await Promise.all([fetchProperties(), fetchUserRole()]);
+            }
+        };
+        init();
+    }, [org, fetchProperties, fetchUserRole]);
+
 
     const fetchOrgUsers = async () => {
         if (!org) return;
@@ -359,19 +368,6 @@ const OrgAdminDashboard = () => {
         fetchOrgUsers();
     };
 
-    // Restore tab from URL
-    useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab && ['overview', 'properties', 'requests', 'reports', 'visitors', 'settings', 'profile', 'revenue', 'users', 'diesel', 'electricity'].includes(tab)) {
-            setActiveTab(tab as Tab);
-        }
-        const filter = searchParams.get('filter');
-        if (filter) {
-            setPendingStatusFilter(filter);
-        } else {
-            setPendingStatusFilter('all');
-        }
-    }, [searchParams]);
 
     // Helper to change tab with URL persistence
     const handleTabChange = (tab: Tab, filter: string = 'all') => {
@@ -664,15 +660,16 @@ const OrgAdminDashboard = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
+                            <NotificationBell />
                             {/* Property Selector for Requests/Other tabs */}
                             {properties.length > 0 && (
                                 <div className="relative">
                                     <button
                                         onClick={() => setIsPropSelectorOpen(!isPropSelectorOpen)}
-                                        className="flex items-center gap-3 bg-surface-elevated border border-border rounded-xl px-4 py-2.5 hover:border-primary transition-smooth group min-w-[200px]"
+                                        className="flex items-center gap-3 bg-surface-elevated border border-border rounded-xl px-4 py-2.5 hover:border-primary transition-all group min-w-[200px]"
                                     >
                                         <div className="w-6 h-6 rounded-lg bg-background flex items-center justify-center overflow-hidden">
-                                            {activeProperty?.image_url ? (
+                                            {activeProperty && activeProperty.image_url ? (
                                                 <img src={activeProperty.image_url} alt="" className="w-full h-full object-cover" />
                                             ) : (
                                                 <Building2 className="w-3.5 h-3.5 text-text-tertiary" />
@@ -738,7 +735,6 @@ const OrgAdminDashboard = () => {
                                     </AnimatePresence>
                                 </div>
                             )}
-
                             <div className="hidden md:flex flex-col items-end">
                                 <span className="text-sm font-display font-semibold text-text-primary tracking-tight">System Status</span>
                                 <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Online</span>
@@ -911,7 +907,7 @@ const OrgAdminDashboard = () => {
                     <PropertyModal
                         property={editingProperty}
                         onClose={() => { setShowCreatePropModal(false); setEditingProperty(null); }}
-                        onSave={editingProperty ? (data: any) => handleUpdateProperty(editingProperty.id, data) : handleCreateProperty}
+                        onSave={(data: any) => editingProperty ? handleUpdateProperty(editingProperty.id, data) : handleCreateProperty(data)}
                     />
                 )
             }
@@ -1231,78 +1227,87 @@ const OverviewTab = memo(function OverviewTab({
                         >
                             <Menu className="w-6 h-6" />
                         </button>
-                        <h1 className="text-2xl md:text-3xl font-black text-white">Unified Dashboard</h1>
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsOverviewSelectorOpen(!isOverviewSelectorOpen)}
-                                className="flex items-center gap-3 bg-[#5A737A] text-white border border-white/10 rounded-xl px-4 py-2.5 shadow-sm hover:border-white/50 transition-all group min-w-[220px]"
-                            >
-                                <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center overflow-hidden border border-white/10">
-                                    {activeProperty?.image_url ? (
-                                        <img src={activeProperty.image_url} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <Building2 className="w-3.5 h-3.5 text-white/70" />
-                                    )}
-                                </div>
-                                <span className="text-sm font-bold flex-1 text-left">
-                                    {selectedPropertyId === 'all' ? 'All Properties' : activeProperty?.name}
-                                </span>
-                                <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${isOverviewSelectorOpen ? 'rotate-180' : ''}`} />
-                            </button>
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-display font-semibold text-white tracking-tight capitalize">Unified Dashboard</h1>
+                            <p className="hidden md:block text-white/70 text-xs font-body font-medium mt-1">Manage your organization's resources.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <NotificationBell />
+                        {/* Property Selector for Requests/Other tabs */}
+                        {properties.length > 0 && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsOverviewSelectorOpen(!isOverviewSelectorOpen)}
+                                    className="flex items-center gap-3 bg-[#5A737A] text-white border border-white/10 rounded-xl px-4 py-2.5 shadow-sm hover:border-white/50 transition-all group min-w-[220px]"
+                                >
+                                    <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center overflow-hidden border border-white/10">
+                                        {activeProperty && activeProperty.image_url ? (
+                                            <img src={activeProperty.image_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Building2 className="w-3.5 h-3.5 text-white/70" />
+                                        )}
+                                    </div>
+                                    <span className="text-sm font-bold flex-1 text-left">
+                                        {selectedPropertyId === 'all' ? 'All Properties' : activeProperty?.name}
+                                    </span>
+                                    <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${isOverviewSelectorOpen ? 'rotate-180' : ''}`} />
+                                </button>
 
-                            <AnimatePresence>
-                                {isOverviewSelectorOpen && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-[110]"
-                                            onClick={() => setIsOverviewSelectorOpen(false)}
-                                        />
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            className="absolute left-0 mt-2 w-80 bg-[#5A737A] rounded-2xl shadow-2xl border border-white/10 z-[120] overflow-hidden"
-                                        >
-                                            <div className="p-2 border-b border-white/10">
-                                                <button
-                                                    onClick={() => { setSelectedPropertyId('all'); setIsOverviewSelectorOpen(false); }}
-                                                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === 'all' ? 'bg-yellow-400 text-slate-900' : 'text-white hover:bg-white/10'}`}
-                                                >
-                                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden border border-white/10">
-                                                        <LayoutDashboard className="w-5 h-5" />
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <p className="text-xs font-black uppercase tracking-tight">Show All Properties</p>
-                                                        <p className={`text-[10px] font-bold ${selectedPropertyId === 'all' ? 'text-slate-900/60' : 'text-white/60'}`}>{properties.length} Active Locations</p>
-                                                    </div>
-                                                </button>
-                                            </div>
-                                            <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-                                                {properties.map(prop => (
+                                <AnimatePresence>
+                                    {isOverviewSelectorOpen && (
+                                        <>
+                                            <div
+                                                className="fixed inset-0 z-[110]"
+                                                onClick={() => setIsOverviewSelectorOpen(false)}
+                                            />
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute left-0 mt-2 w-80 bg-[#5A737A] rounded-2xl shadow-2xl border border-white/10 z-[120] overflow-hidden"
+                                            >
+                                                <div className="p-2 border-b border-white/10">
                                                     <button
-                                                        key={prop.id}
-                                                        onClick={() => { setSelectedPropertyId(prop.id); setIsOverviewSelectorOpen(false); }}
-                                                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === prop.id ? 'bg-yellow-400 text-slate-900' : 'text-white hover:bg-white/10'}`}
+                                                        onClick={() => { setSelectedPropertyId('all'); setIsOverviewSelectorOpen(false); }}
+                                                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === 'all' ? 'bg-yellow-400 text-slate-900' : 'text-white hover:bg-white/10'}`}
                                                     >
                                                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden border border-white/10">
-                                                            {prop.image_url ? (
-                                                                <img src={prop.image_url} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <Building2 className="w-5 h-5 text-white/50" />
-                                                            )}
+                                                            <LayoutDashboard className="w-5 h-5" />
                                                         </div>
-                                                        <div className="text-left overflow-hidden">
-                                                            <p className="text-xs font-black uppercase tracking-tight truncate">{prop.name}</p>
-                                                            <p className={`text-[10px] font-bold uppercase tracking-widest ${selectedPropertyId === prop.id ? 'text-slate-900/60' : 'text-white/40'}`}>{prop.code}</p>
+                                                        <div className="text-left">
+                                                            <p className="text-xs font-black uppercase tracking-tight">Show All Properties</p>
+                                                            <p className={`text-[10px] font-bold ${selectedPropertyId === 'all' ? 'text-slate-900/60' : 'text-white/60'}`}>{properties.length} Active Locations</p>
                                                         </div>
                                                     </button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    </>
-                                )}
-                            </AnimatePresence>
-                        </div>
+                                                </div>
+                                                <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+                                                    {properties.map(prop => (
+                                                        <button
+                                                            key={prop.id}
+                                                            onClick={() => { setSelectedPropertyId(prop.id); setIsOverviewSelectorOpen(false); }}
+                                                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${selectedPropertyId === prop.id ? 'bg-yellow-400 text-slate-900' : 'text-white hover:bg-white/10'}`}
+                                                        >
+                                                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden border border-white/10">
+                                                                {prop.image_url ? (
+                                                                    <img src={prop.image_url} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <Building2 className="w-5 h-5 text-white/50" />
+                                                                )}
+                                                            </div>
+                                                            <div className="text-left overflow-hidden">
+                                                                <p className="text-xs font-black uppercase tracking-tight truncate">{prop.name}</p>
+                                                                <p className={`text-[10px] font-bold uppercase tracking-widest ${selectedPropertyId === prop.id ? 'text-slate-900/60' : 'text-white/40'}`}>{prop.code}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -1494,8 +1499,6 @@ const OverviewTab = memo(function OverviewTab({
                     </div>
                 </div>
             </div>
-
-
         </div>
     );
 });
@@ -2008,7 +2011,10 @@ const VisitorsTab = ({ properties, selectedPropertyId }: { properties: any[], se
     }, [selectedPropertyId]);
 
     useEffect(() => {
-        fetchVisitors();
+        const init = async () => {
+            await fetchVisitors();
+        };
+        init();
     }, [selectedProperty, dateFilter]);
 
     const fetchVisitors = async () => {

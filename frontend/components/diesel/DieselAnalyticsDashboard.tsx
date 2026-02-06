@@ -3,12 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Calendar, TrendingUp, Download, Fuel, AlertTriangle,
-    Plus, ChevronRight, BarChart3
+    Plus, BarChart3, IndianRupee, Activity
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
-import LiquidDieselGauge from './LiquidDieselGauge';
 
 interface Generator {
     id: string;
@@ -18,11 +17,15 @@ interface Generator {
 }
 
 interface DieselMetrics {
-    today: number;
-    month: number;
-    average: number;
+    todayLitres: number;
+    todayCost: number;
+    monthLitres: number;
+    monthCost: number;
+    averageLitres: number;
+    averageCost: number;
     todayChange: number;
     monthChange: number;
+    tariffRate: number;
 }
 
 interface GeneratorBreakdown {
@@ -30,6 +33,7 @@ interface GeneratorBreakdown {
     name: string;
     capacity_kva?: number;
     totalLitres: number;
+    totalCost: number;
     percentage: number;
 }
 
@@ -43,7 +47,7 @@ interface Alert {
 
 /**
  * Admin/Super Admin analytics dashboard for diesel consumption
- * Matches the provided HTML mockup design with golden theme
+ * PRD v2: Cost shown before units, tariff-based cost computation
  */
 interface DieselAnalyticsDashboardProps {
     propertyId?: string;
@@ -58,22 +62,23 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
     // State
     const [property, setProperty] = useState<{ name: string } | null>(null);
     const [metrics, setMetrics] = useState<DieselMetrics>({
-        today: 0,
-        month: 0,
-        average: 0,
+        todayLitres: 0,
+        todayCost: 0,
+        monthLitres: 0,
+        monthCost: 0,
+        averageLitres: 0,
+        averageCost: 0,
         todayChange: 0,
         monthChange: 0,
+        tariffRate: 0,
     });
     const [breakdown, setBreakdown] = useState<GeneratorBreakdown[]>([]);
     const [alerts, setAlerts] = useState<Alert[]>([]);
-    const [trendData, setTrendData] = useState<{ date: string; value: number }[]>([]);
+    const [trendData, setTrendData] = useState<{ date: string; litres: number; cost: number }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [period, setPeriod] = useState<'7D' | '30D'>('7D');
-    const [tankCapacity, setTankCapacity] = useState(1000);
     const [nextMaintenanceDate, setNextMaintenanceDate] = useState<Date | null>(null);
-    const [orgData, setOrgData] = useState<any>(null);
 
-    // Fetch data
     // Fetch data
     const fetchData = useCallback(async () => {
         if (!propertyId && !orgId) return;
@@ -89,27 +94,48 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     .single();
                 setProperty(propData);
 
-                // Fetch generators for tank capacity and maintenance date
-                const gensRes = await fetch(`/api/properties/${propertyId}/generators`);
-                const gensData = await gensRes.json();
-                const generators = Array.isArray(gensData) ? gensData : [];
-                const totalTankCapacity = generators.reduce((sum: number, g: any) => sum + (g.tank_capacity_litres || 1000), 0);
-                const nextMaintenance = generators
-                    .filter((g: any) => g.next_maintenance_date)
-                    .map((g: any) => new Date(g.next_maintenance_date))
-                    .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+                // Fetch active DG tariff rate
+                const today = new Date().toISOString().split('T')[0];
+                let tariffRate = 0;
+                try {
+                    // Try to get generator and its tariff
+                    const gensRes = await fetch(`/api/properties/${propertyId}/generators`);
+                    const gensData = await gensRes.json();
+                    const generators = Array.isArray(gensData) ? gensData : [];
+
+                    if (generators.length > 0) {
+                        const tariffRes = await fetch(`/api/properties/${propertyId}/dg-tariffs?generator_id=${generators[0].id}&date=${today}`);
+                        if (tariffRes.ok) {
+                            const tariffData = await tariffRes.json();
+                            tariffRate = tariffData?.rate_per_litre || 0;
+                        }
+                    }
+
+                    // Get next maintenance date
+                    const nextMaintenance = generators
+                        .filter((g: any) => g.next_maintenance_date)
+                        .map((g: any) => new Date(g.next_maintenance_date))
+                        .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+                    setNextMaintenanceDate(nextMaintenance || null);
+                } catch (e) {
+                    console.warn('Failed to fetch tariff:', e);
+                }
 
                 // Fetch today's readings
                 const todayRes = await fetch(`/api/properties/${propertyId}/diesel-readings?period=today`);
                 const todayData = await todayRes.json();
-                const todayTotal = (todayData || []).reduce((sum: number, r: any) =>
+                const todayLitres = (todayData || []).reduce((sum: number, r: any) =>
                     sum + (r.computed_consumed_litres || 0), 0);
+                const todayCost = (todayData || []).reduce((sum: number, r: any) =>
+                    sum + (r.computed_cost || 0), 0);
 
                 // Fetch this month's readings
                 const monthRes = await fetch(`/api/properties/${propertyId}/diesel-readings?period=month`);
                 const monthData = await monthRes.json();
-                const monthTotal = (monthData || []).reduce((sum: number, r: any) =>
+                const monthLitres = (monthData || []).reduce((sum: number, r: any) =>
                     sum + (r.computed_consumed_litres || 0), 0);
+                const monthCost = (monthData || []).reduce((sum: number, r: any) =>
+                    sum + (r.computed_cost || 0), 0);
 
                 // Fetch previous month's readings for comparison
                 const prevMonthStart = new Date();
@@ -120,75 +146,81 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     `/api/properties/${propertyId}/diesel-readings?startDate=${prevMonthStart.toISOString().split('T')[0]}&endDate=${prevMonthEnd.toISOString().split('T')[0]}`
                 );
                 const prevMonthData = await prevMonthRes.json();
-                const prevMonthTotal = (prevMonthData || []).reduce((sum: number, r: any) =>
-                    sum + (r.computed_consumed_litres || 0), 0);
+                const prevMonthCost = (prevMonthData || []).reduce((sum: number, r: any) =>
+                    sum + (r.computed_cost || 0), 0);
 
                 // Calculate daily average
                 const uniqueDays = new Set((monthData || []).map((r: any) => r.reading_date)).size;
-                const avgDaily = uniqueDays > 0 ? Math.round(monthTotal / uniqueDays) : 0;
+                const avgLitres = uniqueDays > 0 ? Math.round(monthLitres / uniqueDays) : 0;
+                const avgCost = uniqueDays > 0 ? Math.round(monthCost / uniqueDays) : 0;
 
                 // Calculate month-over-month change
-                const monthChange = prevMonthTotal > 0
-                    ? Math.round(((monthTotal - prevMonthTotal) / prevMonthTotal) * 100)
+                const monthChange = prevMonthCost > 0
+                    ? Math.round(((monthCost - prevMonthCost) / prevMonthCost) * 100)
                     : 0;
 
                 setMetrics({
-                    today: Math.round(todayTotal),
-                    month: Math.round(monthTotal),
-                    average: avgDaily,
-                    todayChange: avgDaily > 0 ? Math.round(((todayTotal - avgDaily) / avgDaily) * 100) : 0,
+                    todayLitres: Math.round(todayLitres),
+                    todayCost: Math.round(todayCost),
+                    monthLitres: Math.round(monthLitres),
+                    monthCost: Math.round(monthCost),
+                    averageLitres: avgLitres,
+                    averageCost: avgCost,
+                    todayChange: avgLitres > 0 ? Math.round(((todayLitres - avgLitres) / avgLitres) * 100) : 0,
                     monthChange,
+                    tariffRate,
                 });
 
-                // Store additional data for UI
-                setTankCapacity(totalTankCapacity);
-                setNextMaintenanceDate(nextMaintenance || null);
-
-                // Calculate generator breakdown
-                const genBreakdown: Record<string, { litres: number; name: string; capacity?: number }> = {};
+                // Calculate generator breakdown with cost
+                const genBreakdown: Record<string, { litres: number; cost: number; name: string; capacity?: number }> = {};
                 (monthData || []).forEach((r: any) => {
                     const genId = r.generator_id;
                     if (!genBreakdown[genId]) {
                         genBreakdown[genId] = {
                             litres: 0,
+                            cost: 0,
                             name: r.generator?.name || 'Unknown',
                             capacity: r.generator?.capacity_kva,
                         };
                     }
                     genBreakdown[genId].litres += r.computed_consumed_litres || 0;
+                    genBreakdown[genId].cost += r.computed_cost || 0;
                 });
 
-                const totalMonthLitres = Object.values(genBreakdown).reduce((sum, g) => sum + g.litres, 0);
+                const totalMonthCost = Object.values(genBreakdown).reduce((sum, g) => sum + g.cost, 0);
                 const breakdownArr: GeneratorBreakdown[] = Object.entries(genBreakdown)
                     .map(([id, data]) => ({
                         id,
                         name: data.name,
                         capacity_kva: data.capacity,
                         totalLitres: Math.round(data.litres),
-                        percentage: totalMonthLitres > 0 ? Math.round((data.litres / totalMonthLitres) * 100) : 0,
+                        totalCost: Math.round(data.cost),
+                        percentage: totalMonthCost > 0 ? Math.round((data.cost / totalMonthCost) * 100) : 0,
                     }))
-                    .sort((a, b) => b.totalLitres - a.totalLitres);
+                    .sort((a, b) => b.totalCost - a.totalCost);
                 setBreakdown(breakdownArr);
 
                 // Build trend data based on selected period (7D or 30D)
                 const daysToFetch = period === '30D' ? 30 : 7;
                 const trendRes = await fetch(`/api/properties/${propertyId}/diesel-readings?period=${period === '30D' ? 'month' : 'week'}`);
                 const trendRawData = await trendRes.json();
-                const dailyTotals: Record<string, number> = {};
+                const dailyTotals: Record<string, { litres: number; cost: number }> = {};
                 (trendRawData || []).forEach((r: any) => {
                     const date = r.reading_date;
-                    if (!dailyTotals[date]) dailyTotals[date] = 0;
-                    dailyTotals[date] += r.computed_consumed_litres || 0;
+                    if (!dailyTotals[date]) dailyTotals[date] = { litres: 0, cost: 0 };
+                    dailyTotals[date].litres += r.computed_consumed_litres || 0;
+                    dailyTotals[date].cost += r.computed_cost || 0;
                 });
 
                 // Fill in missing days
-                const trend: { date: string; value: number }[] = [];
+                const trend: { date: string; litres: number; cost: number }[] = [];
                 for (let i = daysToFetch - 1; i >= 0; i--) {
                     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
                     const dateStr = d.toISOString().split('T')[0];
                     trend.push({
                         date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                        value: Math.round(dailyTotals[dateStr] || 0),
+                        litres: Math.round(dailyTotals[dateStr]?.litres || 0),
+                        cost: Math.round(dailyTotals[dateStr]?.cost || 0),
                     });
                 }
                 setTrendData(trend);
@@ -200,38 +232,11 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     .map((r: any) => ({
                         id: r.id,
                         generator_name: r.generator?.name || 'Unknown',
-                        message: `${r.generator?.name} consumption is high (${r.computed_consumed_litres}L)`,
+                        message: `${r.generator?.name} cost is high (₹${r.computed_cost || 0})`,
                         time: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                         severity: r.alert_status as 'warning' | 'critical',
                     }));
                 setAlerts(alertsList);
-            } else if (orgId) {
-                // Fetch org-level diesel summary
-                const orgRes = await fetch(`/api/organizations/${orgId}/diesel-summary?period=${period === '30D' ? 'month' : 'week'}`);
-                const data = await orgRes.json();
-                setOrgData(data);
-
-                setMetrics({
-                    today: data.org_summary?.today_total || 0,
-                    month: data.org_summary?.total_litres || 0,
-                    average: Math.round((data.org_summary?.total_litres || 0) / (period === '30D' ? 30 : 7)),
-                    todayChange: 0,
-                    monthChange: 0,
-                });
-
-                // Map properties to breakdown
-                const breakdownArr: GeneratorBreakdown[] = (data.properties || []).map((p: any) => ({
-                    id: p.property_id,
-                    name: p.property_name,
-                    totalLitres: p.period_total_litres,
-                    percentage: (data.org_summary?.total_litres || 0) > 0
-                        ? Math.round((p.period_total_litres / data.org_summary.total_litres) * 100)
-                        : 0,
-                }));
-                setBreakdown(breakdownArr);
-
-                // Build trend data (placeholder or aggregated if API supported it)
-                setTrendData([]);
             }
         } catch (err) {
             console.error('Failed to fetch diesel analytics:', err);
@@ -254,13 +259,13 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
         window.open(exportUrl, '_blank');
     };
 
-    // Chart SVG renderer
-    const maxValue = Math.max(...trendData.map(d => d.value), 1);
+    // Chart SVG renderer - now using cost values
+    const maxValue = Math.max(...trendData.map(d => d.cost), 1);
     const chartWidth = 800;
     const chartHeight = 280;
     const points = trendData.map((d, i) => ({
-        x: (i / (trendData.length - 1)) * chartWidth,
-        y: chartHeight - (d.value / maxValue) * (chartHeight - 40) - 20,
+        x: (i / Math.max(trendData.length - 1, 1)) * chartWidth,
+        y: chartHeight - (d.cost / maxValue) * (chartHeight - 40) - 20,
     }));
 
     const pathD = points.length > 1
@@ -274,7 +279,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
         return (
             <div className="flex items-center justify-center h-96">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+                    <div className="w-12 h-12 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin" />
                     <p className="text-slate-500 font-bold">Loading analytics...</p>
                 </div>
             </div>
@@ -290,15 +295,24 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <span className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-                            Diesel Analytics
+                            DG Power Analytics
                         </span>
                         {property?.name && (
                             <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-2">/ {property.name}</span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-primary font-medium">
-                        <Calendar className="w-4 h-4" />
-                        {currentMonth}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 text-emerald-600 font-medium">
+                            <Calendar className="w-4 h-4" />
+                            {currentMonth}
+                        </div>
+                        {metrics.tariffRate > 0 && (
+                            <div className="flex items-center gap-1 text-sm text-slate-500">
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold">
+                                    Tariff: ₹{metrics.tariffRate}/L
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <button
@@ -310,22 +324,23 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                 </button>
             </div>
 
-            {/* Metrics Grid */}
+            {/* Metrics Grid - PRD: Cost shown before units */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Today */}
+                {/* Today's Cost */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Fuel className="w-16 h-16 text-primary" />
+                        <IndianRupee className="w-16 h-16 text-emerald-500" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
-                                <Calendar className="w-4 h-4" />
+                            <span className="p-1.5 bg-emerald-500/10 rounded-md text-emerald-500">
+                                <IndianRupee className="w-4 h-4" />
                             </span>
-                            <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">Today&apos;s Consumption</p>
+                            <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">Today&apos;s Cost</p>
                         </div>
                         <div>
-                            <p className="text-slate-900 text-4xl font-bold leading-tight tracking-tight">{metrics.today} L</p>
+                            <p className="text-emerald-600 text-4xl font-bold leading-tight tracking-tight">₹{metrics.todayCost.toLocaleString()}</p>
+                            <p className="text-slate-500 text-sm mt-1">{metrics.todayLitres.toLocaleString()} L consumed</p>
                             <div className="flex items-center gap-1 mt-1">
                                 <TrendingUp className={`w-4 h-4 ${metrics.todayChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`} />
                                 <p className={`text-sm font-bold ${metrics.todayChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
@@ -337,21 +352,24 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     </div>
                 </div>
 
-                {/* This Month */}
+                {/* This Month's Cost */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <BarChart3 className="w-16 h-16 text-primary" />
+                        <BarChart3 className="w-16 h-16 text-emerald-500" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
+                            <span className="p-1.5 bg-emerald-500/10 rounded-md text-emerald-500">
                                 <Calendar className="w-4 h-4" />
                             </span>
                             <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">This Month</p>
                         </div>
                         <div>
-                            <p className="text-slate-900 text-4xl font-bold leading-tight tracking-tight">{metrics.month.toLocaleString()} L</p>
-                            <p className="text-slate-500 text-sm mt-1">On track for {Math.round((metrics.month / new Date().getDate()) * new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).toLocaleString()} L</p>
+                            <p className="text-emerald-600 text-4xl font-bold leading-tight tracking-tight">₹{metrics.monthCost.toLocaleString()}</p>
+                            <p className="text-slate-500 text-sm mt-1">{metrics.monthLitres.toLocaleString()} L consumed</p>
+                            <p className="text-slate-400 text-xs mt-1">
+                                On track for ₹{Math.round((metrics.monthCost / new Date().getDate()) * new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).toLocaleString()}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -359,20 +377,21 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                 {/* Daily Average */}
                 <div className="bg-white rounded-xl p-6 border border-slate-200 relative overflow-hidden group shadow-sm">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <TrendingUp className="w-16 h-16 text-primary" />
+                        <Activity className="w-16 h-16 text-emerald-500" />
                     </div>
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="p-1.5 bg-primary/10 rounded-md text-primary">
+                            <span className="p-1.5 bg-emerald-500/10 rounded-md text-emerald-500">
                                 <BarChart3 className="w-4 h-4" />
                             </span>
                             <p className="text-slate-900 text-sm font-bold uppercase tracking-wider opacity-70">Daily Average</p>
                         </div>
                         <div>
-                            <p className="text-slate-900 text-4xl font-bold leading-tight tracking-tight">{metrics.average} L</p>
+                            <p className="text-emerald-600 text-4xl font-bold leading-tight tracking-tight">₹{metrics.averageCost.toLocaleString()}</p>
+                            <p className="text-slate-500 text-sm mt-1">{metrics.averageLitres.toLocaleString()} L/day</p>
                             <div className="flex items-center gap-1 mt-1">
-                                <TrendingUp className="w-4 h-4 text-primary" />
-                                <p className="text-primary text-sm font-bold">+{metrics.monthChange}%</p>
+                                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                                <p className="text-emerald-500 text-sm font-bold">{metrics.monthChange >= 0 ? '+' : ''}{metrics.monthChange}%</p>
                                 <p className="text-slate-500 text-sm">vs last month</p>
                             </div>
                         </div>
@@ -387,23 +406,23 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h3 className="text-lg font-bold text-slate-900">
-                                {propertyId ? 'Consumption Trends' : 'Aggregated Consumption'}
+                                Cost Trends
                             </h3>
                             <p className="text-sm text-slate-500">
-                                {propertyId ? 'Last 7 days vs 30-day average' : 'Total consumption across all properties'}
+                                Daily diesel cost over time
                             </p>
                         </div>
                         <div className="flex gap-2">
                             <span
                                 onClick={() => setPeriod('7D')}
-                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '7D' ? 'text-primary bg-primary/10' : 'text-slate-500 hover:bg-slate-50'
+                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '7D' ? 'text-emerald-600 bg-emerald-500/10' : 'text-slate-500 hover:bg-slate-50'
                                     }`}
                             >
                                 7D
                             </span>
                             <span
                                 onClick={() => setPeriod('30D')}
-                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '30D' ? 'text-primary bg-primary/10' : 'text-slate-500 hover:bg-slate-50'
+                                className={`px-2 py-1 text-xs font-bold rounded cursor-pointer transition-colors ${period === '30D' ? 'text-emerald-600 bg-emerald-500/10' : 'text-slate-500 hover:bg-slate-50'
                                     }`}
                             >
                                 30D
@@ -415,35 +434,35 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     <div className="relative w-full h-[280px]">
                         {/* Average band */}
                         <div
-                            className="absolute left-0 right-0 bg-slate-50 border-y border-dashed border-slate-200 pointer-events-none"
+                            className="absolute left-0 right-0 bg-emerald-500/5 border-y border-dashed border-emerald-500/20 pointer-events-none"
                             style={{
-                                top: `${chartHeight - (metrics.average / maxValue) * (chartHeight - 40) - 40}px`,
+                                top: `${chartHeight - (metrics.averageCost / maxValue) * (chartHeight - 40) - 40}px`,
                                 height: '40px'
                             }}
                         />
                         <div className="absolute right-2 text-[10px] text-slate-400 font-medium" style={{ top: '40%' }}>
-                            30-day avg band
+                            Avg: ₹{metrics.averageCost}/day
                         </div>
 
                         <svg className="w-full h-full" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
                             <defs>
-                                <linearGradient id="gradientPrimary" x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" style={{ stopColor: '#708F96', stopOpacity: 0.2 }} />
-                                    <stop offset="100%" style={{ stopColor: '#708F96', stopOpacity: 0 }} />
+                                <linearGradient id="gradientEmerald" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style={{ stopColor: '#10b981', stopOpacity: 0.2 }} />
+                                    <stop offset="100%" style={{ stopColor: '#10b981', stopOpacity: 0 }} />
                                 </linearGradient>
                             </defs>
                             {/* Area Fill */}
-                            <path d={areaD} fill="url(#gradientPrimary)" />
+                            <path d={areaD} fill="url(#gradientEmerald)" />
                             {/* Line Stroke */}
-                            <path d={pathD} fill="none" stroke="#708F96" strokeWidth="3" strokeLinecap="round" />
+                            <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" />
                             {/* Data Points */}
                             {points.map((p, i) => (
                                 <g key={i}>
-                                    <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#708F96" strokeWidth="2" />
+                                    <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#10b981" strokeWidth="2" />
                                     {i === points.length - 1 && (
                                         <>
-                                            <circle cx={p.x} cy={p.y} r="6" fill="#708F96" />
-                                            <circle cx={p.x} cy={p.y} r="12" fill="#708F96" opacity="0.2">
+                                            <circle cx={p.x} cy={p.y} r="6" fill="#10b981" />
+                                            <circle cx={p.x} cy={p.y} r="12" fill="#10b981" opacity="0.2">
                                                 <animate attributeName="r" from="6" to="16" dur="1.5s" repeatCount="indefinite" />
                                                 <animate attributeName="opacity" from="0.4" to="0" dur="1.5s" repeatCount="indefinite" />
                                             </circle>
@@ -456,7 +475,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                         {/* Tooltip for today */}
                         {trendData.length > 0 && (
                             <div className="absolute top-[35px] right-[10px] bg-slate-900 text-white text-xs py-1 px-2 rounded shadow-lg pointer-events-none">
-                                Today: {trendData[trendData.length - 1]?.value} L
+                                Today: ₹{trendData[trendData.length - 1]?.cost}
                                 <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45" />
                             </div>
                         )}
@@ -464,10 +483,10 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
 
                     {/* X-Axis Labels */}
                     <div className="flex justify-between mt-2 px-2 text-xs font-medium text-slate-500">
-                        {trendData.map((d, i) => (
+                        {trendData.filter((_, i) => period === '7D' || i % 5 === 0 || i === trendData.length - 1).map((d, i) => (
                             <span
                                 key={i}
-                                className={i === trendData.length - 1 ? 'text-primary font-bold' : ''}
+                                className={i === trendData.length - 1 ? 'text-emerald-600 font-bold' : ''}
                             >
                                 {d.date}
                             </span>
@@ -477,13 +496,13 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
 
                 {/* Right Column */}
                 <div className="flex flex-col gap-6">
-                    {/* Generator Breakdown */}
+                    {/* Generator Breakdown - PRD: Cost first */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-base font-bold text-slate-900">
-                                {propertyId ? 'Generator Breakdown' : 'Property Breakdown'}
+                                Generator Breakdown
                             </h3>
-                            <button className="text-xs font-bold text-primary hover:underline">View Details</button>
+                            <button className="text-xs font-bold text-emerald-600 hover:underline">View Details</button>
                         </div>
 
                         {breakdown.map((gen, i) => (
@@ -498,7 +517,8 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-bold text-slate-900">{gen.totalLitres.toLocaleString()} L</p>
+                                        <p className="text-sm font-bold text-emerald-600">₹{gen.totalCost.toLocaleString()}</p>
+                                        <p className="text-xs text-slate-400">{gen.totalLitres.toLocaleString()} L</p>
                                     </div>
                                 </div>
                                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -506,12 +526,12 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                                         initial={{ width: 0 }}
                                         animate={{ width: `${gen.percentage}%` }}
                                         transition={{ duration: 0.5 }}
-                                        className={`h-full rounded-full ${i === 0 ? 'bg-primary' : 'bg-primary/50'}`}
+                                        className={`h-full rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-emerald-400/50'}`}
                                     />
                                 </div>
                                 <div className="flex justify-between text-[11px] text-slate-500">
                                     <span>{i === 0 ? 'Primary Load' : 'Secondary Load'}</span>
-                                    <span>{gen.percentage}%</span>
+                                    <span>{gen.percentage}% of cost</span>
                                 </div>
                             </div>
                         ))}
@@ -526,7 +546,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                         <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-bl-full -mr-8 -mt-8 z-0" />
                         <div className="flex items-center gap-2 z-10 relative mb-1">
                             <AlertTriangle className="w-5 h-5 text-rose-500" />
-                            <h3 className="text-base font-bold text-slate-900">Active Alerts</h3>
+                            <h3 className="text-base font-bold text-slate-900">Cost Alerts</h3>
                         </div>
 
                         {alerts.length > 0 ? (
@@ -537,7 +557,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                                 >
                                     <div className="min-w-[4px] h-8 bg-rose-400 rounded-full mt-1" />
                                     <div className="flex flex-col gap-1">
-                                        <p className="text-sm font-bold text-slate-900">High Consumption</p>
+                                        <p className="text-sm font-bold text-slate-900">High Cost</p>
                                         <p className="text-xs text-slate-500 leading-relaxed">
                                             {alert.message}
                                         </p>
@@ -546,7 +566,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-slate-400 text-center py-4 z-10">No active alerts</p>
+                            <p className="text-sm text-slate-400 text-center py-4 z-10">No cost alerts</p>
                         )}
                     </div>
                 </div>
@@ -556,8 +576,13 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
             <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-slate-200 px-6 py-4">
                 <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="hidden md:flex items-center gap-2 text-sm text-slate-500">
-                        <Calendar className="w-4 h-4" />
-                        <span>Next scheduled maintenance: <strong>{nextMaintenanceDate ? nextMaintenanceDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled'}</strong></span>
+                        <Fuel className="w-4 h-4 text-emerald-500" />
+                        <span>DG Power Analytics</span>
+                        {metrics.tariffRate > 0 && (
+                            <span className="ml-2 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-xs font-bold">
+                                ₹{metrics.tariffRate}/L
+                            </span>
+                        )}
                     </div>
                     <div className="flex w-full md:w-auto gap-3">
                         <button
@@ -569,10 +594,10 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                         </button>
                         <button
                             onClick={() => window.location.href = propertyId ? `../staff` : `admin/dashboard`}
-                            className="flex-1 md:flex-none h-11 px-6 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                            className="flex-1 md:flex-none h-11 px-6 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
                         >
                             <Plus className="w-4 h-4" />
-                            {propertyId ? 'Log Tomorrow' : 'Dashboard'}
+                            {propertyId ? 'Log Entry' : 'Dashboard'}
                         </button>
                     </div>
                 </div>
