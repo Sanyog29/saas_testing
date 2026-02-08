@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter, Activity
+    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter, Activity, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -19,6 +19,7 @@ import NotificationBell from './NotificationBell';
 import { usePushNotifications } from '@/frontend/hooks/usePushNotifications';
 import Image from 'next/image';
 import DieselStaffDashboard from '@/frontend/components/diesel/DieselStaffDashboard';
+import ElectricityStaffDashboard from '@/frontend/components/electricity/ElectricityStaffDashboard';
 import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicketingDashboard';
 import { useTheme } from '@/frontend/context/ThemeContext';
 import SettingsView from './SettingsView';
@@ -29,7 +30,7 @@ import NavbarShiftStatus from '@/frontend/components/mst/NavbarShiftStatus';
 import TicketCard from '@/frontend/components/shared/TicketCard';
 
 // Types
-type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'settings' | 'profile' | 'flow-map';
+type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
 
 interface Property {
     id: string;
@@ -137,7 +138,7 @@ const MstDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'settings', 'profile', 'flow-map'].includes(tab)) {
+        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -417,6 +418,7 @@ const MstDashboard = () => {
                                         { label: 'Tasks', tab: 'tasks' },
                                         { label: 'Visitors', tab: 'visitors' },
                                         { label: 'Diesel Logger', tab: 'diesel' },
+                                        { label: 'Electricity Logger', tab: 'electricity' },
                                         { label: 'Settings', tab: 'settings' },
                                         { label: 'Profile', tab: 'profile' },
                                         { label: 'New Request', tab: 'create_request' }
@@ -446,6 +448,7 @@ const MstDashboard = () => {
                                     { label: 'Projects', tab: 'projects', icon: FolderKanban },
                                     { label: 'Visitors', tab: 'visitors', icon: UsersRound },
                                     { label: 'Diesel Logger', tab: 'diesel', icon: Fuel },
+                                    { label: 'Electricity Logger', tab: 'electricity', icon: Zap },
                                     { label: 'Settings', tab: 'settings', icon: Settings },
                                     { label: 'Profile', tab: 'profile', icon: UserCircle },
                                     { label: 'New Request', tab: 'create_request', icon: Plus },
@@ -562,6 +565,16 @@ const MstDashboard = () => {
                             >
                                 <Fuel className="w-4 h-4" />
                                 Diesel Logger
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('electricity')}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'electricity'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Zap className="w-4 h-4" />
+                                Electricity Logger
                             </button>
                         </div>
                     </div>
@@ -697,6 +710,7 @@ const MstDashboard = () => {
                                 <VMSAdminDashboard propertyId={propertyId} />
                             )}
                             {activeTab === 'diesel' && <DieselStaffDashboard isDark={isDarkMode} />}
+                            {activeTab === 'electricity' && property && <ElectricityStaffDashboard propertyId={property.id} isDark={isDarkMode} />}
                             {activeTab === 'settings' && <SettingsView />}
                             {activeTab === 'profile' && (
                                 <div className="flex justify-center items-start py-8">

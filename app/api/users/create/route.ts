@@ -12,6 +12,7 @@ interface CreateUserRequest {
     create_master_admin?: boolean
     property_id?: string
     specialization?: string
+    skills?: string[]
 }
 
 /**
@@ -207,17 +208,61 @@ export async function POST(request: NextRequest) {
         }
 
         // Assign Specialization/Skill if provided (for Staff/MST)
-        const { specialization } = body;
-        if ((role === 'staff' || role === 'mst') && specialization) {
-            const { error: skillError } = await adminClient
-                .from('mst_skills')
-                .insert({
-                    user_id: userData.user.id,
-                    skill_code: specialization
-                });
+        const { specialization, skills = [] } = body;
 
-            if (skillError) {
-                console.error('Skill assignment error:', skillError);
+        // If 'skills' is provided (new multiple checkbox way), use it.
+        // If only 'specialization' is provided (old way), wrap it in skills.
+        const effectiveSkills = skills.length > 0 ? skills : (specialization ? [specialization] : []);
+
+        if ((role === 'staff' || role === 'mst') && effectiveSkills.length > 0) {
+            // 1. Insert into mst_skills (simple mapping)
+            for (const skillCode of effectiveSkills) {
+                const { error: skillError } = await adminClient
+                    .from('mst_skills')
+                    .insert({
+                        user_id: userData.user.id,
+                        skill_code: skillCode
+                    });
+
+                if (skillError && !skillError.message.toLowerCase().includes('duplicate key')) {
+                    console.error('Skill assignment error:', skillError);
+                }
+            }
+
+            // 2. Insert into resolver_stats if we have a property_id
+            if (property_id) {
+                // Filter skills for resolver pool (same logic as onboarding)
+                const skillsForResolver = role === 'staff'
+                    ? effectiveSkills.filter((s: string) => s !== 'technical')
+                    : effectiveSkills;
+
+                if (skillsForResolver.length > 0) {
+                    const { data: skillGroups } = await adminClient
+                        .from('skill_groups')
+                        .select('id, code')
+                        .eq('is_active', true)
+                        .in('code', skillsForResolver);
+
+                    if (skillGroups && skillGroups.length > 0) {
+                        const statsToInsert = skillGroups.map(sg => ({
+                            user_id: userData.user.id,
+                            property_id,
+                            skill_group_id: sg.id,
+                            current_floor: 1,
+                            avg_resolution_minutes: 60,
+                            total_resolved: 0,
+                            is_available: true
+                        }));
+
+                        const { error: statsError } = await adminClient
+                            .from('resolver_stats')
+                            .insert(statsToInsert);
+
+                        if (statsError && !statsError.message.toLowerCase().includes('duplicate key')) {
+                            console.error('Failed to insert resolver stats:', statsError);
+                        }
+                    }
+                }
             }
         }
 

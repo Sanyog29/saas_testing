@@ -289,6 +289,21 @@ export default function OnboardingPage() {
                 }
             }
 
+            // 1.7️⃣ Insert into mst_skills (shared skill mapping)
+            if (selectedSkills.length > 0) {
+                const skillsToInsert = selectedSkills.map(code => ({
+                    user_id: authUser.id,
+                    skill_code: code
+                }));
+                const { error: mstSkillError } = await supabase
+                    .from('mst_skills')
+                    .insert(skillsToInsert);
+
+                if (mstSkillError && !mstSkillError.message.toLowerCase().includes('duplicate key')) {
+                    console.error('MST Skills insert failed:', mstSkillError);
+                }
+            }
+
             // 2️⃣ Insert Resolver Stats (if skills selected)
             // NOTE: "Staff Technical" accounts are treated as BMS accounts and are NOT stored in resolver_stats.
             // Only 'soft_services' for staff and all 'mst' skills are eligible for the resolver pool.

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import {
-    X, UserPlus, Mail, Lock, User, Shield, Building2, Eye, EyeOff
+    X, UserPlus, Mail, Lock, User, Shield, Building2, Eye, EyeOff,
+    Wrench, Hammer, Briefcase, Sparkles, Check
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -24,8 +25,29 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
     const [role, setRole] = useState('staff');
     const [specialization, setSpecialization] = useState('');
     const [selectedPropertyId, setSelectedPropertyId] = useState(fixedPropertyId || '');
+    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const SKILL_OPTIONS: Record<string, { code: string; label: string; icon: any }[]> = {
+        mst: [
+            { code: 'technical', label: 'Technical', icon: Wrench },
+            { code: 'plumbing', label: 'Plumbing', icon: Hammer },
+            { code: 'vendor', label: 'Vendor Coordination', icon: Briefcase },
+        ],
+        staff: [
+            { code: 'technical', label: 'Technical', icon: Wrench },
+            { code: 'soft_services', label: 'Soft Services', icon: Sparkles },
+        ],
+    };
+
+    const toggleSkill = (code: string) => {
+        setSelectedSkills(prev =>
+            prev.includes(code)
+                ? prev.filter(c => c !== code)
+                : [...prev, code]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,7 +65,8 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
                     organization_id: orgId,
                     role,
                     property_id: role === 'org_super_admin' ? null : selectedPropertyId,
-                    specialization: role === 'staff' ? specialization : undefined
+                    specialization: role === 'staff' ? specialization : undefined,
+                    skills: (role === 'staff' || role === 'mst') ? selectedSkills : undefined
                 }),
             });
 
@@ -56,6 +79,7 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
                 setPassword('');
                 setRole('staff');
                 setSelectedPropertyId('');
+                setSelectedSkills([]);
             } else {
                 const data = await response.json();
                 setError(data.error || 'Failed to create user');
@@ -84,10 +108,10 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden"
+                className="relative bg-white w-full max-w-lg rounded-[32px] shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] overflow-hidden"
             >
-                {/* Header */}
-                <div className="p-8 border-b border-slate-100">
+                {/* Header - Fixed */}
+                <div className="p-8 border-b border-slate-100 flex-shrink-0">
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center">
@@ -107,7 +131,10 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                <form
+                    onSubmit={handleSubmit}
+                    className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar"
+                >
                     {error && (
                         <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold">
                             {error}
@@ -236,6 +263,45 @@ const AddMemberModal = ({ isOpen, onClose, orgId, orgName, properties, fixedProp
                                         <option value="plumbing">Plumbing</option>
                                         <option value="electrical">Electrical</option>
                                     </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Skills Selection */}
+                        {(role === 'mst' || role === 'staff') && (
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    Member Skills
+                                </label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {SKILL_OPTIONS[role].map((skill) => {
+                                        const isSelected = selectedSkills.includes(skill.code);
+                                        const Icon = skill.icon;
+                                        return (
+                                            <button
+                                                key={skill.code}
+                                                type="button"
+                                                onClick={() => toggleSkill(skill.code)}
+                                                className={`w-full p-3 rounded-xl border transition-all flex items-center justify-between group ${isSelected
+                                                    ? 'bg-slate-900 border-slate-900 text-white'
+                                                    : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-300'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-slate-800' : 'bg-white'}`}>
+                                                        <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                                                    </div>
+                                                    <span className="text-sm font-bold">{skill.label}</span>
+                                                </div>
+                                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${isSelected
+                                                    ? 'bg-emerald-500 border-emerald-500'
+                                                    : 'bg-white border-slate-200'
+                                                    }`}>
+                                                    {isSelected && <Check className="w-3.3 h-3.3 text-white" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

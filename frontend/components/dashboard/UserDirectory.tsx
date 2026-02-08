@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Search, Filter, UserPlus, Trash2, RefreshCw,
-    Edit2, Check, X, ChevronDown, Building2, Star, UserCircle
+    Plus, Mail, Phone, Shield, Building2,
+    Calendar, MoreVertical, Edit2, X, Check,
+    Wrench, Hammer, Briefcase, Sparkles, Star, UserCircle, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -42,7 +44,29 @@ const UserDirectory = ({ orgId, orgName, propertyId, properties = [], onUserUpda
     const [statusFilter, setStatusFilter] = useState('all');
     const [propertyFilter, setPropertyFilter] = useState('all');
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
-    const [editingRole, setEditingRole] = useState('');
+    const [editingRole, setEditingRole] = useState<string>('');
+    const [editingSkills, setEditingSkills] = useState<string[]>([]);
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const SKILL_OPTIONS: Record<string, { code: string; label: string; icon: any }[]> = {
+        mst: [
+            { code: 'technical', label: 'Technical', icon: Wrench },
+            { code: 'plumbing', label: 'Plumbing', icon: Hammer },
+            { code: 'vendor', label: 'Vendor Coordination', icon: Briefcase },
+        ],
+        staff: [
+            { code: 'technical', label: 'Technical', icon: Wrench },
+            { code: 'soft_services', label: 'Soft Services', icon: Sparkles },
+        ],
+    };
+
+    const toggleSkill = (code: string) => {
+        setEditingSkills(prev =>
+            prev.includes(code)
+                ? prev.filter(c => c !== code)
+                : [...prev, code]
+        );
+    };
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [selectedUserForProfile, setSelectedUserForProfile] = useState<UserWithMembership | null>(null);
@@ -222,27 +246,68 @@ const UserDirectory = ({ orgId, orgName, propertyId, properties = [], onUserUpda
     };
 
     const handleUpdateRole = async (userId: string, newRole: string) => {
+        setIsUpdating(true);
         try {
-            if (propertyId) {
-                await supabase
-                    .from('property_memberships')
-                    .update({ role: newRole })
-                    .eq('user_id', userId)
-                    .eq('property_id', propertyId);
-            } else if (orgId) {
-                await supabase
-                    .from('organization_memberships')
-                    .update({ role: newRole })
-                    .eq('user_id', userId)
-                    .eq('organization_id', orgId);
+            const response = await fetch('/api/users/update-role', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId,
+                    newRole,
+                    propertyId,
+                    organizationId: orgId,
+                    skills: editingSkills
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update role');
             }
+
+            // Sync local state
+            setUsers(users.map(u => {
+                if (u.id === userId) {
+                    return {
+                        ...u,
+                        propertyRole: propertyId ? newRole : u.propertyRole,
+                        orgRole: orgId && !propertyId ? newRole : u.orgRole,
+                    };
+                }
+                return u;
+            }));
 
             showToast('Role updated successfully');
             setEditingUserId(null);
-            fetchUsers();
+            setEditingSkills([]);
             onUserUpdated?.();
         } catch (err) {
-            showToast('Failed to update role', 'error');
+            console.error('Error updating role:', err);
+            showToast('Failed to update role: ' + (err as Error).message, 'error');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleStartEdit = async (user: UserWithMembership) => {
+        setEditingUserId(user.id);
+        const currentRole = user.propertyRole || user.orgRole || 'staff';
+        setEditingRole(currentRole);
+        setEditingSkills([]); // Reset skills when starting edit
+
+        if (currentRole === 'mst' || currentRole === 'staff') {
+            try {
+                const { data } = await supabase
+                    .from('mst_skills')
+                    .select('skill_code')
+                    .eq('user_id', user.id);
+
+                if (data) {
+                    setEditingSkills(data.map(s => s.skill_code));
+                }
+            } catch (err) {
+                console.error('Error fetching user skills:', err);
+            }
         }
     };
 
@@ -405,35 +470,65 @@ const UserDirectory = ({ orgId, orgName, propertyId, properties = [], onUserUpda
 
                                             {/* Edit Role Logic */}
                                             {editingUserId === user.id ? (
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        value={editingRole}
-                                                        onChange={(e) => setEditingRole(e.target.value)}
-                                                        className="px-2 py-1 text-[10px] font-black uppercase border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                                                    >
-                                                        {roleOptions.map(role => (
-                                                            <option key={role} value={role}>{formatRole(role)}</option>
-                                                        ))}
-                                                    </select>
-                                                    <button
-                                                        onClick={() => handleUpdateRole(user.id, editingRole)}
-                                                        className="p-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingUserId(null)}
-                                                        className="p-1 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
+                                                <div className="flex flex-col gap-3 min-w-[220px] bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-3 relative z-10 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <select
+                                                            value={editingRole}
+                                                            onChange={(e) => setEditingRole(e.target.value)}
+                                                            className="flex-1 px-2 py-1.5 text-[10px] font-black uppercase border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200 bg-white"
+                                                        >
+                                                            {roleOptions.map(role => (
+                                                                <option key={role} value={role}>{formatRole(role)}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => handleUpdateRole(user.id, editingRole)}
+                                                                disabled={isUpdating}
+                                                                className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingUserId(null);
+                                                                    setEditingSkills([]);
+                                                                }}
+                                                                className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-colors"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {(editingRole === 'mst' || editingRole === 'staff') && (
+                                                        <div className="space-y-2 pt-2 border-t border-slate-100">
+                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Selected Skills</p>
+                                                            <div className="space-y-1">
+                                                                {SKILL_OPTIONS[editingRole].map((skill) => {
+                                                                    const isSelected = editingSkills.includes(skill.code);
+                                                                    return (
+                                                                        <button
+                                                                            key={skill.code}
+                                                                            type="button"
+                                                                            onClick={() => toggleSkill(skill.code)}
+                                                                            className={`w-full flex items-center justify-between p-1.5 rounded-lg text-[10px] font-bold transition-all ${isSelected
+                                                                                ? 'bg-slate-900 text-white'
+                                                                                : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                                                                }`}
+                                                                        >
+                                                                            <span>{skill.label}</span>
+                                                                            {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <button
-                                                    onClick={() => {
-                                                        setEditingUserId(user.id);
-                                                        setEditingRole(user.orgRole || user.propertyRole || 'staff');
-                                                    }}
+                                                    onClick={() => handleStartEdit(user)}
                                                     className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-lg border border-slate-200 hover:bg-slate-200 transition-colors"
                                                 >
                                                     <Edit2 className="w-3 h-3" />
