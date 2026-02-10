@@ -8,6 +8,7 @@ import { createClient } from '@/frontend/utils/supabase/client';
 import ElectricityLoggerCard from './ElectricityLoggerCard';
 import ElectricityMeterConfigModal from './ElectricityMeterConfigModal';
 import ElectricityReadingHistory from './ElectricityReadingHistory';
+import { Toast } from '../ui/Toast';
 
 interface ElectricityMeter {
     id: string;
@@ -81,6 +82,11 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
     const [showHistory, setShowHistory] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error', visible: boolean }>({
+        message: '',
+        type: 'success',
+        visible: false
+    });
 
     // v2: Multipliers and Tariffs state
     const [multipliersMap, setMultipliersMap] = useState<Record<string, MeterMultiplier[]>>({});
@@ -247,7 +253,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
             }
 
             console.log('[ElectricityDashboard] Submission successful');
-            setSuccessMessage('All readings submitted successfully!');
+            setToast({ message: 'All readings submitted successfully!', type: 'success', visible: true });
             setTimeout(() => setSuccessMessage(null), 3000);
 
             // Reset readings
@@ -289,14 +295,14 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                 throw new Error(errData.error || 'Failed to save reading');
             }
 
-            setSuccessMessage('Entry saved successfully');
+            setToast({ message: 'Entry saved successfully', type: 'success', visible: true });
             setTimeout(() => setSuccessMessage(null), 3000);
 
             // Refresh
             fetchData();
         } catch (err: any) {
             console.error('[ElectricityDashboard] Save error:', err.message);
-            setError(err.message || 'Failed to save reading');
+            setToast({ message: err.message, type: 'error', visible: true });
         } finally {
             setIsSubmitting(false);
         }
@@ -326,7 +332,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
             [meterId]: [newMult, ...(prev[meterId] || []).slice(0, 4)], // Keep last 5
         }));
 
-        setSuccessMessage('Multiplier saved successfully!');
+        setToast({ message: 'Multiplier saved successfully!', type: 'success', visible: true });
         setTimeout(() => setSuccessMessage(null), 3000);
     };
 
@@ -355,7 +361,7 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                 });
             } catch (e) { console.warn(e); }
         }
-        setSuccessMessage('Meter added successfully!');
+        setToast({ message: 'Meter added successfully!', type: 'success', visible: true });
         setTimeout(() => setSuccessMessage(null), 3000);
         fetchData();
     };
@@ -370,12 +376,12 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
 
             if (error) throw error;
 
-            setSuccessMessage('Meter deleted successfully');
+            setToast({ message: 'Meter deleted successfully', type: 'success', visible: true });
             setTimeout(() => setSuccessMessage(null), 3000);
             fetchData();
         } catch (err: any) {
             console.error('Delete error:', err);
-            setError(err.message || 'Failed to delete meter');
+            setToast({ message: err.message || 'Failed to delete meter', type: 'error', visible: true });
         }
     };
 
@@ -419,8 +425,12 @@ const ElectricityStaffDashboard: React.FC<ElectricityStaffDashboardProps> = ({ i
                     </div>
                 </div>
 
-                {error && <div className="mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border bg-rose-50 text-rose-700 border-rose-200"><AlertTriangle className="w-5 h-5" />{error}</div>}
-                {successMessage && <div className="mb-6 px-4 py-3 rounded-xl flex items-center gap-2 border bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-5 h-5" />{successMessage}</div>}
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    visible={toast.visible}
+                    onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+                />
 
                 {/* Meters Grid */}
                 {meters.length === 0 ? (

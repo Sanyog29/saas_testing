@@ -206,8 +206,8 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
         }
 
         // Common header style
-        const thClass = `px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] border-b ${isDark ? 'text-slate-500 border-[#30363d]' : 'text-slate-500 border-slate-200'} bg-slate-50/50`;
-        const tdClass = `px-6 py-4 text-sm font-bold font-inter ${isDark ? 'text-slate-200' : 'text-slate-700'}`;
+        const thClass = `px-3 md:px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] border-b ${isDark ? 'text-slate-500 border-[#30363d]' : 'text-slate-500 border-slate-200'} bg-slate-50/50`;
+        const tdClass = `px-3 md:px-6 py-4 text-sm font-bold font-inter ${isDark ? 'text-slate-200' : 'text-slate-700'}`;
 
         if (activeTab === 'energy') {
             return (
@@ -215,7 +215,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                     <thead className={`sticky top-0 z-10 ${isDark ? 'bg-[#0d1117]' : 'bg-slate-50'}`}>
                         <tr>
                             <th className={thClass}>Date</th>
-                            <th className={thClass}>Day</th>
+                            <th className={`${thClass} hidden md:table-cell`}>Day</th>
                             <th className={thClass}>Opening (kWh)</th>
                             <th className={thClass}>Closing (kWh)</th>
                             <th className={thClass}>Consumption</th>
@@ -231,7 +231,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                             return (
                                 <tr key={r.id} className={`${isDark ? 'hover:bg-[#161b22]' : 'hover:bg-slate-50'}`}>
                                     <td className={tdClass}>{new Date(r.reading_date).getDate()}</td>
-                                    <td className={tdClass}>{getDayName(r.reading_date)}</td>
+                                    <td className={`${tdClass} hidden md:table-cell`}>{getDayName(r.reading_date)}</td>
                                     <td className={`${tdClass} text-slate-400`}>{r.opening_kwh?.toLocaleString()}</td>
                                     <td className={tdClass}>
                                         {isEditing ? (
@@ -247,8 +247,8 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                                     </td>
                                     <td className={tdClass}>
                                         <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-black ${consumption > 0
-                                                ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
-                                                : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
+                                            ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                                            : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
                                             }`}>
                                             +{consumption.toLocaleString()}
                                         </span>
@@ -277,7 +277,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                     <thead className={`sticky top-0 z-10 ${isDark ? 'bg-[#0d1117]' : 'bg-slate-50'}`}>
                         <tr>
                             <th className={thClass}>Date</th>
-                            <th className={thClass}>Day</th>
+                            <th className={`${thClass} hidden md:table-cell`}>Day</th>
                             <th className={thClass}>Opening (Hrs)</th>
                             <th className={thClass}>Closing (Hrs)</th>
                             <th className={thClass}>Consumption</th>
@@ -293,7 +293,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                             return (
                                 <tr key={r.id} className={`${isDark ? 'hover:bg-[#161b22]' : 'hover:bg-slate-50'}`}>
                                     <td className={tdClass}>{new Date(r.reading_date).getDate()}</td>
-                                    <td className={tdClass}>{getDayName(r.reading_date)}</td>
+                                    <td className={`${tdClass} hidden md:table-cell`}>{getDayName(r.reading_date)}</td>
                                     <td className={`${tdClass} text-slate-400`}>{r.opening_hours?.toFixed(1)}</td>
                                     <td className={tdClass}>
                                         {isEditing ? (
@@ -310,8 +310,8 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                                     </td>
                                     <td className={tdClass}>
                                         <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-black ${consumption > 0
-                                                ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
-                                                : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
+                                            ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                                            : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
                                             }`}>
                                             +{consumption.toFixed(1)}
                                         </span>
@@ -340,7 +340,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                 <thead className={`sticky top-0 z-10 ${isDark ? 'bg-[#0d1117]' : 'bg-slate-50'}`}>
                     <tr>
                         <th className={thClass}>Date</th>
-                        <th className={thClass}>Day</th>
+                        <th className={`${thClass} hidden md:table-cell`}>Day</th>
                         <th className={thClass}>Opening (L)</th>
                         <th className={thClass}>Added (L)</th>
                         <th className={thClass}>Closing (L)</th>
@@ -357,7 +357,7 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                         return (
                             <tr key={r.id} className={`${isDark ? 'hover:bg-[#161b22]' : 'hover:bg-slate-50'}`}>
                                 <td className={tdClass}>{new Date(r.reading_date).getDate()}</td>
-                                <td className={tdClass}>{getDayName(r.reading_date)}</td>
+                                <td className={`${tdClass} hidden md:table-cell`}>{getDayName(r.reading_date)}</td>
                                 <td className={`${tdClass} text-slate-400`}>{r.opening_diesel_level}</td>
                                 <td className={tdClass}>
                                     {isEditing ? (
@@ -387,8 +387,8 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                                 </td>
                                 <td className={tdClass}>
                                     <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-black ${consumed > 0
-                                            ? (isDark ? 'bg-primary/10 text-primary' : 'bg-blue-50 text-primary')
-                                            : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
+                                        ? (isDark ? 'bg-primary/10 text-primary' : 'bg-blue-50 text-primary')
+                                        : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')
                                         }`}>
                                         {consumed.toFixed(0)} L
                                     </span>
@@ -414,54 +414,57 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
     return (
         <div className={`min-h-screen ${isDark ? 'bg-[#0d1117] text-white' : 'bg-slate-100 text-slate-900'}`}>
             {/* Header - Full Width */}
-            <div className={`sticky top-0 z-20 ${isDark ? 'bg-[#161b22] border-b border-[#30363d]' : 'bg-white border-b border-slate-200'}`}>
-                <div className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    {/* Title + Month Nav */}
-                    <div className="flex items-center gap-6">
+            <div className={`sticky top-0 z-20 ${isDark ? 'bg-[#161b22] border-b border-[#30363d]' : 'bg-white border-b border-slate-200 shadow-sm'}`}>
+                <div className="px-4 md:px-6 py-4 flex flex-col gap-4">
+                    {/* Row 1: Back + Title */}
+                    <div className="flex items-center gap-4">
                         {onBack && (
-                            <button onClick={onBack} className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
+                            <button onClick={onBack} className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                         )}
                         <div>
-                            <h1 className="text-xl font-black">DG Reading Register</h1>
-                            <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                            <h1 className="text-lg md:text-xl font-black tracking-tight leading-none mb-1">DG Reading Register</h1>
+                            <p className={`text-[10px] md:text-xs font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                 {generators.find(g => g.id === selectedGeneratorId)?.name || 'Select Generator'}
                             </p>
                         </div>
+                    </div>
 
+                    {/* Row 2: Controls (Month + Gen) */}
+                    <div className="flex flex-wrap items-center gap-3 md:gap-4">
                         {/* Month Navigator */}
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${isDark ? 'bg-[#0d1117] border-[#30363d]' : 'bg-slate-50 border-slate-200'}`}>
-                            <button onClick={prevMonth} className={`p-1 rounded ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}>
+                        <div className={`flex items-center gap-1 md:gap-2 px-3 py-1.5 rounded-xl border ${isDark ? 'bg-[#0d1117] border-[#30363d]' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
+                            <button onClick={prevMonth} className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}>
                                 <ChevronLeft className="w-4 h-4" />
                             </button>
-                            <span className="text-sm font-black uppercase tracking-widest w-32 text-center">{formatMonth(currentMonth)}</span>
+                            <span className="text-[10px] md:text-sm font-black uppercase tracking-[0.1em] min-w-[120px] md:w-32 text-center">{formatMonth(currentMonth)}</span>
                             <button
                                 onClick={nextMonth}
                                 disabled={isCurrentMonth()}
-                                className={`p-1 rounded ${isCurrentMonth() ? 'opacity-30 cursor-not-allowed' : isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}
+                                className={`p-1 rounded transition-colors ${isCurrentMonth() ? 'opacity-20 cursor-not-allowed' : isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}
                             >
                                 <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
-                    </div>
 
-                    {/* Generator Selector */}
-                    <div className="flex items-center gap-4">
-                        <select
-                            value={selectedGeneratorId}
-                            onChange={e => setSelectedGeneratorId(e.target.value)}
-                            className={`px-4 py-2 text-sm font-bold rounded-lg border ${isDark ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-white border-slate-200'}`}
-                        >
-                            {generators.map(g => (
-                                <option key={g.id} value={g.id}>{g.name} {g.make && `(${g.make})`}</option>
-                            ))}
-                        </select>
+                        {/* Generator Selector */}
+                        <div className="flex-1 md:flex-none">
+                            <select
+                                value={selectedGeneratorId}
+                                onChange={e => setSelectedGeneratorId(e.target.value)}
+                                className={`w-full md:w-auto px-4 py-2 text-[10px] md:text-sm font-bold rounded-xl border appearance-none ${isDark ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-white border-slate-200'} focus:ring-2 focus:ring-primary/20 outline-none`}
+                            >
+                                {generators.map(g => (
+                                    <option key={g.id} value={g.id}>{g.name} {g.make && `(${g.make})`}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="px-6 flex gap-1 border-t border-transparent">
+                <div className="px-3 md:px-6 flex gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                     {tabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.key;
@@ -469,12 +472,12 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`flex items-center gap-2 px-6 py-4 text-xs font-black uppercase tracking-widest transition-all relative ${isActive
+                                className={`flex items-center gap-2 px-4 md:px-6 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${isActive
                                     ? `${isDark ? 'text-white' : 'text-primary'}`
                                     : `${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'}`
                                     }`}
                             >
-                                <Icon className="w-4 h-4" />
+                                <Icon className="w-3.5 h-3.5 md:w-4 h-4" />
                                 {tab.label}
                                 {isActive && (
                                     <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
@@ -486,14 +489,10 @@ const DieselRegisterView: React.FC<DieselRegisterViewProps> = ({
             </div>
 
             {/* Table Content - Full Width */}
-            <div className={`overflow-auto ${isDark ? 'bg-[#161b22]' : 'bg-white'}`}>
-                {error && (
-                    <div className="p-4 bg-rose-500/10 border-l-4 border-rose-500 flex items-center gap-2 text-rose-600">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-sm font-bold">{error}</span>
-                    </div>
-                )}
-                {renderTable()}
+            <div className={`overflow-x-auto ${isDark ? 'bg-[#161b22]' : 'bg-white'}`}>
+                <div className="min-w-[800px] md:min-w-full">
+                    {renderTable()}
+                </div>
             </div>
         </div>
     );

@@ -94,6 +94,7 @@ const StaffDashboard = () => {
         type: 'success',
         visible: false
     });
+    const [requestFilter, setRequestFilter] = useState<'all' | 'active' | 'completed'>('all');
 
     const supabase = createClient();
 
@@ -117,8 +118,9 @@ const StaffDashboard = () => {
     }, [searchParams]);
 
     // Helper to change tab with URL persistence
-    const handleTabChange = (tab: Tab) => {
+    const handleTabChange = (tab: Tab, filter?: 'all' | 'active' | 'completed') => {
         setActiveTab(tab);
+        if (filter) setRequestFilter(filter);
         setSidebarOpen(false);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
@@ -632,7 +634,7 @@ const StaffDashboard = () => {
                                     ).length}
                                     onTicketClick={(id) => router.push(`/tickets/${id}?from=${activeTab}`)}
                                     userId={user.id}
-                                    isLoading={isFetching}
+                                    isLoading={isLoading}
                                     propertyId={propertyId}
                                     propertyName={property.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
@@ -640,17 +642,7 @@ const StaffDashboard = () => {
                                     onEditClick={handleEditClick}
                                     onDeleteClick={handleDelete}
                                     userRole={userRole}
-                                />
-                            )}
-                            {activeTab === 'tasks' && <TasksTab />}
-                            {activeTab === 'projects' && <ProjectsTab />}
-                            {activeTab === 'create_request' && property && user && (
-                                <TenantTicketingDashboard
-                                    propertyId={property.id}
-                                    organizationId={property.organization_id}
-                                    user={{ id: user.id, full_name: user.user_metadata?.full_name || 'Staff' }}
-                                    propertyName={property.name}
-                                    isStaff
+                                    onFilterClick={(filter) => handleTabChange('requests', filter)}
                                 />
                             )}
                             {activeTab === 'requests' && user && (
@@ -667,13 +659,27 @@ const StaffDashboard = () => {
                                     )}
                                     onTicketClick={(id) => router.push(`/tickets/${id}?from=${activeTab}`)}
                                     userId={user.id}
-                                    isLoading={isFetching}
+                                    isLoading={isLoading}
                                     propertyName={property?.name}
                                     userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
                                     onEditClick={handleEditClick}
+                                    onDeleteClick={handleDelete}
                                     userRole={userRole}
                                     propertyId={propertyId}
                                     onTabChange={handleTabChange}
+                                    filter={requestFilter}
+                                    onFilterChange={setRequestFilter}
+                                />
+                            )}
+                            {activeTab === 'tasks' && <TasksTab />}
+                            {activeTab === 'projects' && <ProjectsTab />}
+                            {activeTab === 'create_request' && property && user && (
+                                <TenantTicketingDashboard
+                                    propertyId={property.id}
+                                    organizationId={property.organization_id}
+                                    user={{ id: user.id, full_name: user.user_metadata?.full_name || 'Staff' }}
+                                    propertyName={property.name}
+                                    isStaff
                                 />
                             )}
                             {activeTab === 'flow-map' && (
@@ -872,7 +878,7 @@ const canAccessElectricityLogger = (role: string): boolean => {
 // Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
 
 // Dashboard Tab
-const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, onDeleteClick, userRole = '' }: { tickets: any[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string }) => {
+const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, onDeleteClick, userRole = '', onFilterClick }: { tickets: any[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string, onFilterClick?: (filter: 'all' | 'active' | 'completed') => void }) => {
     const total = tickets.length + completedCount;
     const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned' || t.status === 'open').length;
     const completed = completedCount;
@@ -906,18 +912,27 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                         </button>
                     </div>
                     <div className="grid grid-cols-3 gap-6">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-text-primary">{total}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Total</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-info">{active}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Active</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-success">{completed}</p>
-                            <p className="text-xs text-text-tertiary mt-1">Completed</p>
-                        </div>
+                        <button
+                            onClick={() => onFilterClick?.('all')}
+                            className="text-center p-4 rounded-2xl hover:bg-surface-elevated transition-colors group"
+                        >
+                            <p className="text-3xl font-bold text-text-primary group-hover:scale-110 transition-transform">{total}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mt-1">Total</p>
+                        </button>
+                        <button
+                            onClick={() => onFilterClick?.('active')}
+                            className="text-center p-4 rounded-2xl hover:bg-surface-elevated transition-colors group"
+                        >
+                            <p className="text-3xl font-bold text-info group-hover:scale-110 transition-transform">{active}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mt-1">Active</p>
+                        </button>
+                        <button
+                            onClick={() => onFilterClick?.('completed')}
+                            className="text-center p-4 rounded-2xl hover:bg-surface-elevated transition-colors group"
+                        >
+                            <p className="text-3xl font-bold text-success group-hover:scale-110 transition-transform">{completed}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mt-1">Completed</p>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -997,12 +1012,32 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, onDeleteClick, userRole = '', propertyId, onTabChange }: { activeTickets?: any[], completedTickets?: any[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string, propertyId?: string, onTabChange?: (tab: Tab) => void }) => (
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, onDeleteClick, userRole = '', propertyId, onTabChange, filter = 'all', onFilterChange }: { activeTickets?: any[], completedTickets?: any[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, userRole?: string, propertyId?: string, onTabChange?: (tab: Tab) => void, filter?: 'all' | 'active' | 'completed', onFilterChange?: (filter: 'all' | 'active' | 'completed') => void }) => (
     <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h1 className="text-2xl font-bold text-text-primary">Requests</h1>
             <div className="flex items-center gap-2">
-                {propertyName && <span className="text-[10px] sm:text-xs text-text-tertiary font-bold uppercase tracking-widest bg-surface-elevated px-3 py-1 rounded-full border border-border truncate max-w-[150px]">{propertyName}</span>}
+                <div className="flex bg-surface-elevated p-1 rounded-xl border border-border">
+                    <button
+                        onClick={() => onFilterChange?.('all')}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${filter === 'all' ? 'bg-primary text-white shadow-sm' : 'text-text-tertiary hover:text-text-primary'}`}
+                    >
+                        All
+                    </button>
+                    <button
+                        onClick={() => onFilterChange?.('active')}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${filter === 'active' ? 'bg-primary text-white shadow-sm' : 'text-text-tertiary hover:text-text-primary'}`}
+                    >
+                        Active
+                    </button>
+                    <button
+                        onClick={() => onFilterChange?.('completed')}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${filter === 'completed' ? 'bg-primary text-white shadow-sm' : 'text-text-tertiary hover:text-text-primary'}`}
+                    >
+                        Completed
+                    </button>
+                </div>
+                {propertyName && <span className="hidden sm:inline-block text-[10px] sm:text-xs text-text-tertiary font-bold uppercase tracking-widest bg-surface-elevated px-3 py-1 rounded-full border border-border truncate max-w-[150px]">{propertyName}</span>}
                 {propertyId && onTabChange && (
                     <button
                         onClick={() => onTabChange('flow-map')}
@@ -1015,80 +1050,84 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
         </div>
 
         {/* Active Requests */}
-        <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm">
-            <h2 className="text-xs sm:text-sm font-bold text-text-secondary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-4 h-4 text-success" />
-                Active Requests ({activeTickets.length})
-            </h2>
-            {isLoading ? (
-                <div className="flex flex-col gap-2 py-4">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-20 bg-surface-elevated border border-border rounded-lg animate-pulse" />
-                    ))}
-                </div>
-            ) : activeTickets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-xl border border-dashed border-border">
-                    <p className="text-text-tertiary text-xs sm:text-sm">No active requests</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {[...activeTickets]
-                        .sort((a, b) => {
-                            if (a.assigned_to === userId && b.assigned_to !== userId) return -1;
-                            if (a.assigned_to !== userId && b.assigned_to === userId) return 1;
-                            return 0;
-                        })
-                        .map((ticket) => (
-                            <TicketCard
-                                key={ticket.id}
-                                id={ticket.id}
-                                title={ticket.title}
-                                priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
-                                status={
-                                    ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
-                                        ticket.status === 'in_progress' ? 'IN_PROGRESS' :
-                                            ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
-                                }
-                                ticketNumber={ticket.ticket_number}
-                                createdAt={ticket.created_at}
-                                assignedTo={ticket.assignee?.full_name}
-                                photoUrl={ticket.photo_before_url}
-                                isSlaPaused={ticket.sla_paused}
-                                onClick={() => onTicketClick?.(ticket.id)}
-                                onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
-                                onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
-                            />
+        {(filter === 'all' || filter === 'active') && (
+            <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm">
+                <h2 className="text-xs sm:text-sm font-bold text-text-secondary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-success" />
+                    Active Requests ({activeTickets.length})
+                </h2>
+                {isLoading ? (
+                    <div className="flex flex-col gap-2 py-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-20 bg-surface-elevated border border-border rounded-lg animate-pulse" />
                         ))}
-                </div>
-            )}
-        </div>
+                    </div>
+                ) : activeTickets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-xl border border-dashed border-border">
+                        <p className="text-text-tertiary text-xs sm:text-sm">No active requests</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {[...activeTickets]
+                            .sort((a, b) => {
+                                if (a.assigned_to === userId && b.assigned_to !== userId) return -1;
+                                if (a.assigned_to !== userId && b.assigned_to === userId) return 1;
+                                return 0;
+                            })
+                            .map((ticket) => (
+                                <TicketCard
+                                    key={ticket.id}
+                                    id={ticket.id}
+                                    title={ticket.title}
+                                    priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                                    status={
+                                        ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
+                                            ticket.status === 'in_progress' ? 'IN_PROGRESS' :
+                                                ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
+                                    }
+                                    ticketNumber={ticket.ticket_number}
+                                    createdAt={ticket.created_at}
+                                    assignedTo={ticket.assignee?.full_name}
+                                    photoUrl={ticket.photo_before_url}
+                                    isSlaPaused={ticket.sla_paused}
+                                    onClick={() => onTicketClick?.(ticket.id)}
+                                    onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                                    onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                                />
+                            ))}
+                    </div>
+                )}
+            </div>
+        )}
 
         {/* Completed Requests */}
-        <div className="bg-muted border border-border rounded-xl p-5 opacity-90">
-            <h2 className="text-sm font-bold text-text-tertiary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-success/50" />
-                Recently Completed ({completedTickets.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {completedTickets.slice(0, 10).map((ticket) => (
-                    <TicketCard
-                        key={ticket.id}
-                        id={ticket.id}
-                        title={ticket.title}
-                        priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
-                        status="COMPLETED"
-                        ticketNumber={ticket.ticket_number}
-                        createdAt={ticket.created_at}
-                        assignedTo={ticket.assignee?.full_name}
-                        photoUrl={ticket.photo_before_url}
-                        isSlaPaused={ticket.sla_paused}
-                        onClick={() => onTicketClick?.(ticket.id)}
-                        onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
-                        onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
-                    />
-                ))}
+        {(filter === 'all' || filter === 'completed') && (
+            <div className="bg-muted border border-border rounded-xl p-5 opacity-90">
+                <h2 className="text-sm font-bold text-text-tertiary mb-4 px-2 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-success/50" />
+                    Recently Completed ({completedTickets.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {completedTickets.slice(0, 10).map((ticket) => (
+                        <TicketCard
+                            key={ticket.id}
+                            id={ticket.id}
+                            title={ticket.title}
+                            priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
+                            status="COMPLETED"
+                            ticketNumber={ticket.ticket_number}
+                            createdAt={ticket.created_at}
+                            assignedTo={ticket.assignee?.full_name}
+                            photoUrl={ticket.photo_before_url}
+                            isSlaPaused={ticket.sla_paused}
+                            onClick={() => onTicketClick?.(ticket.id)}
+                            onEdit={onEditClick ? (e) => onEditClick(e, ticket) : undefined}
+                            onDelete={onDeleteClick ? (e) => onDeleteClick(e, ticket.id) : undefined}
+                        />
+                    ))}
+                </div>
             </div>
-        </div>
+        )}
     </div>
 );
 

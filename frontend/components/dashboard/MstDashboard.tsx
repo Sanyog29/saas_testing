@@ -98,6 +98,7 @@ const MstDashboard = () => {
         type: 'success',
         visible: false
     });
+    const [requestFilter, setRequestFilter] = useState<'all' | 'active' | 'completed'>('all');
 
     const supabase = createClient();
 
@@ -144,8 +145,9 @@ const MstDashboard = () => {
     }, [searchParams]);
 
     // Helper to change tab with URL persistence
-    const handleTabChange = (tab: Tab) => {
+    const handleTabChange = (tab: Tab, filter?: 'all' | 'active' | 'completed') => {
         setActiveTab(tab);
+        if (filter) setRequestFilter(filter);
         setSidebarOpen(false);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
@@ -664,34 +666,53 @@ const MstDashboard = () => {
                         >
                             {activeTab === 'dashboard' && property && user && (
                                 <DashboardTab
-                                    tickets={incomingTickets}
-                                    completedCount={completedTickets.length}
+                                    tickets={incomingTickets.filter(t =>
+                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )}
+                                    completedCount={completedTickets.filter(t =>
+                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    ).length}
                                     onTicketClick={(id) => router.push(`/tickets/${id}?from=${activeTab}`)}
                                     userId={user.id}
-                                    isLoading={isFetching}
+                                    isLoading={isLoading}
                                     propertyId={propertyId}
                                     propertyName={property.name}
-                                    userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
-                                    onSettingsClick={() => setActiveTab('settings')}
+                                    userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'MST'}
+                                    onSettingsClick={() => handleTabChange('settings')}
                                     onEditClick={handleEditClick}
                                     onDeleteClick={handleDelete}
+                                    onFilterClick={(filter) => handleTabChange('requests', filter)}
                                 />
                             )}
                             {activeTab === 'tasks' && <ProjectsTab />}
                             {activeTab === 'projects' && <ProjectsTab />}
                             {activeTab === 'requests' && user && (
                                 <RequestsTab
-                                    activeTickets={incomingTickets}
-                                    completedTickets={completedTickets}
+                                    activeTickets={incomingTickets.filter(t =>
+                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )}
+                                    completedTickets={completedTickets.filter(t =>
+                                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )}
                                     onTicketClick={(id) => router.push(`/tickets/${id}?from=${activeTab}`)}
                                     userId={user.id}
                                     isLoading={isFetching}
                                     propertyName={property?.name}
-                                    userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Staff'}
+                                    userName={user.user_metadata?.full_name || user.email?.split('@')[0] || 'MST'}
                                     onEditClick={handleEditClick}
                                     onDeleteClick={handleDelete}
                                     propertyId={propertyId}
                                     onTabChange={handleTabChange}
+                                    filter={requestFilter}
+                                    onFilterChange={setRequestFilter}
                                 />
                             )}
                             {activeTab === 'create_request' && property && user && (
@@ -886,7 +907,7 @@ const MstDashboard = () => {
 // Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
 
 // Dashboard Tab
-const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, onDeleteClick }: { tickets: Ticket[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void }) => {
+const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoading, propertyId, propertyName, userName, onSettingsClick, onEditClick, onDeleteClick, onFilterClick }: { tickets: Ticket[], completedCount: number, onTicketClick: (id: string) => void, userId: string, isLoading: boolean, propertyId: string, propertyName?: string, userName?: string, onSettingsClick?: () => void, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, onFilterClick?: (filter: 'all' | 'active' | 'completed') => void }) => {
     const total = tickets.length + completedCount;
     const active = tickets.filter(t => t.status === 'in_progress' || t.status === 'assigned' || t.status === 'open').length;
     const completed = completedCount;
@@ -914,18 +935,27 @@ const DashboardTab = ({ tickets, completedCount, onTicketClick, userId, isLoadin
                 {/* Work Orders Overview */}
                 {/* WORK ORDERS OVERVIEW (Horizontal, wraps if needed) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
-                        <p className="text-3xl font-black text-text-primary">{total}</p>
+                    <button
+                        onClick={() => onFilterClick?.('all')}
+                        className="bg-surface-elevated border border-border rounded-xl p-4 text-center hover:bg-muted transition-colors group"
+                    >
+                        <p className="text-3xl font-black text-text-primary group-hover:scale-110 transition-transform">{total}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Total</p>
-                    </div>
-                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
-                        <p className="text-3xl font-black text-info">{active}</p>
+                    </button>
+                    <button
+                        onClick={() => onFilterClick?.('active')}
+                        className="bg-surface-elevated border border-border rounded-xl p-4 text-center hover:bg-muted transition-colors group"
+                    >
+                        <p className="text-3xl font-black text-info group-hover:scale-110 transition-transform">{active}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Active</p>
-                    </div>
-                    <div className="bg-surface-elevated border border-border rounded-xl p-4 text-center">
-                        <p className="text-3xl font-black text-success">{completed}</p>
+                    </button>
+                    <button
+                        onClick={() => onFilterClick?.('completed')}
+                        className="bg-surface-elevated border border-border rounded-xl p-4 text-center hover:bg-muted transition-colors group"
+                    >
+                        <p className="text-3xl font-black text-success group-hover:scale-110 transition-transform">{completed}</p>
                         <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mt-1">Completed</p>
-                    </div>
+                    </button>
                 </div>
             </div>
 
@@ -1004,27 +1034,32 @@ const ProjectsTab = () => (
 );
 
 // Requests Tab
-const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, onDeleteClick, propertyId, onTabChange }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, propertyId?: string, onTabChange?: (tab: Tab) => void }) => {
-    const [filter, setFilter] = useState<'all' | 'completed' | 'tasks' | 'waitlist'>('all');
+const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick, userId, isLoading, propertyName, userName, onEditClick, onDeleteClick, propertyId, onTabChange, filter = 'all', onFilterChange }: { activeTickets?: Ticket[], completedTickets?: Ticket[], onTicketClick?: (id: string) => void, userId: string, isLoading: boolean, propertyName?: string, userName?: string, onEditClick?: (e: React.MouseEvent, t: Ticket) => void, onDeleteClick?: (e: React.MouseEvent, id: string) => void, propertyId?: string, onTabChange?: (tab: Tab) => void, filter?: 'all' | 'active' | 'completed' | 'tasks' | 'completed_by_me' | 'waitlist', onFilterChange?: (filter: any) => void }) => {
+    // Local state for MST-specific filters, but parent can override via props
+    // Using a more flexible type for filter to support both property-wide and MST-specific views
 
     const getFilteredTickets = () => {
         const uId = userId || '';
         switch (filter) {
-            case 'completed':
-                // Shows only tickets COMPLETED by the logged-in user
+            case 'completed_by_me':
                 return completedTickets.filter(t =>
                     String(t.assigned_to) === String(uId) ||
                     (t as any).assignee?.id === uId
                 );
+            case 'completed':
+                return completedTickets;
             case 'tasks':
                 // Shows ACTIVE tasks assigned to the logged-in user
                 return activeTickets.filter(t =>
                     String(t.assigned_to) === String(uId) ||
                     (t as any).assignee?.id === uId
                 );
+            case 'active':
+                return activeTickets;
             case 'waitlist':
                 // Shows unassigned or waitlisted property-wide requests
                 return activeTickets.filter(t => !t.assigned_to || t.status === 'waitlist');
+            case 'all':
             default:
                 // Shows all activity for the property
                 return [...activeTickets, ...completedTickets];
@@ -1046,12 +1081,14 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
                         <Filter className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                         <select
                             value={filter}
-                            onChange={(e) => setFilter(e.target.value as any)}
+                            onChange={(e) => onFilterChange?.(e.target.value as any)}
                             className="bg-transparent text-xs font-bold text-text-secondary focus:outline-none cursor-pointer w-full"
                         >
-                            <option value="all">All Requests</option>
-                            <option value="tasks">Your Tasks</option>
-                            <option value="completed">Completed By You</option>
+                            <option value="all">All Property Requests</option>
+                            <option value="active">All Active Requests</option>
+                            <option value="completed">All Completed Requests</option>
+                            <option value="tasks">Your Tasks (Active)</option>
+                            <option value="completed_by_me">Completed By You</option>
                             <option value="waitlist">Waitlist (Unassigned)</option>
                         </select>
                     </div>
@@ -1070,14 +1107,17 @@ const RequestsTab = ({ activeTickets = [], completedTickets = [], onTicketClick,
             <div className="bg-card border border-border rounded-xl p-3 sm:p-5 shadow-sm min-h-[400px]">
                 <div className="flex items-center justify-between mb-6 px-2">
                     <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">
-                        {filter === 'completed' ? <CheckCircle2 className="w-4 h-4 text-success" /> :
+                        {filter === 'completed' || filter === 'completed_by_me' ? <CheckCircle2 className="w-4 h-4 text-success" /> :
                             filter === 'tasks' ? <ClipboardList className="w-4 h-4 text-primary" /> :
                                 filter === 'waitlist' ? <AlertCircle className="w-4 h-4 text-warning" /> :
-                                    <FolderKanban className="w-4 h-4 text-info" />
+                                    filter === 'active' ? <Zap className="w-4 h-4 text-info" /> :
+                                        <FolderKanban className="w-4 h-4 text-info" />
                         }
                         {filter === 'all' ? 'All Property Activity' :
-                            filter === 'tasks' ? 'Tasks Assigned To You' :
-                                filter === 'completed' ? 'Your Completed Work' : 'Awaiting Assignment'}
+                            filter === 'active' ? 'All Active Requests' :
+                                filter === 'completed' ? 'All Completed Requests' :
+                                    filter === 'tasks' ? 'Tasks Assigned To You' :
+                                        filter === 'completed_by_me' ? 'Your Completed Work' : 'Awaiting Assignment'}
                         <span className="ml-2 text-[10px] bg-muted px-2 py-0.5 rounded-full text-text-tertiary">{filtered.length}</span>
                     </h2>
                 </div>

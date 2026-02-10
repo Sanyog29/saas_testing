@@ -13,6 +13,7 @@ import LiquidDieselGauge from './LiquidDieselGauge';
 import GeneratorConfigModal from './GeneratorConfigModal';
 import DieselRegisterView from './DieselRegisterView';
 import DGTariffModal from './DGTariffModal';
+import { Toast } from '../ui/Toast';
 
 interface Generator {
     id: string;
@@ -74,6 +75,11 @@ const DieselStaffDashboard: React.FC<DieselStaffDashboardProps> = ({ propertyId:
     const [showRegisterView, setShowRegisterView] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error', visible: boolean }>({
+        message: '',
+        type: 'success',
+        visible: false
+    });
 
 
 
@@ -239,7 +245,7 @@ const DieselStaffDashboard: React.FC<DieselStaffDashboardProps> = ({ propertyId:
             // Refresh data to update carry-forward values
             fetchData();
         } catch (err: any) {
-            setError(err.message);
+            setToast({ message: err.message, type: 'error', visible: true });
         } finally {
             setIsSubmitting(false);
         }
@@ -253,7 +259,7 @@ const DieselStaffDashboard: React.FC<DieselStaffDashboardProps> = ({ propertyId:
             if (!res.ok) throw new Error('Failed delete');
             fetchData();
         } catch (err: any) {
-            setError(err.message);
+            setToast({ message: err.message, type: 'error', visible: true });
         }
     };
 
@@ -316,17 +322,12 @@ const DieselStaffDashboard: React.FC<DieselStaffDashboardProps> = ({ propertyId:
                     </div>
                 </div>
 
-                {/* Messages */}
-                {successMessage && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 flex items-center gap-2 font-bold shadow-sm">
-                        <CheckCircle className="w-5 h-5" /> {successMessage}
-                    </motion.div>
-                )}
-                {error && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 flex items-center gap-2 font-bold shadow-sm">
-                        <AlertTriangle className="w-5 h-5" /> {error}
-                    </motion.div>
-                )}
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    visible={toast.visible}
+                    onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+                />
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
