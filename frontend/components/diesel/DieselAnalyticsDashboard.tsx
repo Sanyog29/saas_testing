@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, Area, AreaChart, YAxis, CartesianGrid } from 'recharts';
+import DGTariffModal from './DGTariffModal';
 import DieselStaffDashboard from './DieselStaffDashboard';
 
 interface Generator {
@@ -54,6 +55,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
     const [trendMetric, setTrendMetric] = useState<'cost' | 'litres'>('cost');
     const [trendPeriod, setTrendPeriod] = useState<'7D' | '30D'>('7D');
     const [showLogModal, setShowLogModal] = useState(false);
+    const [showTariffModal, setShowTariffModal] = useState(false);
 
     // Data State
     const [property, setProperty] = useState<{ name: string } | null>(null);
@@ -74,53 +76,53 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
         setIsLoading(true);
 
         try {
-            // 1. Property Name
-            if (propertyId) {
+            // 1. Property Name (if propertyId exists)
+            if (propertyId && propertyId !== 'undefined') {
                 const { data } = await supabase.from('properties').select('name').eq('id', propertyId).single();
                 setProperty(data);
             }
 
             // 2. Generators
-            const gensRes = await fetch(propertyId
+            const gensRes = await fetch(propertyId && propertyId !== 'undefined'
                 ? `/api/properties/${propertyId}/generators`
                 : `/api/organizations/${orgId}/generators`);
-            let gens: Generator[] = [];
+
+            let gens = [];
             if (gensRes.ok) {
                 gens = await gensRes.json();
-                setGenerators(gens);
+                if (Array.isArray(gens)) {
+                    setGenerators(gens);
+                }
             }
 
-            // 3. Tariff (Approximate from first gen or API)
+            // 3. Current Tariff (Property required for specific tariff, or find first available)
             const today = new Date().toISOString().split('T')[0];
-            if (gens.length > 0) {
+            if (propertyId && propertyId !== 'undefined' && Array.isArray(gens) && gens.length > 0) {
                 const tariffRes = await fetch(`/api/properties/${propertyId}/dg-tariffs?generator_id=${gens[0].id}&date=${today}`);
                 if (tariffRes.ok) {
                     const t = await tariffRes.json();
-                    setActiveTariff(t?.cost_per_litre || 0);
+                    setActiveTariff(t?.rate_per_litre || 0);
                 }
             }
 
             // 4. Readings (Batch or separate)
-            const dates = {
-                today: today,
-                monthStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                prevMonthStart: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().split('T')[0],
-                prevMonthEnd: new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0],
-                trendStart: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            };
+            // Fetch based on Property or Organization
+            const readingsBaseUrl = (propertyId && propertyId !== 'undefined')
+                ? `/api/properties/${propertyId}/diesel-readings`
+                : `/api/organizations/${orgId}/diesel-readings`;
 
             const [todayR, monthR, prevMonthR, trendR] = await Promise.all([
-                fetch(`/api/properties/${propertyId}/diesel-readings?period=today`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/diesel-readings?period=month`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/diesel-readings?startDate=${dates.prevMonthStart}&endDate=${dates.prevMonthEnd}`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/diesel-readings?startDate=${dates.trendStart}`).then(r => r.json())
+                fetch(`${readingsBaseUrl}?period=today`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().split('T')[0]}&endDate=${new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0]}`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`).then(r => r.json()).catch(() => [])
             ]);
 
             setRawReadings({
-                today: todayR || [],
-                month: monthR || [],
-                prevMonth: prevMonthR || [],
-                trend: trendR || []
+                today: Array.isArray(todayR) ? todayR : [],
+                month: Array.isArray(monthR) ? monthR : [],
+                prevMonth: Array.isArray(prevMonthR) ? prevMonthR : [],
+                trend: Array.isArray(trendR) ? trendR : []
             });
 
         } catch (error) {
@@ -131,6 +133,7 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
     }, [propertyId, orgId, supabase]);
 
     useEffect(() => {
+        if (propertyId === 'undefined' && !orgId) return;
         fetchData();
     }, [fetchData]);
 
@@ -142,10 +145,16 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
         };
 
         const calc = (readings: DieselReading[]) => {
-            return readings.filter(filterFn).reduce((acc, r) => ({
-                cost: acc.cost + (r.computed_cost || 0),
-                litres: acc.litres + (r.computed_consumed_litres || 0)
-            }), { cost: 0, litres: 0 });
+            return readings.filter(filterFn).reduce((acc, r) => {
+                let cost = r.computed_cost || 0;
+                if (cost === 0 && activeTariff > 0) {
+                    cost = (r.computed_consumed_litres || 0) * activeTariff;
+                }
+                return {
+                    cost: acc.cost + cost,
+                    litres: acc.litres + (r.computed_consumed_litres || 0)
+                };
+            }, { cost: 0, litres: 0 });
         };
 
         const today = calc(rawReadings.today);
@@ -185,10 +194,16 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
             const label = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
             const dayReadings = relevantReadings.filter(r => r.reading_date === dateStr);
-            const dayTotals = dayReadings.reduce((acc, r) => ({
-                cost: acc.cost + (r.computed_cost || 0),
-                litres: acc.litres + (r.computed_consumed_litres || 0)
-            }), { cost: 0, litres: 0 });
+            const dayTotals = dayReadings.reduce((acc, r) => {
+                let cost = r.computed_cost || 0;
+                if (cost === 0 && activeTariff > 0) {
+                    cost = (r.computed_consumed_litres || 0) * activeTariff;
+                }
+                return {
+                    cost: acc.cost + cost,
+                    litres: acc.litres + (r.computed_consumed_litres || 0)
+                };
+            }, { cost: 0, litres: 0 });
 
             result.push({
                 date: label,
@@ -233,6 +248,17 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                             Updates daily based on logs
                         </span>
                     </div>
+                    {propertyId && propertyId !== 'all' && (
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setShowTariffModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-4 h-4 text-emerald-500" />
+                                Set Tariff
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Scope Toggle */}
@@ -443,26 +469,28 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
             </div>
 
             {/* CTA Bar */}
-            <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-                <button
-                    onClick={() => setShowLogModal(true)}
-                    className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-xl hover:bg-black transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                    title="Log Entry"
-                >
-                    <Plus className="w-6 h-6" />
-                </button>
-                <button
-                    onClick={() => {
-                        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                        const today = new Date().toISOString().split('T')[0];
-                        window.open(`/api/properties/${propertyId}/diesel-export?startDate=${monthAgo}&endDate=${today}`, '_blank');
-                    }}
-                    className="h-14 w-14 rounded-full bg-white text-slate-900 shadow-xl border border-slate-200 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                    title="Export Report"
-                >
-                    <Download className="w-6 h-6" />
-                </button>
-            </div>
+            {propertyId && propertyId !== 'undefined' && (
+                <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+                    <button
+                        onClick={() => setShowLogModal(true)}
+                        className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-xl hover:bg-black transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                        title="Log Entry"
+                    >
+                        <Plus className="w-6 h-6" />
+                    </button>
+                    <button
+                        onClick={() => {
+                            const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                            const today = new Date().toISOString().split('T')[0];
+                            window.open(`/api/properties/${propertyId}/diesel-export?startDate=${monthAgo}&endDate=${today}`, '_blank');
+                        }}
+                        className="h-14 w-14 rounded-full bg-white text-slate-900 shadow-xl border border-slate-200 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                        title="Export Report"
+                    >
+                        <Download className="w-6 h-6" />
+                    </button>
+                </div>
+            )}
 
             {/* Log Entry Modal */}
             <AnimatePresence>
@@ -494,6 +522,18 @@ const DieselAnalyticsDashboard: React.FC<DieselAnalyticsDashboardProps> = ({ pro
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Diesel Tariff Modal */}
+            {propertyId && propertyId !== 'all' && (
+                <DGTariffModal
+                    isOpen={showTariffModal}
+                    onClose={() => {
+                        setShowTariffModal(false);
+                        fetchData();
+                    }}
+                    propertyId={propertyId}
+                    generators={generators}
+                />
+            )}
         </div>
     );
 };

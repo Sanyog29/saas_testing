@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/frontend/utils/supabase/client';
 import ElectricityStaffDashboard from './ElectricityStaffDashboard';
+import GridTariffModal from './GridTariffModal';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, Area, AreaChart, YAxis, CartesianGrid } from 'recharts';
 
 interface ElectricityMeter {
@@ -24,9 +25,12 @@ interface ElectricityReading {
     reading_date: string;
     opening_reading: number;
     closing_reading: number;
-    computed_units: number;
+    computed_units: number; // raw units
+    final_units: number;    // v2: multiplier applied
     computed_cost: number;
-    multiplier_value: number;
+    tariff_rate_used: number;
+    multiplier_value_used: number;
+    multiplier_value?: number; // legacy
     meter: { name: string; meter_type: string };
 }
 
@@ -62,6 +66,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
     const [trendMetric, setTrendMetric] = useState<'cost' | 'units'>('cost');
     const [trendPeriod, setTrendPeriod] = useState<'7D' | '30D'>('7D');
     const [showLogModal, setShowLogModal] = useState(false);
+    const [showTariffModal, setShowTariffModal] = useState(false);
 
     // Data State
     const [property, setProperty] = useState<{ name: string } | null>(null);
@@ -83,28 +88,39 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
 
         try {
             // 1. Property Name
-            if (propertyId) {
+            if (propertyId && propertyId !== 'undefined') {
                 const { data } = await supabase.from('properties').select('name').eq('id', propertyId).single();
                 setProperty(data);
             }
 
             // 2. Meters
-            const metersRes = await fetch(propertyId
+            const metersRes = await fetch(propertyId && propertyId !== 'undefined'
                 ? `/api/properties/${propertyId}/electricity-meters`
-                : `/api/organizations/${orgId}/electricity-meters`); // Adjust endpoint if needed
-            if (metersRes.ok) setMeters(await metersRes.json());
+                : `/api/organizations/${orgId}/electricity-meters`);
+
+            let metersData = [];
+            if (metersRes.ok) {
+                metersData = await metersRes.json();
+                if (Array.isArray(metersData)) {
+                    setMeters(metersData);
+                }
+            }
 
             // 3. Tariff
             const today = new Date().toISOString().split('T')[0];
-            const tariffRes = await fetch(`/api/properties/${propertyId}/grid-tariffs?date=${today}`);
-            if (tariffRes.ok) {
-                const t = await tariffRes.json();
-                setActiveTariff(t?.rate_per_unit || 0);
+            if (propertyId && propertyId !== 'undefined') {
+                const tariffRes = await fetch(`/api/properties/${propertyId}/grid-tariffs?date=${today}`);
+                if (tariffRes.ok) {
+                    const t = await tariffRes.json();
+                    setActiveTariff(t?.rate_per_unit || 0);
+                }
             }
 
             // 4. Readings (Batch or separate)
-            // We need Today, Month, Prev Month, and Trend (30 days max)
-            // Ideally backend would provide this, but we'll fetch ranges
+            const readingsBaseUrl = (propertyId && propertyId !== 'undefined')
+                ? `/api/properties/${propertyId}/electricity-readings`
+                : `/api/organizations/${orgId}/electricity-readings`;
+
             const dates = {
                 today: today,
                 monthStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -114,17 +130,17 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
             };
 
             const [todayR, monthR, prevMonthR, trendR] = await Promise.all([
-                fetch(`/api/properties/${propertyId}/electricity-readings?startDate=${dates.today}&endDate=${dates.today}`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/electricity-readings?startDate=${dates.monthStart}`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/electricity-readings?startDate=${dates.prevMonthStart}&endDate=${dates.prevMonthEnd}`).then(r => r.json()),
-                fetch(`/api/properties/${propertyId}/electricity-readings?startDate=${dates.trendStart}`).then(r => r.json())
+                fetch(`${readingsBaseUrl}?startDate=${dates.today}&endDate=${dates.today}`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${dates.monthStart}`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${dates.prevMonthStart}&endDate=${dates.prevMonthEnd}`).then(r => r.json()).catch(() => []),
+                fetch(`${readingsBaseUrl}?startDate=${dates.trendStart}`).then(r => r.json()).catch(() => [])
             ]);
 
             setRawReadings({
-                today: todayR || [],
-                month: monthR || [],
-                prevMonth: prevMonthR || [],
-                trend: trendR || []
+                today: Array.isArray(todayR) ? todayR : [],
+                month: Array.isArray(monthR) ? monthR : [],
+                prevMonth: Array.isArray(prevMonthR) ? prevMonthR : [],
+                trend: Array.isArray(trendR) ? trendR : []
             });
 
         } catch (error) {
@@ -146,10 +162,18 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
         };
 
         const calc = (readings: ElectricityReading[]) => {
-            return readings.filter(filterFn).reduce((acc, r) => ({
-                cost: acc.cost + (r.computed_cost || 0),
-                units: acc.units + ((r.computed_units || 0) * (r.multiplier_value || 1))
-            }), { cost: 0, units: 0 });
+            return readings.filter(filterFn).reduce((acc, r) => {
+                // v2.5: Dynamic fallback if cost was logged as 0 (due to missing tariff at logging time)
+                let cost = r.computed_cost || 0;
+                if (cost === 0 && activeTariff > 0) {
+                    cost = (r.final_units || r.computed_units || 0) * activeTariff;
+                }
+
+                return {
+                    cost: acc.cost + cost,
+                    units: acc.units + (r.final_units || r.computed_units || 0)
+                };
+            }, { cost: 0, units: 0 });
         };
 
         const today = calc(rawReadings.today);
@@ -189,10 +213,17 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
             const label = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
             const dayReadings = relevantReadings.filter(r => r.reading_date === dateStr);
-            const dayTotals = dayReadings.reduce((acc, r) => ({
-                cost: acc.cost + (r.computed_cost || 0),
-                units: acc.units + ((r.computed_units || 0) * (r.multiplier_value || 1))
-            }), { cost: 0, units: 0 });
+            const dayTotals = dayReadings.reduce((acc, r) => {
+                let cost = r.computed_cost || 0;
+                if (cost === 0 && activeTariff > 0) {
+                    cost = (r.final_units || r.computed_units || 0) * activeTariff;
+                }
+
+                return {
+                    cost: acc.cost + cost,
+                    units: acc.units + (r.final_units || r.computed_units || 0)
+                };
+            }, { cost: 0, units: 0 });
 
             result.push({
                 date: label,
@@ -204,8 +235,14 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
     }, [rawReadings.trend, trendPeriod, viewMode, selectedMeterId]);
 
     // Format Helpers
-    const fmtCost = (val: number) => val > 0 ? `₹${val.toLocaleString()}` : '—';
-    const fmtUnits = (val: number) => val > 0 ? `${Math.round(val).toLocaleString()} kVAh` : '—';
+    const fmtCost = (val: number, units?: number) => {
+        if (val === 0 && (units === 0 || units === undefined)) return '—';
+        return `₹${(val || 0).toLocaleString()}`;
+    };
+    const fmtUnits = (val: number) => {
+        if (val === 0 || !val) return '—';
+        return `${Math.round(val).toLocaleString()} kVAh`;
+    };
 
     // Current Display Values based on Toggles
     const displayCost = costTimeframe === 'today' ? metrics.today.cost : metrics.month.cost;
@@ -223,14 +260,40 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                         {property?.name && <span className="text-sm font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{property.name}</span>}
                     </h1>
                     <div className="flex items-center gap-3 mt-2">
-                        {activeTariff > 0 && (
+                        {activeTariff > 0 ? (
                             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
                                 Active Tariff: ₹{activeTariff}/kVAh
                             </span>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 flex items-center gap-1.5 ">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    No Active Tariff
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">Costs will show as ₹0</span>
+                            </div>
                         )}
                         <span className="text-xs font-medium text-slate-400">
                             Updates daily based on logs
                         </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {propertyId && propertyId !== 'all' && (
+                            <button
+                                onClick={() => setShowTariffModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Set Tariff
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowLogModal(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                        >
+                            <Activity className="w-5 h-5" />
+                            Log Entry
+                        </button>
                     </div>
                 </div>
 
@@ -291,7 +354,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                             </div>
                             <div className="mt-4">
                                 <div className="text-3xl font-black text-slate-800 tracking-tight">
-                                    {fmtCost(displayCost)}
+                                    {fmtCost(displayCost, displayUnits)}
                                 </div>
                                 <div className="h-1.5 w-12 bg-emerald-500 rounded-full mt-4 mb-4" />
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
@@ -353,7 +416,7 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                         <div className="space-y-6">
                             <div>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-black text-slate-800">{fmtCost(Math.round(metrics.averages.cost))}</span>
+                                    <span className="text-2xl font-black text-slate-800">{fmtCost(Math.round(metrics.averages.cost), metrics.averages.units)}</span>
                                 </div>
                                 <div className="h-1 w-8 bg-orange-500 rounded-full mt-1" />
                             </div>
@@ -443,26 +506,28 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
             </div>
 
             {/* CTA Bar */}
-            <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-                <button
-                    onClick={() => setShowLogModal(true)}
-                    className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-xl hover:bg-black transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                    title="Log Entry"
-                >
-                    <Plus className="w-6 h-6" />
-                </button>
-                <button
-                    onClick={() => {
-                        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                        const today = new Date().toISOString().split('T')[0];
-                        window.open(`/api/properties/${propertyId}/electricity-export?startDate=${monthAgo}&endDate=${today}`, '_blank');
-                    }}
-                    className="h-14 w-14 rounded-full bg-white text-slate-900 shadow-xl border border-slate-200 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                    title="Export Report"
-                >
-                    <Download className="w-6 h-6" />
-                </button>
-            </div>
+            {propertyId && propertyId !== 'undefined' && (
+                <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+                    <button
+                        onClick={() => setShowLogModal(true)}
+                        className="h-14 w-14 rounded-full bg-slate-900 text-white shadow-xl hover:bg-black transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                        title="Log Entry"
+                    >
+                        <Plus className="w-6 h-6" />
+                    </button>
+                    <button
+                        onClick={() => {
+                            const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                            const today = new Date().toISOString().split('T')[0];
+                            window.open(`/api/properties/${propertyId}/electricity-export?startDate=${monthAgo}&endDate=${today}`, '_blank');
+                        }}
+                        className="h-14 w-14 rounded-full bg-white text-slate-900 shadow-xl border border-slate-200 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                        title="Export Report"
+                    >
+                        <Download className="w-6 h-6" />
+                    </button>
+                </div>
+            )}
 
             {/* Log Entry Modal */}
             <AnimatePresence>
@@ -494,6 +559,17 @@ const ElectricityAnalyticsDashboard: React.FC<ElectricityAnalyticsDashboardProps
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Grid Tariff Modal */}
+            {propertyId && propertyId !== 'all' && (
+                <GridTariffModal
+                    isOpen={showTariffModal}
+                    onClose={() => {
+                        setShowTariffModal(false);
+                        fetchData();
+                    }}
+                    propertyId={propertyId}
+                />
+            )}
         </div>
     );
 };

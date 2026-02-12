@@ -1,29 +1,48 @@
-# Implementation Plan - Optimize Camera Initialization
+# [FIX] Diesel & Electricity Analytics for Super Admin
 
-Enable automatic camera start when the `CameraCaptureModal` is opened, provided the user has already granted camera permissions. This improves the UX by removing the redundant "Initialize Camera" step while maintaining hardware stability.
+The Super Admin (Org Admin) is unable to see Diesel and Electricity analytics when "All Properties" is selected. This is due to:
+1.  Dashboards attempting to fetch data using a `propertyId` of `undefined`.
+2.  Missing organization-level API endpoints for generators, electricity meters, and readings.
+3.  Frontend crashes when API calls return non-array results (500 errors).
 
 ## Proposed Changes
 
-### [Shared Components]
+### Backend (API)
+Implement organization-level endpoints to aggregate data across all properties:
 
-#### [MODIFY] [CameraCaptureModal.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/frontend/components/shared/CameraCaptureModal.tsx)
+#### [NEW] [generators/route.ts](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/app/api/organizations/[orgId]/generators/route.ts)
+- Returns all generators belonging to any property within the organization.
 
-- Add `isStarting` state to track the initialization phase.
-- Update `useEffect` that handles `isOpen` to:
-    - Automatically check camera permission using `navigator.permissions.query`.
-    - If permission is already `granted`, call `startCamera()` after a short delay (300ms) to allow the modal animation to settle.
-- Update `startCamera()` to manage the `isStarting` state.
-- Update the UI to show a "Launching Camera..." loading state instead of the "Initialize Camera" button when `isStarting` is true.
-- Ensure the cleanup logic correctly resets all states when the modal closes.
+#### [NEW] [electricity-meters/route.ts](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/app/api/organizations/[orgId]/electricity-meters/route.ts)
+- Returns all electricity meters across all properties in the organization.
+
+#### [NEW] [diesel-readings/route.ts](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/app/api/organizations/[orgId]/diesel-readings/route.ts)
+- Returns diesel readings for all properties in the organization within a date range.
+
+#### [NEW] [electricity-readings/route.ts](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/app/api/organizations/[orgId]/electricity-readings/route.ts)
+- Returns electricity readings for all properties in the organization within a date range.
+
+### Frontend (Components)
+
+#### [MODIFY] [DieselAnalyticsDashboard.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/frontend/components/diesel/DieselAnalyticsDashboard.tsx)
+- Handle cases where `propertyId` is missing but `orgId` is present.
+- Use organization-level endpoints when in "All Properties" mode.
+- Prevent requests to `/api/properties/undefined/...`.
+- Add safety checks for API responses (ensure they are arrays before filtering).
+
+#### [MODIFY] [ElectricityAnalyticsDashboard.tsx](file:///c:/Users/harsh/OneDrive/Desktop/autopilot/saas_one/frontend/components/electricity/ElectricityAnalyticsDashboard.tsx)
+- Similarly handle missing `propertyId`.
+- Use organization-level endpoints.
+- Add safety checks for API responses.
 
 ## Verification Plan
 
 ### Automated Tests
-- N/A (Camera hardware access is typically tested manually).
+- N/A (Manual verification required)
 
 ### Manual Verification
-- Open a ticket detail page.
-- Grant camera permission if not already granted.
-- Close the camera modal.
-- Re-open the camera modal: The camera should now start automatically without clicking "Initialize Camera".
-- Reset permissions in the browser: The "Initialize Camera" button should reappear as the manual fallback.
+1.  Log in as a Super Admin.
+    -   Navigate to `Diesel Analytics` with "All Properties" selected. Verify it shows aggregated data and does not crash.
+    -   Select a specific property. Verify it shows data for that property.
+    -   Navigate to `Electricity Analytics` and verify the same behaviors.
+2.  Inspect Network tab to ensure no calls are made to `/api/properties/undefined/...`.

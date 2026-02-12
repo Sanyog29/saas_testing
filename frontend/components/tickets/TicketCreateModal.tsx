@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Paperclip, Send, Loader2, CheckCircle, AlertCircle, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -15,6 +15,7 @@ interface TicketCreateModalProps {
     onSuccess?: (ticket: unknown) => void;
     isAdminMode?: boolean;
     organizations?: any[];
+    properties?: any[];
 }
 
 interface Classification {
@@ -31,7 +32,8 @@ export default function TicketCreateModal({
     organizationId,
     onSuccess,
     isAdminMode = false,
-    organizations = []
+    organizations = [],
+    properties = []
 }: TicketCreateModalProps) {
     const [description, setDescription] = useState('');
     const [isInternal, setIsInternal] = useState(false);
@@ -46,8 +48,15 @@ export default function TicketCreateModal({
     // Admin Mode State
     const [selectedOrgId, setSelectedOrgId] = useState(organizationId || '');
     const [selectedPropId, setSelectedPropId] = useState(propertyId || '');
-    const [availableProperties, setAvailableProperties] = useState<any[]>([]);
+    const [availableProperties, setAvailableProperties] = useState<any[]>(properties || []);
     const supabase = createClient();
+
+    // Sync available properties if passed from parent
+    useEffect(() => {
+        if (properties && properties.length > 0) {
+            setAvailableProperties(properties);
+        }
+    }, [properties]);
 
     // Fetch properties when org changes in admin mode
     const handleOrgChange = async (orgId: string) => {

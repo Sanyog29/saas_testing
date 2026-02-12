@@ -292,13 +292,18 @@ export default function ImportReportsView({ propertyId, organizationId }: Import
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
+        const date = new Date(dateString);
+        const datePart = date.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            year: 'numeric'
         });
+        const timePart = date.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+        return `${datePart} | ${timePart}`;
     };
 
     const handleDeleteImport = async (importId: string) => {
@@ -324,7 +329,7 @@ export default function ImportReportsView({ propertyId, organizationId }: Import
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -433,22 +438,22 @@ export default function ImportReportsView({ propertyId, organizationId }: Import
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-border">
-                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
                                         Import Date
                                     </th>
-                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                        Filename
+                                    <th className="px-4 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                        File Details
                                     </th>
-                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                         Imported By
                                     </th>
-                                    <th className="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                         Rows
                                     </th>
-                                    <th className="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                         Status
                                     </th>
-                                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                         Actions
                                     </th>
                                 </tr>
@@ -464,101 +469,94 @@ export default function ImportReportsView({ propertyId, organizationId }: Import
                                             transition={{ delay: idx * 0.05 }}
                                             className="hover:bg-slate-50/50 transition-colors"
                                         >
-                                            <td className="px-6 py-4">
+                                            <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                                        <Calendar className="w-5 h-5 text-primary" />
+                                                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                        <Calendar className="w-4 h-4 text-primary" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-bold text-text-primary">
-                                                            {formatDate(imp.created_at)}
+                                                        <p className="text-xs font-bold text-text-primary whitespace-nowrap">
+                                                            {formatDate(imp.created_at).split(' | ')[0]}
                                                         </p>
-                                                        {imp.completed_at && (
-                                                            <p className="text-xs text-text-tertiary">
-                                                                Completed: {formatDate(imp.completed_at)}
-                                                            </p>
-                                                        )}
+                                                        <p className="text-[10px] text-text-tertiary whitespace-nowrap">
+                                                            {formatDate(imp.created_at).split(' | ')[1]}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
+                                            <td className="px-4 py-4">
+                                                <div className="flex flex-col max-w-[180px]">
                                                     <div className="flex items-center gap-2">
-                                                        <FileText className="w-4 h-4 text-text-tertiary" />
-                                                        <span className="text-sm font-medium text-text-primary truncate max-w-[200px]">
+                                                        <FileText className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+                                                        <span className="text-xs font-bold text-text-primary truncate" title={imp.filename}>
                                                             {imp.filename}
                                                         </span>
                                                     </div>
                                                     {(!propertyId || propertyId === 'all') && imp.property && (
                                                         <div className="flex items-center gap-1 mt-1">
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded">
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded truncate">
                                                                 {imp.property.name}
                                                             </span>
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-                                                        <User className="w-4 h-4 text-text-tertiary" />
+                                                    <div className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                        <User className="w-3.5 h-3.5 text-text-tertiary" />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-text-primary">
-                                                            {(imp.importer as any)?.full_name || 'Unknown User'}
+                                                    <div className="max-w-[120px]">
+                                                        <p className="text-xs font-bold text-text-primary truncate">
+                                                            {(imp.importer as any)?.full_name || 'System'}
                                                         </p>
-                                                        <p className="text-xs text-text-tertiary">
+                                                        <p className="text-[10px] text-text-tertiary truncate">
                                                             {(imp.importer as any)?.email || ''}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
+                                            <td className="px-4 py-4 text-center">
                                                 <div className="inline-flex flex-col items-center">
-                                                    <span className="text-lg font-black text-text-primary">
+                                                    <span className="text-sm font-black text-text-primary">
                                                         {imp.valid_rows}
                                                     </span>
-                                                    <span className="text-[10px] text-text-tertiary font-medium">
-                                                        of {imp.total_rows} valid
+                                                    <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-tight">
+                                                        Valid
                                                     </span>
-                                                    {imp.error_rows > 0 && (
-                                                        <span className="text-[10px] text-red-500 font-bold">
-                                                            {imp.error_rows} errors
-                                                        </span>
-                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${statusStyles[imp.status]?.bg} ${statusStyles[imp.status]?.text}`}>
-                                                    <StatusIcon className={`w-3.5 h-3.5 ${imp.status === 'processing' ? 'animate-spin' : ''}`} />
-                                                    {imp.status.charAt(0).toUpperCase() + imp.status.slice(1)}
+                                            <td className="px-4 py-4 text-center">
+                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusStyles[imp.status]?.bg} ${statusStyles[imp.status]?.text}`}>
+                                                    <StatusIcon className={`w-3 h-3 ${imp.status === 'processing' ? 'animate-spin' : ''}`} />
+                                                    {imp.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="px-4 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
                                                     <button
                                                         onClick={() => router.push(`/property/${imp.property_id}/reports/${imp.id}`)}
                                                         disabled={imp.status !== 'completed'}
-                                                        className="inline-flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title="View Report"
                                                     >
                                                         <Eye className="w-4 h-4" />
-                                                        view report
                                                     </button>
                                                     <button
                                                         onClick={() => handleExportReport(imp.id)}
                                                         disabled={isExporting !== null || imp.status !== 'completed'}
-                                                        className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-text-primary rounded-lg text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="p-2 bg-slate-100 hover:bg-slate-200 text-text-primary rounded-lg text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title="Export CSV"
                                                     >
                                                         {isExporting === imp.id ? (
                                                             <Loader2 className="w-4 h-4 animate-spin" />
                                                         ) : (
                                                             <Download className="w-4 h-4" />
                                                         )}
-                                                        export
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteImport(imp.id)}
-                                                        className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-colors"
+                                                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs transition-colors"
                                                         title="Delete Import"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -578,34 +576,34 @@ export default function ImportReportsView({ propertyId, organizationId }: Import
             {/* Summary Cards */}
             {
                 !isLoading && imports.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-xl p-5 border border-border">
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
+                            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">
                                 Total Imports
                             </div>
-                            <div className="text-3xl font-black text-text-primary">{imports.length}</div>
+                            <div className="text-xl font-black text-text-primary">{imports.length}</div>
                         </div>
-                        <div className="bg-white rounded-xl p-5 border border-border">
-                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                                Total Snags Imported
+                        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
+                            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                                Snags Loaded
                             </div>
-                            <div className="text-3xl font-black text-text-primary">
+                            <div className="text-xl font-black text-text-primary">
                                 {imports.reduce((acc, i) => acc + i.valid_rows, 0)}
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl p-5 border border-border">
-                            <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">
+                        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
+                            <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">
                                 Successful
                             </div>
-                            <div className="text-3xl font-black text-emerald-600">
+                            <div className="text-xl font-black text-emerald-600">
                                 {imports.filter(i => i.status === 'completed').length}
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl p-5 border border-border">
-                            <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">
+                        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
+                            <div className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">
                                 Failed
                             </div>
-                            <div className="text-3xl font-black text-red-500">
+                            <div className="text-xl font-black text-red-500">
                                 {imports.filter(i => i.status === 'failed').length}
                             </div>
                         </div>

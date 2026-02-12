@@ -21,6 +21,7 @@ import InviteMemberModal from './InviteMemberModal';
 import NotificationBell from './NotificationBell';
 import Image from 'next/image';
 import { ImportReportsView } from '@/frontend/components/snags';
+import TicketCreateModal from '@/frontend/components/tickets/TicketCreateModal';
 
 // Types
 type Tab = 'overview' | 'properties' | 'requests' | 'reports' | 'visitors' | 'settings' | 'profile' | 'revenue' | 'users' | 'diesel' | 'electricity';
@@ -58,7 +59,7 @@ interface Organization {
 }
 
 const OrgAdminDashboard = () => {
-    const { user, signOut } = useAuth();
+    const { user, signOut, membership } = useAuth();
     const params = useParams();
     const router = useRouter();
     const orgSlugOrId = params?.orgId as string;
@@ -76,6 +77,7 @@ const OrgAdminDashboard = () => {
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [showSignOutModal, setShowSignOutModal] = useState(false);
+    const [showTicketCreateModal, setShowTicketCreateModal] = useState(false);
     const [selectedPropertyId, setSelectedPropertyId] = useState('all');
     const [isPropSelectorOpen, setIsPropSelectorOpen] = useState(false);
     const [userRole, setUserRole] = useState<string>('User');
@@ -434,7 +436,7 @@ const OrgAdminDashboard = () => {
                         </p>
                         <div className="px-4 grid grid-cols-3 gap-2">
                             <button
-                                onClick={() => handleTabChange('requests')}
+                                onClick={() => setShowTicketCreateModal(true)}
                                 className="w-full flex flex-col items-center justify-center gap-1.5 p-2 bg-white text-text-primary rounded-xl hover:bg-muted transition-all border-2 border-primary/20 group shadow-sm"
                             >
                                 <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
@@ -931,7 +933,27 @@ const OrgAdminDashboard = () => {
                     setActiveTab('users');
                 }}
             />
-        </div >
+
+            {/* Ticket Create Modal */}
+            {org && (
+                <TicketCreateModal
+                    isOpen={showTicketCreateModal}
+                    onClose={() => setShowTicketCreateModal(false)}
+                    organizationId={org.id}
+                    propertyId={selectedPropertyId === 'all' ? undefined : selectedPropertyId}
+                    isAdminMode={true}
+                    organizations={(() => {
+                        const orgs = org ? [org] : [];
+                        // If user is from Autopilot Offices but viewing another org, add Autopilot to the list
+                        if (membership?.org_name === 'Autopilot Offices' && membership.org_id && membership.org_id !== org?.id) {
+                            orgs.push({ id: membership.org_id, name: membership.org_name, code: 'autopilot' });
+                        }
+                        return orgs;
+                    })()}
+                    properties={properties}
+                />
+            )}
+        </div>
     );
 };
 
