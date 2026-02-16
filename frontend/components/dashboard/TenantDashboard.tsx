@@ -22,9 +22,10 @@ import TenantTicketingDashboard from '@/frontend/components/tickets/TenantTicket
 import SettingsView from './SettingsView';
 import Loader from '@/frontend/components/ui/Loader';
 import TicketCard from '@/frontend/components/shared/TicketCard';
+import TenantRoomBooking from '@/frontend/components/meeting-rooms/TenantRoomBooking';
 
 // Types
-type Tab = 'overview' | 'requests' | 'create_request' | 'visitors' | 'settings' | 'profile';
+type Tab = 'overview' | 'requests' | 'create_request' | 'visitors' | 'room_booking' | 'settings' | 'profile';
 
 interface Property {
     id: string;
@@ -253,17 +254,6 @@ const TenantDashboard = () => {
     return (
         <div className="min-h-screen bg-white font-inter text-text-primary flex">
 
-            {/* Mobile Menu Button - Fixed position */}
-            <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
-                <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="p-2.5 bg-slate-900 text-white rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 group"
-                    aria-label="Open navigation menu"
-                >
-                    <Menu className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                </button>
-                <NotificationBell align="left" />
-            </div>
 
             {/* Overlay when sidebar is open */}
             <AnimatePresence>
@@ -272,7 +262,7 @@ const TenantDashboard = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+                        className="fixed inset-0 bg-black/20 z-40"
                         onClick={() => setSidebarOpen(false)}
                     />
                 )}
@@ -369,7 +359,16 @@ const TenantDashboard = () => {
                                         <UsersRound className="w-4 h-4" />
                                         Visitor Management
                                     </button>
-
+                                    <button
+                                        onClick={() => { handleTabChange('room_booking'); setSidebarOpen(false); }}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-[var(--radius-md)] transition-smooth font-bold text-sm ${activeTab === 'room_booking'
+                                            ? 'bg-primary text-text-inverse shadow-sm'
+                                            : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                            }`}
+                                    >
+                                        <Calendar className="w-4 h-4" />
+                                        Meeting Rooms
+                                    </button>
                                 </div>
                             </div>
 
@@ -433,8 +432,30 @@ const TenantDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col bg-[#fafafa] lg:ml-72 mt-16 lg:mt-0">
-                <div className="max-w-7xl mx-auto w-full px-6 md:px-12 lg:px-20 pt-8 pb-12">
+            <motion.main
+                animate={{ marginLeft: sidebarOpen ? (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 288 : 0) : 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="flex-1 flex flex-col bg-[#fafafa] relative"
+            >
+                {/* Static Header Section */}
+                <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 md:px-12 lg:px-20 sticky top-0 z-40 backdrop-blur-md bg-white/80">
+                    <div className="flex items-center gap-4">
+                        {!sidebarOpen && (
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="p-2.5 -ml-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all shadow-sm group"
+                            >
+                                <Menu className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <NotificationBell />
+                    </div>
+                </header>
+
+                <div className={`${activeTab === 'room_booking' ? 'w-full' : 'max-w-7xl mx-auto px-6 md:px-12 lg:px-20'} w-full pt-8 pb-12`}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -458,9 +479,22 @@ const TenantDashboard = () => {
                                     organizationId={property.organization_id}
                                     user={{ id: user.id, full_name: user.user_metadata?.full_name || 'Tenant' }}
                                     propertyName={property.name}
+                                    onSuccess={fetchTickets}
                                 />
                             )}
-                            {activeTab === 'visitors' && <VMSAdminDashboard propertyId={propertyId} />}
+                            {activeTab === 'visitors' && (
+                                <ComingSoonView
+                                    title="Visitor Management"
+                                    icon={UsersRound}
+                                    description="We're building a seamless way for you to manage guests, pre-authorize entries, and track visitor history."
+                                />
+                            )}
+                            {activeTab === 'room_booking' && property && (
+                                <TenantRoomBooking
+                                    propertyId={property.id}
+                                    user={user}
+                                />
+                            )}
 
                             {activeTab === 'settings' && <SettingsView />}
                             {activeTab === 'profile' && (
@@ -547,7 +581,7 @@ const TenantDashboard = () => {
                         </motion.div>
                     </AnimatePresence>
                 </div>
-            </main>
+            </motion.main>
 
             <SignOutModal
                 isOpen={showSignOutModal}
@@ -634,6 +668,25 @@ const TenantDashboard = () => {
     );
 };
 
+// Coming Soon Placeholder View
+const ComingSoonView = ({ title, icon: Icon, description }: { title: string, icon: any, description: string }) => (
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="w-24 h-24 bg-primary/5 rounded-[2.5rem] flex items-center justify-center mb-8 border border-primary/10 shadow-inner">
+            <Icon className="w-10 h-10 text-primary animate-pulse" />
+        </div>
+        <h2 className="text-4xl md:text-5xl font-display font-bold text-slate-900 mb-4 tracking-tighter">
+            {title} <span className="text-primary opacity-30"> coming soon</span>
+        </h2>
+        <p className="text-slate-500 text-lg md:text-xl max-w-lg mx-auto leading-relaxed font-medium">
+            {description}
+        </p>
+        <div className="mt-12 flex items-center gap-3 px-6 py-3 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Development in progress</span>
+        </div>
+    </div>
+);
+
 // Overview Tab for Tenant - Dark Card-Based Interface
 const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab: Tab) => void, property: Property | null, onMenuToggle?: () => void }) => {
     const { user } = useAuth();
@@ -694,20 +747,6 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
                     </div>
                 </div>
 
-                {/* Minimalist Top Profile Card - Floating Capsule Style */}
-                <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-3xl p-2.5 pr-6 shadow-sm shadow-slate-200/50">
-                    <div className="w-12 h-12 bg-slate-400 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                        {userInitial}
-                    </div>
-                    <div className="space-y-0.5">
-                        <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none">
-                            {user?.user_metadata?.full_name || 'Tenant'}
-                        </p>
-                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.15em] leading-none">
-                            Registered Tenant
-                        </p>
-                    </div>
-                </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -736,34 +775,31 @@ const OverviewTab = ({ onNavigate, property, onMenuToggle }: { onNavigate: (tab:
                 {/* Visitor Management Card */}
                 <button
                     onClick={() => onNavigate('visitors')}
-                    className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col"
+                    className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col overflow-hidden"
                 >
                     <div className="relative z-10 flex-1 flex flex-col">
                         <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 border border-slate-100 group-hover:bg-primary group-hover:text-white transition-all">
                             <UsersRound className="w-10 h-10 text-slate-300 group-hover:text-white" />
                         </div>
                         <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Visitor Management</h3>
-                        <p className="text-slate-500 text-base mb-8 leading-relaxed">Check-in visitors & manage building access control.</p>
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                            • {visitorCount} Active Visitors
+                        <p className="text-slate-500 text-base mb-8 leading-relaxed">Secure building access & visitor check-in system.</p>
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            Access Control Module
                         </div>
                     </div>
                 </button>
 
                 {/* Room Bookings Card */}
                 <button
-                    onClick={() => alert('Room booking feature coming soon!')}
+                    onClick={() => onNavigate('room_booking')}
                     className="relative group bg-white border border-slate-100 rounded-[3rem] p-12 text-left transition-all hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 min-h-[400px] flex flex-col"
                 >
                     <div className="relative z-10 flex-1 flex flex-col">
                         <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
                             <Calendar className="w-10 h-10 text-slate-300 group-hover:text-white" />
                         </div>
-                        <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Room Bookings</h3>
+                        <h3 className="text-3xl font-display font-semibold text-slate-800 mb-4">Meeting Rooms</h3>
                         <p className="text-slate-500 text-base mb-8 leading-relaxed">Reserve meeting spaces & conference rooms with ease.</p>
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full inline-block border border-slate-100">
-                            Available Today
-                        </div>
                     </div>
                 </button>
             </div>

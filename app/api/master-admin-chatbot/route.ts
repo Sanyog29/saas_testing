@@ -8,52 +8,52 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.3-70b-versatile';
 
 const SYSTEM_PROMPT = `
-You are the Autopilot Intelligence Assistant, a professional expert in facility management operations.
-You have access to a Supabase database via MCP tools. Use these tools to answer user questions about tickets, properties, users, and organizations.
+You are a SQL expert. Generate a SINGLE valid PostgreSQL SELECT query based on the following schema.
 
-Table Schema Overview:
-- tickets: id, title, description, category, status, priority, property_id, organization_id, raised_by, created_at
-- properties: id, name, code, organization_id
-- users: id, full_name, email, is_master_admin
-- organizations: id, name, code
+### SCHEMA:
+- organizations (id, name, code, status)
+- properties (id, organization_id, name, code, status, address, city)
+- users (id, full_name, email, phone, team)
+- organization_memberships (user_id, organization_id, role, is_active)
+- property_memberships (user_id, organization_id, property_id, role, is_active)
+- tickets (id, title, description, status, priority, property_id, organization_id)
 
-Default Context:
-- The primary focus is the 'Autopilot Offices' organization.
-- If a user asks about "projects", "properties", or "tickets", assume they mean 'Autopilot Offices'.
-- 'Autopilot Offices' might have a trailing newline; use ILIKE '%Autopilot Offices%' in your queries.
+### RELATIONSHIPS:
+- properties.organization_id = organizations.id
+- organization_memberships.user_id = users.id
+- organization_memberships.organization_id = organizations.id
+- property_memberships.user_id = users.id
+- property_memberships.property_id = properties.id
+- tickets.property_id = properties.id
+- tickets.organization_id = organizations.id
 
-Guidelines:
-1. Always use 'ILIKE' with '%' wildcards for text filtering to handle variations.
-2. Use 'execute_sql' for complex queries or joins.
-3. Be concise and professional.
+### RULES:
+1. Output ONLY the SQL inside a markdown block.
+2. NO explanation. NO conversation.
+3. Use JOINs for all multi-table queries.
+4. Use ILIKE '%...%' for all text filters.
+5. Default organization name is 'Autopilot Offices'.
+
+### EXAMPLES:
+- User: "how many properties are there?"
+  SQL: SELECT count(p.id) FROM properties p JOIN organizations o ON p.organization_id = o.id WHERE o.name ILIKE '%Autopilot Offices%';
+
+- User: "how many users are in Head Office?"
+  SQL: SELECT count(u.id) FROM users u JOIN property_memberships pm ON u.id = pm.user_id JOIN properties p ON pm.property_id = p.id WHERE p.name ILIKE '%Head Office%';
 `;
 
-async function callGroq(messages: any[], tools?: any[]) {
-    const body: any = {
-        model: MODEL,
-        messages,
-        temperature: 0.1,
-    };
-
-    if (tools && tools.length > 0) {
-        body.tools = tools.map((tool: any) => ({
-            type: 'function',
-            function: {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.inputSchema
-            }
-        }));
-        body.tool_choice = 'auto';
-    }
-
+async function callGroq(messages: any[]) {
     const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+            model: MODEL,
+            messages,
+            temperature: 0.1,
+        })
     });
 
     if (!response.ok) {
@@ -62,7 +62,7 @@ async function callGroq(messages: any[], tools?: any[]) {
     }
 
     const data = await response.json();
-    return data.choices[0].message;
+    return data.choices[0].message.content;
 }
 
 export async function POST(req: NextRequest) {
@@ -88,53 +88,47 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        // 2. Setup MCP
-        const mcpClient = await getMCPClient();
-        const { tools } = await mcpClient.listTools();
-
-        // 3. Initial Call to Groq
-        const messages: any[] = [
+        // 2. Step 1: Generate SQL
+        const sqlMessages = [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: question }
         ];
 
-        let response = await callGroq(messages, tools);
-        let sqlUsed = '';
+        const sqlResponse = await callGroq(sqlMessages);
+        // Robust regex to extract SQL from various markdown formats
+        const sqlMatch = sqlResponse.match(/```(?:sql)?\s*([\s\S]*?)\s*```/) || [null, sqlResponse];
+        const sql = sqlMatch[1].trim();
 
-        // 4. Handle Tool Calls
-        if (response.tool_calls) {
-            messages.push(response);
+        console.log(`[Chatbot] Generated SQL: ${sql}`);
 
-            for (const toolCall of response.tool_calls) {
-                const toolName = toolCall.function.name;
-                const toolArgs = JSON.parse(toolCall.function.arguments);
+        // 3. Step 2: Execute SQL via RPC
+        const { data: result, error: sqlError } = await adminClient.rpc('execute_ai_select', {
+            sql_query: sql
+        });
 
-                console.log(`[Chatbot] Calling tool: ${toolName}`, toolArgs);
-
-                if (toolName === 'execute_sql' && toolArgs.sql) {
-                    sqlUsed = toolArgs.sql;
-                }
-
-                const result = await mcpClient.callTool({
-                    name: toolName,
-                    arguments: toolArgs
-                });
-
-                messages.push({
-                    role: 'tool',
-                    tool_call_id: toolCall.id,
-                    name: toolName,
-                    content: JSON.stringify(result)
-                });
-            }
-
-            // Get final response from Groq
-            response = await callGroq(messages);
+        if (sqlError) {
+            console.error('[Chatbot SQL Error]:', sqlError);
+            return NextResponse.json({
+                error: 'SQL Execution Failed',
+                details: sqlError.message,
+                sql: sql
+            }, { status: 400 });
         }
 
+        // 4. Step 3: Humanize Result
+        const humanizeMessages = [
+            {
+                role: 'system',
+                content: 'You are a helpful assistant. Provide a concise, professional answer to the user based on the provided JSON data. If the data is an empty list, say that no results were found.'
+            },
+            { role: 'user', content: `Question: ${question}\nData: ${JSON.stringify(result)}` }
+        ];
+
+        const answer = await callGroq(humanizeMessages);
+
         return NextResponse.json({
-            answer: response.content,
-            sql: sqlUsed
+            answer,
+            sql
         });
 
     } catch (error: any) {

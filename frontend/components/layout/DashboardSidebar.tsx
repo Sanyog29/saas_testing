@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import {
     LayoutDashboard, Users, Ticket, Package, Settings, LogOut,
-    Menu, X, GitMerge
+    Menu, X, GitMerge, Calendar
 } from 'lucide-react';
 import CapabilityWrapper from '../auth/CapabilityWrapper';
 import { useAuth } from '@/frontend/context/AuthContext';

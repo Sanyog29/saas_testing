@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, Cog, X,
-    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter, Activity, Zap
+    AlertOctagon, BarChart3, FileText, Wrench, Camera, Menu, Pencil, Loader2, Filter, Activity, Zap, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -27,9 +27,10 @@ import TicketFlowMap from '@/frontend/components/ops/TicketFlowMap';
 import { ShiftToast } from '@/frontend/components/mst/ShiftStatus';
 import NavbarShiftStatus from '@/frontend/components/mst/NavbarShiftStatus';
 import TicketCard from '@/frontend/components/shared/TicketCard';
+import AdminRoomManager from '@/frontend/components/meeting-rooms/AdminRoomManager';
 
 // Types
-type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
+type Tab = 'dashboard' | 'requests' | 'create_request' | 'visitors' | 'rooms' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
 
 interface Property {
     id: string;
@@ -137,7 +138,7 @@ const MstDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
+        if (tab && ['dashboard', 'requests', 'create_request', 'visitors', 'rooms', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -413,10 +414,8 @@ const MstDashboard = () => {
                                     const match = [
                                         { label: 'Overview', tab: 'dashboard' },
                                         { label: 'Requests', tab: 'requests' },
-                                        { label: 'Tickets', tab: 'requests' },
-                                        { label: 'Projects', tab: 'projects' },
-                                        { label: 'Tasks', tab: 'tasks' },
                                         { label: 'Visitors', tab: 'visitors' },
+                                        { label: 'Meeting Rooms', tab: 'rooms' },
                                         { label: 'Diesel Logger', tab: 'diesel' },
                                         { label: 'Electricity Logger', tab: 'electricity' },
                                         { label: 'Settings', tab: 'settings' },
@@ -557,6 +556,16 @@ const MstDashboard = () => {
                                 Visitors
                             </button>
                             <button
+                                onClick={() => handleTabChange('rooms')}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'rooms'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Meeting Rooms
+                            </button>
+                            <button
                                 onClick={() => handleTabChange('diesel')}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'diesel'
                                     ? 'bg-primary text-text-inverse shadow-sm'
@@ -686,8 +695,6 @@ const MstDashboard = () => {
                                     onFilterClick={(filter) => handleTabChange('requests', filter)}
                                 />
                             )}
-                            {activeTab === 'tasks' && <ProjectsTab />}
-                            {activeTab === 'projects' && <ProjectsTab />}
                             {activeTab === 'requests' && user && (
                                 <RequestsTab
                                     activeTickets={incomingTickets.filter(t =>
@@ -728,6 +735,7 @@ const MstDashboard = () => {
                             {activeTab === 'visitors' && propertyId && (
                                 <VMSAdminDashboard propertyId={propertyId} />
                             )}
+                            {activeTab === 'rooms' && property && <AdminRoomManager propertyId={property.id} />}
                             {activeTab === 'diesel' && <DieselStaffDashboard isDark={isDarkMode} />}
                             {activeTab === 'electricity' && property && <ElectricityStaffDashboard propertyId={property.id} isDark={isDarkMode} />}
                             {activeTab === 'settings' && <SettingsView />}

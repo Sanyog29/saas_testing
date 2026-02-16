@@ -29,9 +29,10 @@ import { Sun, Moon } from 'lucide-react';
 import SettingsView from './SettingsView';
 import AddMemberModal from './InviteMemberModal';
 import { ImportReportsView } from '@/frontend/components/snags';
+import AdminRoomManager from '@/frontend/components/meeting-rooms/AdminRoomManager';
 
 // Types
-type Tab = 'overview' | 'requests' | 'reports' | 'users' | 'visitors' | 'diesel' | 'electricity' | 'electricity_analytics' | 'cafeteria' | 'settings' | 'profile' | 'units' | 'vendor_revenue';
+type Tab = 'overview' | 'requests' | 'reports' | 'users' | 'visitors' | 'rooms' | 'diesel' | 'electricity' | 'electricity_analytics' | 'cafeteria' | 'settings' | 'profile' | 'units' | 'vendor_revenue';
 
 interface Property {
     id: string;
@@ -336,6 +337,16 @@ const PropertyAdminDashboard = () => {
                                 Visitor Management
                             </button>
                             <button
+                                onClick={() => handleTabChange('rooms')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'rooms'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Meeting Rooms
+                            </button>
+                            <button
                                 onClick={() => handleTabChange('diesel')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'diesel'
                                     ? 'bg-primary text-text-inverse shadow-sm'
@@ -533,6 +544,9 @@ const PropertyAdminDashboard = () => {
                         )}
                         {activeTab === 'visitors' && property && (
                             <VMSAdminDashboard propertyId={property.id} />
+                        )}
+                        {activeTab === 'rooms' && property && (
+                            <AdminRoomManager propertyId={property.id} />
                         )}
                         {activeTab === 'units' && (
                             <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">

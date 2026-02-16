@@ -40,6 +40,7 @@ interface TenantTicketingDashboardProps {
     user: { id: string; full_name: string };
     propertyName?: string;
     isStaff?: boolean;
+    onSuccess?: () => void;
 }
 
 export default function TenantTicketingDashboard({
@@ -47,7 +48,8 @@ export default function TenantTicketingDashboard({
     organizationId,
     user,
     propertyName,
-    isStaff = false
+    isStaff = false,
+    onSuccess
 }: TenantTicketingDashboardProps) {
     const router = useRouter();
     const { theme } = useTheme();
@@ -159,6 +161,7 @@ export default function TenantTicketingDashboard({
                 setPhotoFile(null);
                 setPhotoPreview(null);
                 fetchTickets();
+                if (onSuccess) onSuccess();
                 setTimeout(() => {
                     setShowSuccess(false);
                     setClassification(null);
@@ -278,30 +281,30 @@ export default function TenantTicketingDashboard({
                                 </div>
                             )}
 
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mt-6 md:mt-10 gap-4">
-                                <div className="flex items-center gap-3">
-                                    <label className={`flex items-center justify-center gap-3 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-xs font-bold uppercase tracking-widest px-4 py-3 md:py-2 rounded-xl border border-transparent hover:border-primary/10 bg-surface-elevated sm:bg-transparent`}>
-                                        <Paperclip className="w-5 h-5" />
+                            <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between mt-6 md:mt-10 gap-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <label className={`flex items-center justify-center gap-2 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-border/10 bg-surface-elevated`}>
+                                        <Paperclip className="w-4 h-4" />
                                         <span>Attach File</span>
                                         <input type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
                                     </label>
                                     <button
                                         onClick={() => setShowCameraModal(true)}
-                                        className={`flex items-center justify-center gap-3 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-xs font-bold uppercase tracking-widest px-4 py-3 md:py-2 rounded-xl border border-transparent hover:border-primary/10 bg-surface-elevated sm:bg-transparent`}
+                                        className={`flex items-center justify-center gap-2 ${isDark ? 'text-slate-400 hover:text-white hover:bg-[#21262d]' : 'text-text-secondary hover:text-primary hover:bg-primary/5'} cursor-pointer transition-all text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl border border-border/10 bg-surface-elevated`}
                                     >
-                                        <Camera className="w-5 h-5" />
+                                        <Camera className="w-4 h-4" />
                                         <span>Camera</span>
                                     </button>
                                 </div>
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !description.trim()}
-                                    className={`px-6 md:px-10 py-3 md:py-4 ${isDark ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-primary shadow-primary/20'} hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl uppercase tracking-widest text-[11px]`}
+                                    className={`px-6 py-3.5 ${isDark ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-primary shadow-primary/20'} hover:opacity-90 disabled:bg-text-primary/10 disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg uppercase tracking-widest text-[10px] whitespace-nowrap`}
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                     ) : (
-                                        <Send className="w-4 h-4" />
+                                        <Send className="w-3.5 h-3.5" />
                                     )}
                                     Submit Request
                                 </button>

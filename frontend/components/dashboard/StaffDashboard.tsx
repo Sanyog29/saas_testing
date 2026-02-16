@@ -5,7 +5,7 @@ import {
     LayoutDashboard, Ticket, Clock, CheckCircle2, AlertCircle, Plus,
     LogOut, Settings, Search, UserCircle, Coffee, Fuel, UsersRound,
     ClipboardList, FolderKanban, Moon, Sun, ChevronRight, RefreshCw, Cog, X,
-    AlertOctagon, BarChart3, FileText, Camera, Menu, Pencil, Loader2, Zap, Activity, Filter
+    AlertOctagon, BarChart3, FileText, Camera, Menu, Pencil, Loader2, Zap, Activity, Filter, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/frontend/utils/supabase/client';
@@ -25,9 +25,10 @@ import NavbarShiftStatus from '@/frontend/components/mst/NavbarShiftStatus';
 import TicketFlowMap from '@/frontend/components/ops/TicketFlowMap';
 import TicketCard from '@/frontend/components/shared/TicketCard';
 import NotificationBell from './NotificationBell';
+import AdminRoomManager from '@/frontend/components/meeting-rooms/AdminRoomManager';
 
 // Types
-type Tab = 'dashboard' | 'tasks' | 'projects' | 'requests' | 'create_request' | 'visitors' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
+type Tab = 'dashboard' | 'requests' | 'create_request' | 'visitors' | 'rooms' | 'diesel' | 'electricity' | 'settings' | 'profile' | 'flow-map';
 
 interface Property {
     id: string;
@@ -54,6 +55,8 @@ interface Ticket {
     raised_by?: string;
     sla_paused?: boolean;
 }
+
+
 
 const StaffDashboard = () => {
     const { user, signOut } = useAuth();
@@ -113,7 +116,7 @@ const StaffDashboard = () => {
     // Restore tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['dashboard', 'tasks', 'projects', 'requests', 'create_request', 'visitors', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
+        if (tab && ['dashboard', 'requests', 'create_request', 'visitors', 'rooms', 'diesel', 'electricity', 'settings', 'profile', 'flow-map'].includes(tab)) {
             setActiveTab(tab as Tab);
         }
     }, [searchParams]);
@@ -374,9 +377,8 @@ const StaffDashboard = () => {
                                     const match = [
                                         { label: 'Overview', tab: 'dashboard' },
                                         { label: 'Requests', tab: 'requests' },
-                                        { label: 'Tasks', tab: 'tasks' },
-                                        { label: 'Projects', tab: 'projects' },
                                         { label: 'Visitors', tab: 'visitors' },
+                                        { label: 'Meeting Rooms', tab: 'rooms' },
                                         { label: 'Diesel Logger', tab: 'diesel' },
                                         { label: 'Electricity Logger', tab: 'electricity' },
                                         { label: 'Settings', tab: 'settings' },
@@ -456,26 +458,6 @@ const StaffDashboard = () => {
                                 <Activity className="w-4 h-4" />
                                 Live Flow Map
                             </button>
-                            <button
-                                onClick={() => handleTabChange('tasks')}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'tasks'
-                                    ? 'bg-primary text-text-inverse shadow-sm'
-                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
-                                    }`}
-                            >
-                                <ClipboardList className="w-4 h-4" />
-                                My Tasks
-                            </button>
-                            <button
-                                onClick={() => handleTabChange('projects')}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'projects'
-                                    ? 'bg-primary text-text-inverse shadow-sm'
-                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
-                                    }`}
-                            >
-                                <FolderKanban className="w-4 h-4" />
-                                My Project Work
-                            </button>
                         </div>
                     </div>
 
@@ -495,6 +477,16 @@ const StaffDashboard = () => {
                             >
                                 <UsersRound className="w-4 h-4" />
                                 Visitors
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('rooms')}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-sm font-bold ${activeTab === 'rooms'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Meeting Rooms
                             </button>
                             <button
                                 onClick={() => handleTabChange('diesel')}
@@ -653,35 +645,24 @@ const StaffDashboard = () => {
                                     onFilterChange={setRequestFilter}
                                 />
                             )}
-                            {activeTab === 'tasks' && (
-                                <TasksTab
-                                    tickets={[...incomingTickets, ...completedTickets].filter(t =>
-                                        t.assigned_to === user?.id &&
-                                        (t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            t.ticket_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            t.description?.toLowerCase().includes(searchQuery.toLowerCase()))
-                                    )}
-                                    onTicketClick={(id) => router.push(`/tickets/${id}?from=${activeTab}`)}
-                                    onEditClick={handleEditClick}
-                                    onDeleteClick={handleDelete}
-                                />
-                            )}
-                            {activeTab === 'projects' && <ProjectsTab />}
                             {activeTab === 'create_request' && property && user && (
                                 <TenantTicketingDashboard
                                     propertyId={property.id}
-                                    organizationId={property.organization_id}
-                                    user={{ id: user.id, full_name: user.user_metadata?.full_name || 'Staff' }}
+                                    organizationId={property.organization_id || ''}
+                                    user={{ id: user.id, full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Staff' }}
                                     propertyName={property.name}
-                                    isStaff
+                                    isStaff={true}
                                 />
                             )}
                             {activeTab === 'flow-map' && (
                                 <TicketFlowMap propertyId={propertyId} />
                             )}
                             {activeTab === 'visitors' && <VMSAdminDashboard propertyId={propertyId} />}
+                            {activeTab === 'rooms' && property && <AdminRoomManager propertyId={property.id} />}
                             {activeTab === 'diesel' && <DieselStaffDashboard />}
-                            {activeTab === 'electricity' && canAccessElectricityLogger(userRole) && <ElectricityStaffDashboard />}
+                            {activeTab === 'electricity' && canAccessElectricityLogger(userRole) && (
+                                property && <ElectricityStaffDashboard propertyId={property.id} isDark={isDarkMode} />
+                            )}
                             {activeTab === 'settings' && <SettingsView />}
                             {activeTab === 'profile' && (
                                 <div className="flex justify-center items-start py-8">
@@ -866,7 +847,7 @@ const isStaffTechnical = (role: string): boolean => {
 
 const canAccessElectricityLogger = (role: string): boolean => {
     const normalizedRole = role.toLowerCase().replace(/\s+/g, '_');
-    return ELECTRICITY_LOGGER_ROLES.includes(normalizedRole);
+    return ELECTRICITY_LOGGER_ROLES.includes(normalizedRole) || normalizedRole.includes('staff') || normalizedRole.includes('mst') || normalizedRole.includes('security') || normalizedRole.includes('admin');
 };
 
 // Helper Sub-component for Ticket Row - DEPRECATED - Use shared/TicketCard
