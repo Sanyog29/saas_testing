@@ -28,8 +28,8 @@ interface Movement {
     quantity_change: number;
     created_at: string;
     item_id: string;
-    stock_items: { name: string; item_code: string; unit?: string } | null;
-    users: { full_name: string } | null;
+    stock_items: { name: string; item_code: string; unit?: string }[];
+    users: { full_name: string }[];
 }
 
 const StockReportView: React.FC<StockReportViewProps> = ({ propertyId }) => {
@@ -115,9 +115,10 @@ const StockReportView: React.FC<StockReportViewProps> = ({ propertyId }) => {
         const map: Record<string, { name: string; code: string; unit: string; added: number; removed: number; total: number }> = {};
         movements.forEach(m => {
             const id = m.item_id;
-            const name = (m.stock_items as any)?.name || 'Unknown';
-            const code = (m.stock_items as any)?.item_code || '';
-            const unit = (m.stock_items as any)?.unit || 'units';
+            const stockItem = m.stock_items?.[0];
+            const name = stockItem?.name || 'Unknown';
+            const code = stockItem?.item_code || '';
+            const unit = stockItem?.unit || 'units';
             if (!map[id]) map[id] = { name, code, unit, added: 0, removed: 0, total: 0 };
             const abs = Math.abs(m.quantity_change);
             if (m.action === 'add') map[id].added += abs;

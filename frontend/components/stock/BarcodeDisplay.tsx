@@ -21,10 +21,10 @@ export default function BarcodeDisplay({
     itemCode,
     format = 'both',
     showValue = true,
-    width = 2,
-    height = 80
+    width = 1.0,
+    height = 50
 }: BarcodeDisplayProps) {
-    const code128Ref = useRef<HTMLDivElement>(null);
+    const code128Ref = useRef<SVGSVGElement>(null);
     const qrRef = useRef<HTMLDivElement>(null);
     const [copied, setCopied] = useState(false);
 
@@ -46,7 +46,7 @@ export default function BarcodeDisplay({
 
     const handleDownloadBarcode = () => {
         if (code128Ref.current) {
-            const svg = code128Ref.current.querySelector('svg');
+            const svg = code128Ref.current;
             if (svg) {
                 const svgData = new XMLSerializer().serializeToString(svg);
                 const canvas = document.createElement('canvas');
@@ -60,7 +60,8 @@ export default function BarcodeDisplay({
 
                     const link = document.createElement('a');
                     link.href = canvas.toDataURL('image/png');
-                    link.download = `barcode-${itemCode}-${new Date().getTime()}.png`;
+                    const safeItemName = itemName.replace(/\s+/g, '_');
+                    link.download = `barcode-${safeItemName}-${itemCode}.png`;
                     link.click();
                 };
 
@@ -85,7 +86,8 @@ export default function BarcodeDisplay({
 
                     const link = document.createElement('a');
                     link.href = canvas.toDataURL('image/png');
-                    link.download = `qrcode-${itemCode}-${new Date().getTime()}.png`;
+                    const safeItemName = itemName.replace(/\s+/g, '_');
+                    link.download = `qrcode-${safeItemName}-${itemCode}.png`;
                     link.click();
                 };
 
@@ -97,7 +99,7 @@ export default function BarcodeDisplay({
     const handlePrint = () => {
         const printWindow = window.open('', '', 'width=600,height=400');
         if (printWindow) {
-            const code128HTML = code128Ref.current?.innerHTML || '';
+            const code128HTML = code128Ref.current?.outerHTML || '';
             const qrHTML = qrRef.current?.innerHTML || '';
 
             printWindow.document.write(`
@@ -201,22 +203,67 @@ export default function BarcodeDisplay({
                 </p>
             </div>
 
-            {/* CODE128 Barcode */}
+            {/* QR Code - Primary identification format */}
+            {(format === 'QR' || format === 'both') && (
+                <div className="space-y-3 border border-border-primary rounded-lg p-4 bg-white shadow-sm border-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-text-primary text-base">Primary QR Code</h4>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">Recommended</span>
+                        </div>
+                        <span className="text-xs text-text-secondary bg-bg-secondary px-2 py-1 rounded">
+                            High Robustness
+                        </span>
+                    </div>
+
+                    {/* QR Code Container */}
+                    <div
+                        ref={qrRef}
+                        className="flex justify-center py-6 bg-white border border-gray-50 rounded-xl"
+                    >
+                        <QRCodeSVG
+                            value={value}
+                            size={200}
+                            level="H"
+                            includeMargin={true}
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleDownloadQR}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 transition-colors text-sm font-semibold"
+                        >
+                            <Download size={16} />
+                            Download QR
+                        </button>
+                        <button
+                            onClick={handleCopy}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-border-primary text-text-primary rounded-lg hover:bg-border-primary/80 transition-colors text-sm font-semibold"
+                        >
+                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                            {copied ? 'Copied' : 'Copy'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* CODE128 Barcode - Secondary format */}
             {(format === 'CODE128' || format === 'both') && (
                 <div className="space-y-3 border border-border-primary rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-text-primary text-sm">CODE128 Barcode</h4>
+                        <h4 className="font-semibold text-text-primary text-sm">Linear Barcode (CODE128)</h4>
                         <span className="text-xs text-text-secondary bg-bg-secondary px-2 py-1 rounded">
-                            Print Ready
+                            Legacy Support
                         </span>
                     </div>
 
                     {/* Barcode SVG Container */}
                     <div
-                        ref={code128Ref}
-                        className="flex justify-center py-4 bg-bg-secondary rounded-lg min-h-[120px] flex-col items-center"
+                        className="flex justify-center py-4 bg-bg-secondary rounded-lg min-h-[140px] flex-col items-center overflow-x-auto"
                     >
-                        {/* Will be filled by JsBarcode */}
+                        <svg ref={code128Ref} className="max-w-none"></svg>
                     </div>
 
                     {showValue && (
@@ -238,49 +285,6 @@ export default function BarcodeDisplay({
                         >
                             <Printer size={16} />
                             Print
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* QR Code */}
-            {(format === 'QR' || format === 'both') && (
-                <div className="space-y-3 border border-border-primary rounded-lg p-4 bg-white">
-                    <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-text-primary text-sm">QR Code</h4>
-                        <span className="text-xs text-text-secondary bg-bg-secondary px-2 py-1 rounded">
-                            Metadata Encoded
-                        </span>
-                    </div>
-
-                    {/* QR Code Container */}
-                    <div
-                        ref={qrRef}
-                        className="flex justify-center py-4 bg-bg-secondary rounded-lg"
-                    >
-                        <QRCodeSVG
-                            value={value}
-                            size={256}
-                            level="H"
-                            includeMargin={true}
-                        />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleDownloadQR}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 transition-colors text-sm font-semibold"
-                        >
-                            <Download size={16} />
-                            Download
-                        </button>
-                        <button
-                            onClick={handleCopy}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-border-primary text-text-primary rounded-lg hover:bg-border-primary/80 transition-colors text-sm font-semibold"
-                        >
-                            {copied ? <Check size={16} /> : <Copy size={16} />}
-                            {copied ? 'Copied' : 'Copy'}
                         </button>
                     </div>
                 </div>

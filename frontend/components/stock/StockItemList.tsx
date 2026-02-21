@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Search, Plus, Trash2, Edit2, Barcode, Scan, Download } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, Scan, Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/frontend/utils/supabase/client';
 import Skeleton from '@/frontend/components/ui/Skeleton';
 import StockItemFormModal from './StockItemFormModal';
 import StockItemDetailsModal from './StockItemDetailsModal';
 import { Toast } from '@/frontend/components/ui/Toast';
-import JsBarcode from 'jsbarcode';
+import BarcodeGenerator, { downloadBarcode } from './Barcode';
 
 const BarcodeScannerModal = dynamic(
     () => import('./BarcodeScannerModal'),
@@ -18,6 +18,7 @@ const BarcodeScannerModal = dynamic(
 interface StockItemListProps {
     propertyId: string;
     onRefresh?: () => void;
+    propertyCode?: string;
 }
 
 interface StockItem {
@@ -37,7 +38,7 @@ interface StockItem {
     description?: string;
 }
 
-const StockItemList: React.FC<StockItemListProps> = ({ propertyId, onRefresh }) => {
+const StockItemList: React.FC<StockItemListProps> = ({ propertyId, onRefresh, propertyCode }) => {
     const [items, setItems] = useState<StockItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -100,22 +101,11 @@ const StockItemList: React.FC<StockItemListProps> = ({ propertyId, onRefresh }) 
 
     const handleDownloadBarcode = (item: StockItem) => {
         if (!item.barcode) return;
-        const canvas = document.createElement('canvas');
         try {
-            JsBarcode(canvas, item.barcode, {
-                format: 'CODE128',
-                width: 2,
-                height: 80,
-                displayValue: true,
-                fontSize: 14,
-                margin: 10,
-            });
-            const link = document.createElement('a');
-            link.download = `barcode-${item.item_code || item.name}-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            const fileName = `qr-${item.name.replace(/\s+/g, '_')}-${item.item_code || 'item'}.png`;
+            downloadBarcode(item.barcode, fileName);
         } catch (err) {
-            setToast({ message: 'Error generating barcode image', type: 'error' });
+            setToast({ message: 'Error generating QR image', type: 'error' });
         }
     };
 
@@ -207,13 +197,19 @@ const StockItemList: React.FC<StockItemListProps> = ({ propertyId, onRefresh }) 
                                     <td className="py-3 px-4 text-sm font-mono">{item.item_code}</td>
                                     <td className="py-3 px-4">
                                         {item.barcode ? (
-                                            <button
-                                                onClick={() => setViewingItem(item)}
-                                                className="flex items-center gap-2 text-accent-primary hover:underline"
-                                            >
-                                                <Barcode size={16} />
-                                                <span className="text-xs font-mono">{item.barcode.substring(0, 12)}...</span>
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setViewingItem(item)}
+                                                    className="flex items-center gap-2 text-accent-primary hover:underline"
+                                                >
+                                                    <Scan size={16} />
+                                                    <span className="text-xs font-mono">{item.barcode.substring(0, 12)}...</span>
+                                                </button>
+                                                {/* Hidden QR for download utility to reference */}
+                                                <div className="hidden pointer-events-none">
+                                                    <BarcodeGenerator value={item.barcode} />
+                                                </div>
+                                            </div>
                                         ) : (
                                             <span className="text-text-secondary text-xs">Not generated</span>
                                         )}
@@ -277,6 +273,7 @@ const StockItemList: React.FC<StockItemListProps> = ({ propertyId, onRefresh }) 
                 propertyId={propertyId}
                 item={editingItem}
                 onSuccess={handleFormSuccess}
+                propertyCode={propertyCode}
             />
 
             <Suspense fallback={null}>

@@ -190,10 +190,10 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCancel }) =>
                     </div>
                 )}
 
-                {!capturedImage && !error && (
+                {(capturedImage || error) ? null : (
                     <>
-                        {!isCameraActive ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                        {!isCameraActive && !isLoading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10">
                                 <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white/20">
                                     <Camera className="w-6 h-6" />
                                 </div>
@@ -204,15 +204,14 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCancel }) =>
                                     Start Camera
                                 </button>
                             </div>
-                        ) : (
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover scale-x-[-1]"
-                            />
                         )}
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className={`w-full h-full object-cover scale-x-[-1] ${isCameraActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        />
                     </>
                 )}
 

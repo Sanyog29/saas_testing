@@ -33,7 +33,23 @@ const StockDashboard: React.FC<StockDashboardProps> = ({ propertyId }) => {
     const [stats, setStats] = useState({ totalItems: 0, lowStockCount: 0, totalValue: 0 });
     const [movements, setMovements] = useState<Movement[]>([]);
     const [isLoadingMovements, setIsLoadingMovements] = useState(false);
+    const [propertyDetails, setPropertyDetails] = useState<{ name: string; code: string } | null>(null);
     const supabase = React.useMemo(() => createClient(), []);
+
+    const fetchPropertyDetails = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('properties')
+                .select('name, code')
+                .eq('id', propertyId)
+                .single();
+
+            if (error) throw error;
+            setPropertyDetails(data);
+        } catch (err) {
+            console.error('Error fetching property details:', err);
+        }
+    }, [propertyId, supabase]);
 
     const fetchStats = useCallback(async () => {
         try {
@@ -84,7 +100,8 @@ const StockDashboard: React.FC<StockDashboardProps> = ({ propertyId }) => {
 
     useEffect(() => {
         fetchStats();
-    }, [fetchStats]);
+        fetchPropertyDetails();
+    }, [fetchStats, fetchPropertyDetails]);
 
     useEffect(() => {
         if (activeSubTab === 'movements') {
@@ -184,7 +201,11 @@ const StockDashboard: React.FC<StockDashboardProps> = ({ propertyId }) => {
                 ) : (
                     <>
                         {activeSubTab === 'inventory' && (
-                            <StockItemList propertyId={propertyId} onRefresh={fetchStats} />
+                            <StockItemList
+                                propertyId={propertyId}
+                                onRefresh={fetchStats}
+                                propertyCode={propertyDetails?.code}
+                            />
                         )}
 
                         {activeSubTab === 'movements' && (

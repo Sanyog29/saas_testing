@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "ssh": "ssh -t -R 80:localhost:3000 proxy.tunnl.gg"
+    "lint": "eslint"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.11.0",

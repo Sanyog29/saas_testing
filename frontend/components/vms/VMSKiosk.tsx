@@ -23,6 +23,14 @@ interface FormData {
 }
 
 const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
+    return (
+        <div className="fixed inset-0 sm:relative sm:min-h-[700px] w-full h-full overflow-hidden">
+            <VMSKioskContent propertyId={propertyId} propertyName={propertyName} />
+        </div>
+    );
+};
+
+const VMSKioskContent: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     const [step, setStep] = useState<KioskStep>('home');
     const [category, setCategory] = useState<Category>('visitor');
     const [formData, setFormData] = useState<FormData>({
@@ -34,6 +42,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     });
     const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
     const [visitorId, setVisitorId] = useState('');
+    const [customVisitorId, setCustomVisitorId] = useState('');
     const [checkoutId, setCheckoutId] = useState('');
     const [checkoutName, setCheckoutName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +62,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
         setFormData({ name: '', mobile: '', coming_from: '', whom_to_meet: '', photo_url: '' });
         setPhotoBlob(null);
         setVisitorId('');
+        setCustomVisitorId('');
         setCheckoutId('');
         setCheckoutName('');
         setError('');
@@ -83,6 +93,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                     mobile: formData.mobile ? `+91${formData.mobile}` : null,
                     coming_from: formData.coming_from,
                     whom_to_meet: formData.whom_to_meet,
+                    visitor_id: customVisitorId.trim() || null,
                     photo_url: null, // Will be updated after upload
                 }),
             });
@@ -149,7 +160,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
 
     if (step === 'home') {
         return (
-            <div className="min-h-0 lg:min-h-[700px] bg-[#ebf5f4] relative flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden rounded-[2.5rem]">
+            <div className="h-full w-full bg-[#ebf5f4] relative flex flex-col items-center justify-center overflow-hidden sm:p-8 sm:rounded-[2.5rem]">
                 {/* Brand Mesh Gradient Background */}
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[100px]" />
@@ -160,7 +171,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-6 sm:p-12 w-full max-w-sm sm:max-w-md relative z-10 border border-white/10"
+                    className="bg-white sm:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-6 sm:p-10 w-full h-full sm:h-auto sm:max-w-md relative z-10 border border-white/10 flex flex-col justify-center"
                 >
                     <div className="text-center mb-6 sm:mb-12">
                         <div className="w-14 h-14 sm:w-20 sm:h-20 bg-primary rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-xl shadow-primary/20 rotate-3">
@@ -173,20 +184,20 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-2 gap-4">
                         <button
                             onClick={() => setStep('category')}
-                            className="flex flex-col items-center justify-center p-6 sm:p-10 bg-emerald-500 hover:bg-emerald-600 text-white rounded-[1.5rem] transition-all shadow-lg shadow-emerald-500/20 active:scale-95 group"
+                            className="flex flex-col items-center justify-center p-6 sm:p-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-[1.5rem] transition-all shadow-lg shadow-emerald-500/20 active:scale-95 group"
                         >
-                            <LogIn className="w-8 h-8 sm:w-12 sm:h-12 mb-2 sm:mb-3 group-hover:scale-110 transition-transform" />
-                            <span className="text-xl sm:text-2xl font-black tracking-tight">IN</span>
+                            <LogIn className="w-8 h-8 sm:w-10 sm:h-10 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-xl font-black tracking-tight">IN</span>
                         </button>
                         <button
                             onClick={() => setStep('checkout')}
-                            className="flex flex-col items-center justify-center p-6 sm:p-10 bg-rose-500 hover:bg-rose-600 text-white rounded-[1.5rem] transition-all shadow-lg shadow-rose-500/20 active:scale-95 group"
+                            className="flex flex-col items-center justify-center p-6 sm:p-8 bg-rose-500 hover:bg-rose-600 text-white rounded-[1.5rem] transition-all shadow-lg shadow-rose-500/20 active:scale-95 group"
                         >
-                            <LogOut className="w-8 h-8 sm:w-12 sm:h-12 mb-2 sm:mb-3 group-hover:scale-110 transition-transform" />
-                            <span className="text-xl sm:text-2xl font-black tracking-tight">OUT</span>
+                            <LogOut className="w-8 h-8 sm:w-10 sm:h-10 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-xl font-black tracking-tight">OUT</span>
                         </button>
                     </div>
                 </motion.div>
@@ -197,18 +208,18 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     // CATEGORY SELECTION
     if (step === 'category') {
         return (
-            <div className="min-h-0 lg:min-h-[700px] bg-[#ebf5f4] relative flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden rounded-[2.5rem]">
+            <div className="h-full w-full bg-[#ebf5f4] relative flex flex-col items-center justify-center overflow-hidden sm:p-8 sm:rounded-[2.5rem]">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[100px]" />
                     <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary/10 rounded-full blur-[100px]" />
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[#ebf5f4]/80" />
                 </div>
-                <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-10 w-full max-w-sm sm:max-w-md relative z-10">
+                <div className="bg-white sm:rounded-3xl shadow-2xl p-6 sm:p-8 w-full h-full sm:h-auto sm:max-w-md relative z-10 flex flex-col overflow-y-auto">
                     <button
                         onClick={() => setStep('home')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-4 sm:mb-6 text-xs sm:text-sm"
+                        className="flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-4 sm:mb-6 text-sm sm:text-base font-medium transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back
+                        <ArrowLeft className="w-5 h-5" /> Back
                     </button>
 
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 text-center leading-tight">Select Category</h2>
@@ -255,16 +266,17 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     // VISITOR FORM
     if (step === 'form') {
         return (
-            <div className="min-h-0 lg:min-h-[700px] bg-[#ebf5f4] relative flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden rounded-[2.5rem]">
+            <div className="h-full w-full bg-[#ebf5f4] relative flex flex-col items-center justify-center overflow-hidden sm:p-8 sm:rounded-[2.5rem]">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[100px]" />
                 </div>
-                <div className="bg-white rounded-[2rem] shadow-2xl p-5 sm:p-8 w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto relative z-10">
+                <div className="bg-white sm:rounded-[2rem] shadow-2xl p-5 sm:p-8 w-full h-full sm:max-w-md sm:max-h-[92vh] overflow-y-auto relative z-10">
                     <button
                         onClick={() => setStep('category')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-3 sm:mb-4 text-xs sm:text-sm"
+                        className="flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-4 sm:mb-6 text-sm sm:text-base font-medium transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back
+                        <ArrowLeft className="w-5 h-5" />
+                        Back
                     </button>
 
                     <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-4 sm:mb-6 leading-tight">Visitor Form</h2>
@@ -322,6 +334,19 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                             />
                         </div>
 
+                        <div>
+                            <label className="block text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 sm:mb-1.5">
+                                Visitor ID (Optional / Custom)
+                            </label>
+                            <input
+                                type="text"
+                                value={customVisitorId}
+                                onChange={(e) => setCustomVisitorId(e.target.value.toUpperCase())}
+                                placeholder="Any ID or leave for auto"
+                                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-black text-sm sm:text-base focus:border-indigo-500 focus:ring-0 transition-colors tracking-widest"
+                            />
+                        </div>
+
                         <HostAutoComplete
                             propertyId={propertyId}
                             value={formData.whom_to_meet}
@@ -374,7 +399,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     // CHECK-IN SUCCESS
     if (step === 'success') {
         return (
-            <div className="min-h-[700px] bg-emerald-600 relative flex flex-col items-center justify-center p-8 overflow-hidden rounded-[2.5rem] text-white">
+            <div className="h-full w-full bg-emerald-600 relative flex flex-col items-center justify-center sm:p-8 overflow-hidden sm:rounded-[2.5rem] text-white">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-white/20 rounded-full blur-[100px]" />
                     <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/10 rounded-full blur-[100px]" />
@@ -382,7 +407,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center relative z-10"
+                    className="text-center relative z-10 w-full h-full flex flex-col items-center justify-center p-6"
                 >
                     <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Check className="w-12 h-12" />
@@ -411,16 +436,16 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     // CHECKOUT SCREEN
     if (step === 'checkout') {
         return (
-            <div className="min-h-0 lg:min-h-[700px] bg-[#ebf5f4] relative flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden rounded-[2.5rem]">
+            <div className="h-full w-full bg-[#ebf5f4] relative flex flex-col items-center justify-center sm:p-8 overflow-hidden sm:rounded-[2.5rem]">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-500/10 rounded-full blur-[100px]" />
                 </div>
-                <div className="bg-white rounded-[2rem] shadow-2xl p-6 sm:p-10 w-full max-w-sm sm:max-w-md relative z-10">
+                <div className="bg-white sm:rounded-[2rem] shadow-2xl p-6 sm:p-10 w-full h-full sm:h-auto sm:max-w-md relative z-10 flex flex-col justify-center">
                     <button
                         onClick={() => setStep('home')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-slate-600 mb-4 sm:mb-6 text-xs sm:text-sm"
+                        className="flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-4 sm:mb-6 text-sm sm:text-base font-medium transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back
+                        <ArrowLeft className="w-5 h-5" /> Back
                     </button>
 
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 text-center leading-tight">Visitor Check-Out</h2>
@@ -465,7 +490,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
     // CHECKOUT SUCCESS
     if (step === 'checkout_success') {
         return (
-            <div className="min-h-[700px] bg-rose-500 relative flex flex-col items-center justify-center p-8 overflow-hidden rounded-[2.5rem] text-white">
+            <div className="h-full w-full bg-rose-500 relative flex flex-col items-center justify-center sm:p-8 overflow-hidden sm:rounded-[2.5rem] text-white">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-white/20 rounded-full blur-[100px]" />
                     <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/10 rounded-full blur-[100px]" />
@@ -473,7 +498,7 @@ const VMSKiosk: React.FC<VMSKioskProps> = ({ propertyId, propertyName }) => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center relative z-10"
+                    className="text-center relative z-10 w-full h-full flex flex-col items-center justify-center p-6"
                 >
                     <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <LogOut className="w-12 h-12" />

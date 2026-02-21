@@ -92,18 +92,28 @@ const StockMovementModal: React.FC<StockMovementModalProps> = ({
 
     const handleScanSuccess = (barcode: string) => {
         setShowScanModal(false);
-        // Find item by barcode
+        // Find item by barcode, item_code OR check if it's a location QR
         const foundItem = items.find(i =>
             i.barcode === barcode ||
             i.item_code === barcode ||
-            i.barcode?.includes(barcode) ||
-            barcode.includes(i.item_code)
+            i.location?.toLowerCase() === barcode.toLowerCase()
         );
+
         if (foundItem) {
             setSelectedItem(foundItem);
             setStep('action');
         } else {
-            setToast({ message: `No item found for barcode: ${barcode}`, type: 'error' });
+            // Check if it's a location code to filter the list
+            const itemsInLocation = items.filter(i =>
+                i.location?.toLowerCase().includes(barcode.toLowerCase())
+            );
+
+            if (itemsInLocation.length > 0) {
+                setSearchTerm(barcode);
+                setToast({ message: `Filtered items by location: ${barcode}`, type: 'success' });
+            } else {
+                setToast({ message: `No item or location found for: ${barcode}`, type: 'error' });
+            }
         }
     };
 

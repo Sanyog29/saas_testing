@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/frontend/utils/supabase/server';
+import { exec } from 'child_process';
+import path from 'path';
+import { promisify } from 'util';
+
+const execPromise = promisify(exec);
 
 export async function GET(
     request: NextRequest,
@@ -25,7 +30,7 @@ export async function GET(
         }
 
         if (barcode) {
-            query = query.eq('barcode', barcode);
+            query = query.or(`barcode.eq.${barcode},item_code.eq.${barcode}`);
         }
 
         const { data: items, error } = await query;
@@ -141,6 +146,20 @@ export async function POST(
                 barcode_generated_at: new Date().toISOString(),
             })
             .eq('id', item.id);
+
+        // Call Python script to generate the physical barcode image
+        try {
+            const pythonScript = path.join(process.cwd(), 'backend', 'qr_gen.py');
+            const outputPath = path.join(process.cwd(), 'public', 'qrcodes', newBarcode);
+            // Replace backslashes for Windows compatibility in the command string if needed, 
+            // but child_process handles paths reasonably well.
+            await execPromise(`python "${pythonScript}" "${newBarcode}" "${outputPath}"`);
+            console.log(`Generated barcode image for ${newBarcode}`);
+        } catch (pyError) {
+            console.error('Failed to generate barcode image:', pyError);
+            // We don't fail the whole request if the image generation fails, 
+            // as the DB record is already updated.
+        }
 
         return NextResponse.json({ success: true, item: { ...item, barcode: newBarcode, qr_code_data: qrCodeData } }, { status: 201 });
     } catch (err) {

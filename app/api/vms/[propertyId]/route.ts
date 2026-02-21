@@ -30,16 +30,19 @@ export async function POST(
             return NextResponse.json({ error: 'Property not found' }, { status: 404 });
         }
 
-        // Generate visitor ID using database function
-        const { data: visitorIdData, error: idError } = await supabaseAdmin
-            .rpc('generate_visitor_id', { p_property_id: propertyId });
+        // Use provided visitor ID or generate one
+        let visitorId = body.visitor_id;
 
-        if (idError) {
-            console.error('Error generating visitor ID:', idError);
-            return NextResponse.json({ error: 'Failed to generate visitor ID' }, { status: 500 });
+        if (!visitorId) {
+            const { data: visitorIdData, error: idError } = await supabaseAdmin
+                .rpc('generate_visitor_id', { p_property_id: propertyId });
+
+            if (idError) {
+                console.error('Error generating visitor ID:', idError);
+                return NextResponse.json({ error: 'Failed to generate visitor ID' }, { status: 500 });
+            }
+            visitorId = visitorIdData;
         }
-
-        const visitorId = visitorIdData;
 
         // Insert visitor log
         const { data: visitor, error: insertError } = await supabaseAdmin

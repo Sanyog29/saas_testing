@@ -38,7 +38,7 @@ const SOPDashboard: React.FC<SOPDashboardProps> = ({ propertyId }) => {
         fetchUserRole();
     }, [propertyId, membership]);
 
-    const isAdmin = ['property_admin', 'org_admin', 'master_admin'].includes(userRole.toLowerCase());
+    const isAdmin = ['property_admin', 'org_admin', 'master_admin', 'soft_service_manager'].includes(userRole.toLowerCase());
 
     const handleStartChecklist = (templateId: string) => {
         setSelectedTemplateId(templateId);

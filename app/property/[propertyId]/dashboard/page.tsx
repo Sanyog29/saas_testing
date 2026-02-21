@@ -1,8 +1,8 @@
 'use client';
 
-import PropertyAdminDashboard from '@/frontend/components/dashboard/PropertyAdminDashboard';
+import UnifiedDashboard from '@/frontend/components/dashboard/UnifiedDashboard';
 import { useParams } from 'next/navigation';
 
 export default function DirectPropertyDashboardPage() {
-    return <PropertyAdminDashboard />;
+    return <UnifiedDashboard />;
 }

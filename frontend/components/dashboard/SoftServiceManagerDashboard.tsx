@@ -1,306 +1,258 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-    Sparkles, CheckCircle2, Clock, Users, TrendingUp,
-    RefreshCw, Clipboard, BarChart3, ArrowRight, Package
+    Sparkles, Package, ClipboardCheck, LogOut, Menu, X, LayoutDashboard, Settings, UserCircle, Bell
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/frontend/utils/supabase/client';
-import TicketCard from '@/frontend/components/shared/TicketCard';
+import { useAuth } from '@/frontend/context/AuthContext';
 import Skeleton from '@/frontend/components/ui/Skeleton';
+import SignOutModal from '@/frontend/components/ui/SignOutModal';
+import NotificationBell from './NotificationBell';
 
 const StockDashboard = dynamic(
     () => import('@/frontend/components/stock/StockDashboard'),
     { ssr: false, loading: () => <div className="p-8"><Skeleton className="h-96" /></div> }
 );
 
-type TopTab = 'requests' | 'stocks';
+const SOPDashboard = dynamic(
+    () => import('@/frontend/components/sop/SOPDashboard'),
+    { ssr: false, loading: () => <div className="p-8"><Skeleton className="h-96" /></div> }
+);
+
+type Tab = 'stock' | 'sop' | 'settings' | 'profile';
 
 interface SoftServiceManagerDashboardProps {
     propertyId: string;
 }
 
-interface Ticket {
-    id: string;
-    title: string;
-    description: string;
-    category: string;
-    status: string;
-    priority: string;
-    ticket_number: string;
-    created_at: string;
-    updated_at: string;
-    resolved_at: string | null;
-    raised_by?: string;
-    assigned_to?: string;
-    assignee: { id: string; full_name: string; email: string } | null;
-    photo_before_url?: string;
-    sla_paused?: boolean;
-}
-
-interface Stats {
-    active: number;
-    completedToday: number;
-    pending: number;
-    slaCompliance: number;
-}
-
 const SoftServiceManagerDashboard: React.FC<SoftServiceManagerDashboardProps> = ({ propertyId }) => {
     const router = useRouter();
-    const supabase = createClient();
+    const { user, signOut } = useAuth();
+    const supabase = useMemo(() => createClient(), []);
 
-    const [topTab, setTopTab] = useState<TopTab>('requests');
-    const [tickets, setTickets] = useState<Ticket[]>([]);
-    const [stats, setStats] = useState<Stats>({ active: 0, completedToday: 0, pending: 0, slaCompliance: 0 });
-    const [isLoading, setIsLoading] = useState(true);
-    const [propertyName, setPropertyName] = useState('');
-    const [userName, setUserName] = useState('');
-    const [statusFilter, setStatusFilter] = useState<'active' | 'completed'>('active');
+    const [activeTab, setActiveTab] = useState<Tab>('stock');
+    const [property, setProperty] = useState<any>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showSignOutModal, setShowSignOutModal] = useState(false);
 
     useEffect(() => {
-        const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: dbUser } = await supabase
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                setUserName(dbUser?.full_name?.split(' ')[0] || 'Manager');
-            }
-
-            const { data: prop } = await supabase
+        const fetchProperty = async () => {
+            const { data } = await supabase
                 .from('properties')
-                .select('name')
+                .select('*')
                 .eq('id', propertyId)
                 .maybeSingle();
-            setPropertyName(prop?.name || 'Property');
+            setProperty(data);
         };
-        init();
+        fetchProperty();
     }, [propertyId, supabase]);
 
-    useEffect(() => {
-        if (topTab === 'requests') fetchTickets();
-    }, [propertyId, statusFilter, topTab]);
-
-    const fetchTickets = async () => {
-        setIsLoading(true);
-        try {
-            const statusParam = statusFilter === 'active'
-                ? 'status=open,assigned,in_progress'
-                : 'status=resolved,closed';
-
-            const response = await fetch(`/api/tickets?propertyId=${propertyId}&${statusParam}`);
-            if (response.ok) {
-                const data = await response.json();
-                const fetched: Ticket[] = data.tickets || [];
-
-                const sorted = [...fetched].sort(
-                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                );
-                setTickets(sorted);
-
-                if (statusFilter === 'active') {
-                    setStats({
-                        active: sorted.filter(t => ['open', 'assigned', 'in_progress'].includes(t.status)).length,
-                        completedToday: 0,
-                        pending: sorted.filter(t => t.status === 'open').length,
-                        slaCompliance: sorted.length > 0
-                            ? Math.round((sorted.filter(t => !t.sla_paused).length / sorted.length) * 100)
-                            : 100,
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching tickets:', error);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleTabChange = (tab: Tab) => {
+        setActiveTab(tab);
+        setSidebarOpen(false);
     };
 
-    useEffect(() => {
-        const fetchCompletedToday = async () => {
-            try {
-                const response = await fetch(`/api/tickets?propertyId=${propertyId}&status=resolved,closed`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const today = new Date().toDateString();
-                    const completedToday = (data.tickets || []).filter(
-                        (t: Ticket) => t.resolved_at && new Date(t.resolved_at).toDateString() === today
-                    ).length;
-                    setStats(prev => ({ ...prev, completedToday }));
-                }
-            } catch (err) {
-                // Silent fail
-            }
-        };
-        fetchCompletedToday();
-    }, [propertyId]);
-
-    const STAT_CARDS = [
-        { label: 'Active Requests', value: stats.active, icon: Clipboard, color: 'from-blue-500 to-indigo-600', bgLight: 'bg-blue-50', textColor: 'text-blue-600' },
-        { label: 'Completed Today', value: stats.completedToday, icon: CheckCircle2, color: 'from-emerald-500 to-green-600', bgLight: 'bg-emerald-50', textColor: 'text-emerald-600' },
-        { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'from-amber-500 to-orange-600', bgLight: 'bg-amber-50', textColor: 'text-amber-600' },
-        { label: 'SLA Compliance', value: `${stats.slaCompliance}%`, icon: TrendingUp, color: 'from-violet-500 to-purple-600', bgLight: 'bg-violet-50', textColor: 'text-violet-600' },
-    ];
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/20">
-                            <Sparkles className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                                Soft Services
-                            </h1>
-                            <p className="text-sm text-slate-500 font-medium">
-                                {propertyName} • Welcome, {userName}
-                            </p>
-                        </div>
+        <div className="min-h-screen bg-white flex font-inter text-text-primary">
+            {/* Mobile Overlay */}
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Sidebar */}
+            <aside className={`
+                w-72 bg-white border-r border-slate-300 flex flex-col h-screen z-50 transition-all duration-300
+                fixed top-0
+                ${sidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 lg:translate-y-0 lg:translate-x-0 lg:opacity-100'}
+            `}>
+                {/* Mobile Close Button */}
+                <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="absolute top-4 right-4 lg:hidden p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                    <X className="w-5 h-5 text-text-secondary" />
+                </button>
+                <div className="p-4 lg:p-5 pb-2">
+                    <div className="flex flex-col items-center gap-1 mb-3">
+                        <img src="/autopilot-logo-new.png" alt="Autopilot Logo" className="h-10 w-auto object-contain" />
+                        <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.2em]">Soft Service Manager</p>
                     </div>
                 </div>
-                {topTab === 'requests' && (
-                    <button
-                        onClick={fetchTickets}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                        Refresh
-                    </button>
-                )}
-            </div>
 
-            {/* Top-level Tabs: Requests | Stocks */}
-            <div className="flex gap-2 bg-slate-100 rounded-xl p-1">
-                <button
-                    onClick={() => setTopTab('requests')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${topTab === 'requests'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    <Clipboard size={16} />
-                    Service Requests
-                </button>
-                <button
-                    onClick={() => setTopTab('stocks')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${topTab === 'stocks'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    <Package size={16} />
-                    Stocks
-                </button>
-            </div>
-
-            {/* Requests Tab Content */}
-            {topTab === 'requests' && (
-                <>
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        {STAT_CARDS.map((stat, i) => (
-                            <motion.div
-                                key={stat.label}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.08 }}
-                                className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
+                <nav className="flex-1 px-4 overflow-y-auto">
+                    {/* Operations */}
+                    <div className="mb-6">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
+                            <span className="w-0.5 h-3 bg-primary rounded-full"></span>
+                            Operations
+                        </p>
+                        <div className="space-y-1">
+                            <button
+                                onClick={() => handleTabChange('stock')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'stock'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
                             >
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className={`w-9 h-9 rounded-xl ${stat.bgLight} flex items-center justify-center`}>
-                                        <stat.icon className={`w-4.5 h-4.5 ${stat.textColor}`} />
-                                    </div>
-                                </div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
-                                <h3 className="text-2xl sm:text-3xl font-black text-slate-900">{stat.value}</h3>
-                            </motion.div>
-                        ))}
+                                <Package className="w-4 h-4" />
+                                Stock Management
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('sop')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'sop'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <ClipboardCheck className="w-4 h-4" />
+                                SOP Checklists
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Ticket List Section */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-slate-100">
-                            <h2 className="text-lg font-bold text-slate-900">Service Requests</h2>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setStatusFilter('active')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${statusFilter === 'active'
-                                        ? 'bg-slate-900 text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
-                                >
-                                    Active
-                                </button>
-                                <button
-                                    onClick={() => setStatusFilter('completed')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${statusFilter === 'completed'
-                                        ? 'bg-slate-900 text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
-                                >
-                                    Completed
-                                </button>
+                    {/* System & Personal */}
+                    <div className="mb-6">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 mb-3 flex items-center gap-2">
+                            <span className="w-0.5 h-3 bg-primary rounded-full"></span>
+                            System & Personal
+                        </p>
+                        <div className="space-y-1">
+                            <button
+                                onClick={() => handleTabChange('settings')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'settings'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <Settings className="w-4 h-4" />
+                                Settings
+                            </button>
+                            <button
+                                onClick={() => handleTabChange('profile')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${activeTab === 'profile'
+                                    ? 'bg-primary text-text-inverse shadow-sm'
+                                    : 'text-text-secondary hover:bg-muted hover:text-text-primary'
+                                    }`}
+                            >
+                                <UserCircle className="w-4 h-4" />
+                                Profile
+                            </button>
+                        </div>
+                    </div>
+                </nav>
+
+                <div className="px-4 py-3 border-t border-border mt-auto">
+                    <button
+                        onClick={() => setShowSignOutModal(true)}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </aside>
+
+            <SignOutModal
+                isOpen={showSignOutModal}
+                onClose={() => setShowSignOutModal(false)}
+                onConfirm={signOut}
+            />
+
+            {/* Main Content */}
+            <main className="flex-1 lg:ml-72 flex flex-col bg-white border-l border-slate-300 shadow-[-4px_0_12px_-4px_rgba(0,0,0,0.05)] relative z-10 min-h-screen">
+                <header className="h-20 flex justify-between items-center px-4 md:px-8 lg:px-12 border-b border-border/10">
+                    <div className="flex items-center gap-4">
+                        {/* Mobile Menu Toggle */}
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="p-2 -ml-2 lg:hidden text-text-tertiary hover:text-text-primary transition-colors"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight capitalize">{activeTab.replace(/_/g, ' ')}</h1>
+                            <p className="text-text-tertiary text-xs md:text-sm font-medium mt-0.5">{property?.address || 'Property Management Hub'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        <NotificationBell />
+
+                        <div className="flex items-center gap-6">
+                            <button
+                                onClick={() => handleTabChange('profile')}
+                                className="flex items-center gap-4 group transition-all"
+                            >
+                                <div className="w-11 h-11 bg-primary rounded-2xl flex items-center justify-center text-text-inverse font-bold text-base group-hover:scale-105 transition-transform shadow-sm shadow-primary/20">
+                                    {user?.email?.[0].toUpperCase() || 'M'}
+                                </div>
+                                <div className="text-left hidden md:block">
+                                    <h4 className="text-[15px] font-black text-text-primary leading-none mb-1 group-hover:text-primary transition-colors">
+                                        {user?.user_metadata?.full_name || 'Soft Service Manager'}
+                                    </h4>
+                                    <p className="text-[10px] text-text-tertiary font-black uppercase tracking-[0.15em]">
+                                        View Profile
+                                    </p>
+                                </div>
+                            </button>
+
+                            <div className="hidden lg:flex flex-col items-end border-l border-border pl-6 h-8 justify-center">
+                                <span className="text-[11px] font-black text-text-tertiary uppercase tracking-widest leading-none mb-1">Access Level</span>
+                                <span className="text-xs text-primary font-black uppercase tracking-widest leading-none">Manager</span>
                             </div>
                         </div>
+                    </div>
+                </header>
 
-                        <div className="p-3 sm:p-6">
-                            {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="h-52 bg-slate-50 rounded-2xl animate-pulse" />
-                                    ))}
-                                </div>
-                            ) : tickets.length === 0 ? (
-                                <div className="py-16 text-center">
-                                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <Sparkles className="w-7 h-7 text-slate-300" />
-                                    </div>
-                                    <p className="text-slate-400 font-semibold">No {statusFilter} requests</p>
-                                    <p className="text-sm text-slate-300 mt-1">All caught up! ✨</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {tickets.map((ticket) => (
-                                        <TicketCard
-                                            key={ticket.id}
-                                            id={ticket.id}
-                                            title={ticket.title}
-                                            priority={ticket.priority?.toUpperCase() as any || 'MEDIUM'}
-                                            status={
-                                                ['closed', 'resolved'].includes(ticket.status) ? 'COMPLETED' :
-                                                    ticket.status === 'in_progress' ? 'IN_PROGRESS' :
-                                                        ticket.assigned_to ? 'ASSIGNED' : 'OPEN'
-                                            }
-                                            ticketNumber={ticket.ticket_number}
-                                            createdAt={ticket.created_at}
-                                            assignedTo={ticket.assignee?.full_name}
-                                            photoUrl={ticket.photo_before_url}
-                                            isSlaPaused={ticket.sla_paused}
-                                            onClick={() => router.push(`/tickets/${ticket.id}?from=requests`)}
-                                        />
-                                    ))}
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:px-12 pt-4 md:pt-8 pb-8">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="h-full"
+                        >
+                            {activeTab === 'stock' && (
+                                <StockDashboard propertyId={propertyId} />
+                            )}
+
+                            {activeTab === 'sop' && (
+                                <SOPDashboard propertyId={propertyId} />
+                            )}
+
+                            {activeTab === 'settings' && (
+                                <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
+                                    <Settings className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                    <h3 className="text-xl font-bold text-slate-900 mb-2 font-inter not-italic">Settings</h3>
+                                    <p className="text-slate-500 font-inter not-italic font-medium">Settings management loading...</p>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </>
-            )}
 
-            {/* Stocks Tab Content */}
-            {topTab === 'stocks' && (
-                <StockDashboard propertyId={propertyId} />
-            )}
+                            {activeTab === 'profile' && (
+                                <div className="p-12 text-center text-slate-400 font-bold italic bg-white rounded-3xl border border-slate-100 shadow-sm">
+                                    <UserCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                    <h3 className="text-xl font-bold text-slate-900 mb-2 font-inter not-italic">Profile</h3>
+                                    <p className="text-slate-500 font-inter not-italic font-medium">User profile loading...</p>
+                                </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+            </main>
         </div>
     );
 };
-
 export default SoftServiceManagerDashboard;
-

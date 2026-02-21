@@ -132,6 +132,8 @@ export async function GET(request: Request) {
                     return NextResponse.redirect(`${requestUrl.origin}/property/${pId}/tenant`);
                 } else if (role === 'security') {
                     return NextResponse.redirect(`${requestUrl.origin}/property/${pId}/security`);
+                } else if (role === 'soft_service_manager') {
+                    return NextResponse.redirect(`${requestUrl.origin}/property/${pId}/dashboard`);
                 } else if (role === 'staff') {
                     return NextResponse.redirect(`${requestUrl.origin}/property/${pId}/staff`);
                 } else if (role === 'mst') {
