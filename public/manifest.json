@@ -1,6 +1,7 @@
 {
     "name": "Autopilot",
     "short_name": "Autopilot",
+    "description": "Autopilot SaaS application.",
     "icons": [
         {
             "src": "/android-chrome-192x192.png",
