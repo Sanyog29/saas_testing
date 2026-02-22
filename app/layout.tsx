@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins, Urbanist } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/frontend/context/AuthContext";
@@ -26,6 +26,11 @@ export const metadata: Metadata = {
     title: "Autopilot | Facility Management on Autopilot",
     description: "Facilities that run without constant follow-ups. Fewer complaints. Faster fixes. Clear accountability. The operating system for modern buildings.",
     keywords: ["facility management", "building maintenance", "operations automation", "property management", "SaaS"],
+    manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+    themeColor: "#ffffff",
 };
 
 export default function RootLayout({

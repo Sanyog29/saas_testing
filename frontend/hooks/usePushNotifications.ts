@@ -1,103 +1,85 @@
-'use client';
+import { useState, useEffect } from 'react';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
-import { createClient } from '@/frontend/utils/supabase/client';
-import { requestForToken, onMessageListener, app } from '@/frontend/lib/firebase';
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 export function usePushNotifications() {
-    const [token, setToken] = useState<string | null>(null);
-    const [notification, setNotification] = useState<any>(null);
-    const supabase = useMemo(() => createClient(), []);
-    const lastProcessedUserId = useRef<string | null>(null);
+    const [isSupported, setIsSupported] = useState(false);
+    const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+    const [message, setMessage] = useState('');
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-                const user = session?.user;
-                if (!user || lastProcessedUserId.current === user.id) return;
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+            setIsSupported(true);
+            registerServiceWorker();
+        }
+    }, []);
 
-                // Mark this user as processed
-                lastProcessedUserId.current = user.id;
+    async function registerServiceWorker() {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            const sub = await registration.pushManager.getSubscription();
+            setSubscription(sub);
+        } catch (error) {
+            console.error('Service Worker registration failed:', error);
+        }
+    }
 
-                const initializePush = async () => {
-                    if (!app) {
-                        console.warn('Push Notifications: Firebase app not initialized.');
-                        return;
-                    }
-
-                    // Register Service Worker
-                    let registration: ServiceWorkerRegistration | undefined;
-                    if ('serviceWorker' in navigator) {
-                        try {
-                            registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                            await navigator.serviceWorker.ready;
-                            console.log('Push Service Worker registered and ready');
-                        } catch (err) {
-                            console.error('Service Worker registration failed:', err);
-                        }
-                    }
-
-                    if (!registration) {
-                        console.warn('Cannot obtain token without service worker registration.');
-                        return;
-                    }
-
-                    // Get FCM Token
-                    const fcmToken = await requestForToken(registration);
-                    if (fcmToken) {
-                        setToken(fcmToken);
-
-                        // Fetch property membership
-                        const { data: membershipData } = await supabase
-                            .from('property_memberships')
-                            .select('property_id')
-                            .eq('user_id', user.id)
-                            .eq('is_active', true)
-                            .limit(1)
-                            .maybeSingle();
-
-                        const propertyId = membershipData?.property_id || null;
-
-                        // Cleanup old tokens for this device/browser
-                        await supabase
-                            .from('push_tokens')
-                            .update({ is_active: false })
-                            .eq('user_id', user.id)
-                            .eq('browser', navigator.userAgent)
-                            .neq('token', fcmToken);
-
-                        // Upsert current token
-                        const { error } = await supabase
-                            .from('push_tokens')
-                            .upsert({
-                                user_id: user.id,
-                                token: fcmToken,
-                                browser: navigator.userAgent,
-                                property_id: propertyId,
-                                is_active: true,
-                                updated_at: new Date().toISOString()
-                            }, { onConflict: 'token' });
-
-                        if (error) console.error('Error saving push token:', error);
-                        else console.log('Push token saved successfully for user:', user.id);
-                    }
-                };
-
-                initializePush();
-            }
-        });
-
-        if (app) {
-            onMessageListener().then((payload: any) => {
-                setNotification(payload);
-                console.log('Foreground notification received:', payload);
-            });
+    async function subscribeToPush() {
+        if (!VAPID_PUBLIC_KEY) {
+            console.error('VAPID public key not found in env');
+            setMessage('Configuration error: No VAPID key');
+            return null;
         }
 
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [supabase]);
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            let sub = await registration.pushManager.getSubscription();
 
-    return { token, notification };
+            if (!sub) {
+                // Automatically ask for permission during subscription
+                sub = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY),
+                });
+            }
+
+            setSubscription(sub);
+            setMessage('Successfully subscribed to push notifications!');
+
+            // Save subscription to backend
+            await fetch('/api/web-push/save-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sub),
+            });
+
+            return sub;
+        } catch (error) {
+            console.error('Error subscribing to push:', error);
+            setMessage(error instanceof Error ? error.message : 'Failed to subscribe to push');
+            return null;
+        }
+    }
+
+    return {
+        isSupported,
+        subscription,
+        subscribeToPush,
+        message
+    };
+}
+
+function urlB64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }
