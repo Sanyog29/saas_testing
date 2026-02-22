@@ -1,7 +1,14 @@
 {
+    "id": "/",
     "name": "Autopilot",
     "short_name": "Autopilot",
-    "description": "Autopilot SaaS application.",
+    "description": "Facilities that run without constant follow-ups. The operating system for modern buildings.",
+    "dir": "ltr",
+    "lang": "en",
+    "categories": [
+        "business",
+        "productivity"
+    ],
     "icons": [
         {
             "src": "/android-chrome-192x192.png",
